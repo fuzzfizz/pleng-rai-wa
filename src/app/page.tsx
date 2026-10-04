@@ -91,13 +91,13 @@ export default function HomePage() {
               </button>
             </div>
 
-            <button
-              onClick={() => alert("โหมดฝึกซ้อมเดี่ยวพร้อมเล่นใน Phase 3")}
-              className="mt-2 w-full py-2.5 text-xs text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center gap-1.5"
+            <Link
+              href="/play/solo"
+              className="mt-2 w-full py-2.5 text-xs text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-slate-800/50"
             >
               <Play className="w-3.5 h-3.5" />
               <span>เล่นคนเดียวซ้อมมือก่อน</span>
-            </button>
+            </Link>
           </div>
         </div>
       </section>

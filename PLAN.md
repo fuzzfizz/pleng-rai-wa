@@ -72,27 +72,26 @@
 
 ---
 
-### 🟠 Phase 3: กลไกเกมและระบบเสียง (Core Game Engine & Game Modes)
-- [ ] **3.1 Dynamic Server-side Audio Slicing**:
-  - [ ] สร้าง API Route `/api/audio/slice?id=xxx&start=45.2&duration=1.0` ทำการดึง HTTP Range Request จาก Cloudflare R2 และตัดเฉพาะ MP3 Frames ที่ต้องการส่งกลับให้ผู้เล่นแบบสดๆ
-  - [ ] ใช้ Pure TypeScript / Node.js MP3 Frame Parser น้ำหนักเบา ประมวลผลไวใน 5-15ms โดยไม่ต้องลง FFmpeg binary บน Serverless
-  - [ ] ทุกรอบที่สุ่มเพลงขึ้นมา ระบบจะสุ่มจุดตัดใหม่ไม่ซ้ำกัน (หรือให้ผู้เล่นลากเลือกจุดตัดเองได้)
-  - [ ] ป้องกันการโกง 100%: ผู้เล่นได้รับเฉพาะก้อนเสียงสั้น ~16-80 KB ไม่มีทางรู้ชื่อเพลงหรือฟังเพลงเต็มได้
-  - [ ] Multiplayer Synchronization: ฝั่ง Host/Server สุ่ม Timestamp วินาทีเริ่มต้น แล้วกระจายผ่าน Supabase Realtime ให้ทุกคนในห้องฟังจุดเดียวกันเป๊ะๆ
-- [ ] **3.2 Sound Effects & Web Audio Player**:
-  - [ ] รวบรวมชุดเสียง Royalty-Free CC0 (เสียงกริ่งแย่งตอบ, เสียงจับเวลา, เสียงตอบถูก/ผิด, เสียงเข้าห้อง)
-  - [ ] สร้าง Hook `useAudioPlayer` และ `useSoundEffects` พร้อมปุ่มควบคุมระดับเสียง/Mute
-- [ ] **3.3 Answer Checking Engine**:
-  - [ ] ระบบตรวจคำตอบแบบพิมพ์เอง: ฟังก์ชัน Normalize สระ/วรรณยุกต์ภาษาไทย + Fuzzy Search (Levenshtein)
-  - [ ] ระบบค้นหาแบบ Autocomplete: ใช้ `fuse.js` กรองเฉพาะรายชื่อเพลงในหมวดหมู่ที่เล่น
-- [ ] **3.4 โหมดทายเนื้อเพลงด้วยเสียง AI (AI Deadpan Lyrics Reader)**:
-  - [ ] ใช้ **Web Speech API (`window.speechSynthesis`)** ของ Browser: **ฟรี 100% ไม่จำกัดจำนวนครั้งตลอดชีพ** ไม่ต้องใช้ API Key รองรับภาษาไทย (`th-TH`) ในตัว
-  - [ ] มีตัวเลือกการเล่น: สลับฟัง **"ท่อนฮุก (Chorus)"** หรือ **"ท่อนเปิด (Intro)"**
-  - [ ] เล่นเสียง AI อ่านเนื้อเพลงแบบเรียบนิ่ง ไร้ทำนอง เพิ่มความตลกและท้าทายความจำ
-- [ ] **3.5 โหมดเล่นคนเดียว (Single Player Testbed)**:
-  - [ ] โหมด Audio Slice: เลือกเสี้ยววินาที ฟังเสียง แล้วทายชื่อเพลง
-  - [ ] โหมด Buzzer Run: ปล่อยเพลงเล่นไปเรื่อยๆ แล้วกดหยุดเพื่อตอบ
-  - [ ] โหมด AI Lyrics: ให้ AI อ่านเนื้อเพลงท่อนเปิด/ท่อนฮุก แล้วทายเพลง
+### 🟠 Phase 3: กลไกเกมและระบบเสียง (Core Game Engine & Game Modes) ✅ เสร็จสิ้นแล้ว
+- [x] **3.1 Dynamic Server-side Audio Slicing**:
+  - [x] สร้างโมดูลตัดเสียงระดับเฟรม Pure TypeScript ใน `src/lib/mp3-slicer.ts` ตรวจจับ MPEG sync words และสกัดเฉพาะเฟรมเสียงที่ต้องการ
+  - [x] สร้าง API Route `/api/audio/slice?id=xxx&start=45.2&duration=1.0` ดึงเสียงจาก Cloudflare R2 / Local storage แล้วตัดเสี้ยววินาทีส่งกลับแบบ On-demand
+  - [x] ขนาดไฟล์ตัดสั้นเพียง ~16-80 KB โหลดไว และป้องกันการโกงคำตอบ 100%
+- [x] **3.2 Sound Effects & Web Audio Synthesizer**:
+  - [x] สร้างระบบจำลองเสียงประกอบ Procedural Synthesizer ด้วย Web Audio API ใน `src/lib/sound-effects.ts` (0ms latency, โหลดไว, ฟรี ไม่ต้องพึ่งพาไฟล์เสียงภายนอก)
+  - [x] เสียงกริ่ง (Buzzer), เสียงนับถอยหลังตึกตัก (Countdown tick), เสียงตอบถูก (Correct chime), เสียงตอบผิด (Wah-wah), เสียงคลิก UI
+  - [x] ระบบสลับ Mute และปรับ Volume บันทึกลง LocalStorage อัตโนมัติ
+- [x] **3.3 Answer Checking Engine**:
+  - [x] ฟังก์ชัน Normalize ภาษาไทยและสกัดคำพ้องเสียง (`src/lib/answer-checker.ts`) รองรับการพิมพ์สะกดตกหล่น, สลับ ใ/ไ, ัย/ไ, และพยัญชนะพ้องเสียง
+  - [x] ระบบค้นหา Autocomplete แบบรวดเร็วด้วย `fuse.js`
+- [x] **3.4 โหมดทายเนื้อเพลงด้วยเสียง AI (AI Deadpan Lyrics Reader)**:
+  - [x] เชื่อมต่อ Web Speech API (`window.speechSynthesis`) ใน `src/lib/tts-reader.ts` ฟรี 100% ตลอดชีพ ไม่จำกัดครั้ง
+  - [x] รองรับเสียงภาษาไทย (`th-TH`) อ่านด้วยน้ำเสียงเรียบนิ่ง ไร้ทำนอง
+  - [x] มีสวิตช์เลือกฟัง **"ท่อนฮุก (Chorus)"** หรือ **"ท่อนเปิด (Intro)"**
+- [x] **3.5 โหมดเล่นคนเดียว (Single Player Testbed)**:
+  - [x] สร้างหน้าจอเกมเล่นเดี่ยวที่ [`src/app/play/solo/page.tsx`](file:///D:/pleng-rai-wa/src/app/play/solo/page.tsx)
+  - [x] รองรับทั้ง 3 โหมด: **Audio Slice (1s/2s/5s)**, **Buzzer Battle (กด Spacebar/คลิก)**, และ **AI Deadpan Lyrics**
+  - [x] ระบบตรวจคำตอบแบบ Dual Mode (Autocomplete / พิมพ์เอง), ระบบคะแนน, สตรีค, และเฉลยเพลงพร้อม Confetti
 
 ---
 
