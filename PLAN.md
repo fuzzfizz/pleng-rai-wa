@@ -95,9 +95,11 @@
 
 ---
 
-### 🔵 Phase 4: ระบบห้องและ Realtime Multiplayer
+### 🔵 Phase 4: ระบบห้องและ Realtime Multiplayer (กำลังดำเนินการ ⏳)
 - [ ] **4.1 ระบบสร้างห้องและจัดการ Lobby**:
-  - [ ] ระบบสุ่ม Room Code 6 ตัวอักษร
+  - [x] ระบบสุ่ม Room Code 6 ตัวอักษรแบบปลอดภัย ตัดตัวอักษรสับสน (`src/lib/room-code.ts`)
+  - [x] Room Service สำหรับจัดการห้องใน Supabase (`src/lib/services/room-service.ts`)
+  - [x] API Routes สำหรับห้อง: `/api/room/create`, `/api/room/join`, `/api/room/[code]/state` (Anti-cheat sanitized), `/api/room/[code]/settings` (Host authorization)
   - [ ] ตัวสร้าง QR Code และปุ่ม Copy ลิงก์สำหรับชวนเพื่อน
   - [ ] หน้า Lobby รอผู้เล่น แสดงชื่อ, Avatar, และสถานะ Ready
   - [ ] สิทธิ์ Host: เลือกโหมด, เลือก Genre/Playlist, ตั้งเวลาตอบ, กำหนดจำนวนข้อ และปุ่ม Transfer Host
