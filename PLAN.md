@@ -30,19 +30,20 @@
 
 ## 🗺️ แผนการพัฒนาทีละขั้นตอน (Phase-by-Phase Checklist)
 
-### 🟢 Phase 1: การวางรากฐานและโครงสร้างโปรเจค (Foundation & Repository)
-- [ ] **1.1 Git Setup**:
-  - [ ] Initialize git repository ในโฟลเดอร์โปรเจค
-  - [ ] ผูก Remote: `git remote add origin git@github.com:fuzzfizz/pleng-rai-wa.git`
-  - [ ] ตั้งค่า `.gitignore` ให้ครอบคลุม `node_modules`, `.env*.local`, ไฟล์ดาวน์โหลดชั่วคราว
-- [ ] **1.2 Initialize Next.js Project**:
-  - [ ] ติดตั้ง Next.js 15 App Router พร้อม TypeScript และ Tailwind CSS
-  - [ ] ติดตั้งและตั้งค่า `shadcn/ui` components พื้นฐาน (Button, Dialog, Input, Slider, Card, Badge)
-  - [ ] ติดตั้งฟอนต์ภาษาไทย (เช่น `Kanit` หรือ `Prompt` จาก Google Fonts / `next/font`)
-- [ ] **1.3 Environment & Configs**:
-  - [ ] สร้างไฟล์ `.env.example` ระบุตัวแปรสำหรับ Supabase, Cloudflare R2, และ Gemini API Key
-  - [ ] วางโครงสร้างโฟลเดอร์โปรเจค (`src/app`, `src/components`, `src/lib`, `src/types`, `src/hooks`)
-  - [ ] ตั้งค่าโครงสร้างระบบสองภาษาเบื้องต้น (i18n ready: Thai / English)
+### 🟢 Phase 1: การวางรากฐานและโครงสร้างโปรเจค (Foundation & Repository) ✅ เสร็จสิ้นแล้ว
+- [x] **1.1 Git Setup**:
+  - [x] Initialize git repository ในโฟลเดอร์โปรเจค (Branch `main`)
+  - [x] ผูก Remote: `git remote add origin git@github.com:fuzzfizz/pleng-rai-wa.git`
+  - [x] ตั้งค่า `.gitignore` ให้ครอบคลุม `node_modules`, `.env*.local`, `.obsidian`, ไฟล์ดาวน์โหลดชั่วคราว
+- [x] **1.2 Initialize Next.js Project**:
+  - [x] ติดตั้ง Next.js 15 App Router พร้อม TypeScript และ Tailwind CSS
+  - [x] ติดตั้ง Core Packages: Supabase Client, Lucide Icons, Fuse.js, QRCode, AWS S3 Client, Howler
+  - [x] ติดตั้งฟอนต์ภาษาไทย `Kanit` และ `Prompt` พร้อมธีม Dark Mode สไตล์เกมปาร์ตี้
+- [x] **1.3 Environment & Configs**:
+  - [x] สร้างไฟล์ `.env.example` ระบุตัวแปรสำหรับ Supabase, Cloudflare R2, และ Gemini API Key
+  - [x] วางโครงสร้างโฟลเดอร์โปรเจค (`src/app`, `src/lib`, `src/types`)
+  - [x] สร้างโมเดลข้อมูลหลัก (Song, Room, Player, GameMode) ใน `src/types/index.ts`
+  - [x] สร้างหน้าแรก (Landing Page) พร้อม Hero และการแสดงผล 3 โหมดเกม
 
 ---
 
