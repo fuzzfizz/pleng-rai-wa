@@ -1,0 +1,162 @@
+// ==========================================
+// เพลงไรวะ (Pleng-Rai-Wa) - Room Service
+// ==========================================
+
+import { supabase, getServiceSupabase } from "@/lib/supabase";
+import { generateRoomCode } from "@/lib/room-code";
+import type { RoomSettings, RoomRow, Json } from "@/types";
+
+export interface CreateRoomResult {
+  roomCode: string;
+  sessionToken: string;
+  playerId: string;
+  room: RoomRow | null;
+}
+
+export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
+  gameMode: "buzzer",
+  answerInputMode: "autocomplete",
+  sliceDurationSec: 2.0,
+  roundTimeoutSec: 15,
+  totalRounds: 10,
+  targetScore: 0,
+};
+
+export class RoomService {
+  /**
+   * Resolves the appropriate Supabase client.
+   * Uses service role client in server environment when SUPABASE_SERVICE_ROLE_KEY is present,
+   * otherwise falls back to public anon client.
+   */
+  private static getClient() {
+    if (typeof window === "undefined" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        return getServiceSupabase();
+      } catch {
+        return supabase;
+      }
+    }
+    return supabase;
+  }
+
+  /**
+   * Creates a new multiplayer room in the database.
+   * Generates a unique 6-character room code, host player ID, and session token.
+   */
+  static async createRoom(
+    hostDisplayName: string,
+    initialSettings?: Partial<RoomSettings>
+  ): Promise<CreateRoomResult> {
+    const client = this.getClient();
+    const playerId = crypto.randomUUID();
+    const sessionToken = crypto.randomUUID();
+    const roomCode = generateRoomCode();
+
+    const mergedSettings: RoomSettings = {
+      ...DEFAULT_ROOM_SETTINGS,
+      ...initialSettings,
+    };
+
+    const { data, error } = await client
+      .from("rooms")
+      .insert({
+        room_code: roomCode.toUpperCase(),
+        host_player_id: playerId,
+        status: "lobby",
+        settings: mergedSettings as unknown as Json,
+        played_song_ids: [],
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create room: ${error.message}`);
+    }
+
+    return {
+      roomCode,
+      sessionToken,
+      playerId,
+      room: data,
+    };
+  }
+
+  /**
+   * Retrieves room information by 6-character room code.
+   */
+  static async getRoomByCode(code: string): Promise<any> {
+    const client = this.getClient();
+    const { data, error } = await client
+      .from("rooms")
+      .select("*, songs(*)")
+      .eq("room_code", code.toUpperCase())
+      .single();
+
+    if (error) return null;
+    return data;
+  }
+
+  /**
+   * Updates settings for a room identified by code.
+   */
+  static async updateRoomSettings(
+    code: string,
+    settings: Partial<RoomSettings>
+  ): Promise<any> {
+    const client = this.getClient();
+    const current = await this.getRoomByCode(code);
+    if (!current) throw new Error("Room not found");
+
+    const currentSettings =
+      typeof current.settings === "object" && current.settings !== null
+        ? current.settings
+        : {};
+
+    const updatedSettings = {
+      ...currentSettings,
+      ...settings,
+    };
+
+    const { data, error } = await client
+      .from("rooms")
+      .update({ settings: updatedSettings as unknown as Json })
+      .eq("room_code", code.toUpperCase())
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Updates status for a room identified by code.
+   */
+  static async updateRoomStatus(code: string, status: string): Promise<any> {
+    const client = this.getClient();
+    const { data, error } = await client
+      .from("rooms")
+      .update({ status })
+      .eq("room_code", code.toUpperCase())
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Transfers room ownership to a new host player ID.
+   */
+  static async transferHost(code: string, newHostPlayerId: string): Promise<any> {
+    const client = this.getClient();
+    const { data, error } = await client
+      .from("rooms")
+      .update({ host_player_id: newHostPlayerId })
+      .eq("room_code", code.toUpperCase())
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+}
