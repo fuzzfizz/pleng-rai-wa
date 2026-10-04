@@ -49,7 +49,7 @@ export class RoomService {
   ): Promise<CreateRoomResult> {
     const client = this.getClient();
     const playerId = crypto.randomUUID();
-    const sessionToken = crypto.randomUUID();
+    const sessionToken = playerId;
     const roomCode = generateRoomCode();
 
     const mergedSettings: RoomSettings = {

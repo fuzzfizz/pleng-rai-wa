@@ -11,10 +11,15 @@ import { POST as updateSettingsHandler } from "../src/app/api/room/[code]/settin
 import { RoomService, DEFAULT_ROOM_SETTINGS } from "../src/lib/services/room-service";
 import type { RoomRow, RoomSettings } from "../src/types";
 
-function createMockRequest(url: string, method: string, body?: any): NextRequest {
+function createMockRequest(
+  url: string,
+  method: string,
+  body?: any,
+  headers?: Record<string, string>
+): NextRequest {
   const init: RequestInit = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
   };
   if (body !== undefined) {
     init.body = typeof body === "string" ? body : JSON.stringify(body);
@@ -31,7 +36,7 @@ function setupMockRoomService() {
     initialSettings?: Partial<RoomSettings>
   ) => {
     const playerId = "host-player-uuid-123";
-    const sessionToken = "host-session-uuid-123";
+    const sessionToken = playerId;
     const roomCode = "ABC234";
 
     const room: RoomRow = {
@@ -160,12 +165,13 @@ async function runTests() {
     assert.strictEqual(data.success, true);
     assert.strictEqual(data.roomCode, "ABC234");
     assert.strictEqual(data.playerId, "host-player-uuid-123");
-    assert.strictEqual(data.sessionToken, "host-session-uuid-123");
+    assert.strictEqual(data.sessionToken, "host-player-uuid-123");
+    assert.strictEqual(data.sessionToken, data.playerId, "Creator sessionToken must match playerId");
     assert.strictEqual(data.isHost, true);
     assert.ok(data.room);
     assert.strictEqual(data.room.settings.roundTimeoutSec, 20);
   }
-  console.log("✓ Passed: POST /api/room/create validates input and returns 201 with room data.");
+  console.log("✓ Passed: POST /api/room/create validates input and returns 201 with aligned host token.");
 
   // ----------------------------------------------------
   // Test 2: POST /api/room/join Validation & Success
@@ -266,7 +272,25 @@ async function runTests() {
     const data = await res.json();
     assert.strictEqual(data.success, true);
     assert.strictEqual(data.isHost, true, "Reconnecting host should be detected as host");
+    assert.strictEqual(data.playerId, "host-player-uuid-123", "Host playerId must be restored to host_player_id");
     assert.strictEqual(data.sessionToken, "host-player-uuid-123", "Should reuse existing session token");
+  }
+
+  // 2.7 Rejoining as normal player with existingPlayerId
+  {
+    const req = createMockRequest("http://localhost:3000/api/room/join", "POST", {
+      roomCode: "ABC234",
+      displayName: "Guest Reconnecting",
+      existingPlayerId: "guest-uuid-555",
+      existingSessionToken: "guest-token-555",
+    });
+    const res = await joinRoomHandler(req);
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.success, true);
+    assert.strictEqual(data.isHost, false, "Guest reconnecting must not be host");
+    assert.strictEqual(data.playerId, "guest-uuid-555", "Should preserve existingPlayerId");
+    assert.strictEqual(data.sessionToken, "guest-token-555", "Should preserve existingSessionToken");
   }
   console.log("✓ Passed: POST /api/room/join handles validation, 404, game_over, guest join & host reconnect.");
 
@@ -346,9 +370,16 @@ async function runTests() {
     assert.strictEqual(data.room.songs.id, "song-secret-999");
     assert.strictEqual(data.room.songs.audio_url, "https://example.com/audio.mp3");
     assert.strictEqual(data.room.songs.hook_start_sec, 45);
+
+    // Verify current_song_id is sanitized to null during active gameplay
+    assert.strictEqual(
+      data.room.current_song_id,
+      null,
+      "current_song_id must be null during active play to prevent inspection"
+    );
   }
 
-  // 3.4 Revealing status - Secrets allowed
+  // 3.4 Revealing status - Secrets and current_song_id restored
   {
     mockRooms.get("SECR01").status = "revealing";
     const req = createMockRequest("http://localhost:3000/api/room/SECR01/state", "GET");
@@ -360,9 +391,14 @@ async function runTests() {
     assert.strictEqual(data.room.songs.title, "รักแรก (First Love)");
     assert.strictEqual(data.room.songs.artist, "NONT TANONT");
     assert.strictEqual(data.room.songs.lyrics_chorus, "รักแรกมันลืมยาก...");
+    assert.strictEqual(
+      data.room.current_song_id,
+      "song-secret-999",
+      "current_song_id must be restored when status is revealing"
+    );
   }
 
-  // 3.5 Game Over status - Secrets allowed
+  // 3.5 Game Over status - Secrets and current_song_id preserved
   {
     mockRooms.get("SECR01").status = "game_over";
     const req = createMockRequest("http://localhost:3000/api/room/SECR01/state", "GET");
@@ -372,17 +408,23 @@ async function runTests() {
     assert.strictEqual(res.status, 200);
     const data = await res.json();
     assert.strictEqual(data.room.songs.title, "รักแรก (First Love)");
+    assert.strictEqual(
+      data.room.current_song_id,
+      "song-secret-999",
+      "current_song_id must be restored when status is game_over"
+    );
   }
-  console.log("✓ Passed: GET /api/room/[code]/state correctly sanitizes secrets during play and reveals them on reveal/game_over.");
+  console.log("✓ Passed: GET /api/room/[code]/state correctly sanitizes secrets and current_song_id during play, and restores them on reveal/game_over.");
 
   // ----------------------------------------------------
-  // Test 4: POST /api/room/[code]/settings
+  // Test 4: POST /api/room/[code]/settings & Host Authorization
   // ----------------------------------------------------
-  console.log("\nTest 4: POST /api/room/[code]/settings...");
+  console.log("\nTest 4: POST /api/room/[code]/settings & Host Authorization...");
 
   // 4.1 Invalid room code
   {
     const req = createMockRequest("http://localhost:3000/api/room/SHORT/settings", "POST", {
+      sessionToken: "host-player-uuid-123",
       settings: { roundTimeoutSec: 30 },
     });
     const res = await updateSettingsHandler(req, {
@@ -396,6 +438,7 @@ async function runTests() {
   // 4.2 Room not found
   {
     const req = createMockRequest("http://localhost:3000/api/room/ZZZ888/settings", "POST", {
+      sessionToken: "host-player-uuid-123",
       settings: { roundTimeoutSec: 30 },
     });
     const res = await updateSettingsHandler(req, {
@@ -406,9 +449,45 @@ async function runTests() {
     assert.strictEqual(data.success, false);
   }
 
-  // 4.3 Update settings
+  // 4.3 Unauthorized - missing sessionToken (assert 403)
   {
     const req = createMockRequest("http://localhost:3000/api/room/ABC234/settings", "POST", {
+      settings: { roundTimeoutSec: 30 },
+    });
+    const res = await updateSettingsHandler(req, {
+      params: Promise.resolve({ code: "ABC234" }),
+    });
+    assert.strictEqual(res.status, 403, "Should return 403 when sessionToken is missing");
+    const data = await res.json();
+    assert.strictEqual(data.success, false);
+    assert.strictEqual(
+      data.error,
+      "ไม่มีสิทธิ์แก้ไขการตั้งค่าห้อง (เฉพาะ Host เท่านั้น)"
+    );
+  }
+
+  // 4.4 Unauthorized - invalid sessionToken (assert 403)
+  {
+    const req = createMockRequest("http://localhost:3000/api/room/ABC234/settings", "POST", {
+      sessionToken: "unauthorized-player-uuid",
+      settings: { roundTimeoutSec: 30 },
+    });
+    const res = await updateSettingsHandler(req, {
+      params: Promise.resolve({ code: "ABC234" }),
+    });
+    assert.strictEqual(res.status, 403, "Should return 403 when sessionToken does not match host");
+    const data = await res.json();
+    assert.strictEqual(data.success, false);
+    assert.strictEqual(
+      data.error,
+      "ไม่มีสิทธิ์แก้ไขการตั้งค่าห้อง (เฉพาะ Host เท่านั้น)"
+    );
+  }
+
+  // 4.5 Authorized update settings with host sessionToken in body (assert 200)
+  {
+    const req = createMockRequest("http://localhost:3000/api/room/ABC234/settings", "POST", {
+      sessionToken: "host-player-uuid-123",
       settings: {
         gameMode: "ai-lyrics",
         totalRounds: 15,
@@ -426,9 +505,31 @@ async function runTests() {
     assert.strictEqual(data.room.settings.roundTimeoutSec, 25);
   }
 
-  // 4.4 Transfer host
+  // 4.6 Authorized update settings using Authorization: Bearer header
+  {
+    const req = createMockRequest(
+      "http://localhost:3000/api/room/ABC234/settings",
+      "POST",
+      {
+        settings: { roundTimeoutSec: 40 },
+      },
+      {
+        Authorization: "Bearer host-player-uuid-123",
+      }
+    );
+    const res = await updateSettingsHandler(req, {
+      params: Promise.resolve({ code: "ABC234" }),
+    });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.success, true);
+    assert.strictEqual(data.room.settings.roundTimeoutSec, 40);
+  }
+
+  // 4.7 Authorized transfer host
   {
     const req = createMockRequest("http://localhost:3000/api/room/ABC234/settings", "POST", {
+      sessionToken: "host-player-uuid-123",
       newHostPlayerId: "new-player-host-999",
     });
     const res = await updateSettingsHandler(req, {
@@ -439,15 +540,34 @@ async function runTests() {
     assert.strictEqual(data.success, true);
     assert.strictEqual(data.room.host_player_id, "new-player-host-999");
   }
-  console.log("✓ Passed: POST /api/room/[code]/settings updates settings and transfers host properly.");
+
+  // 4.8 Old host sessionToken is now rejected after transfer
+  {
+    const req = createMockRequest("http://localhost:3000/api/room/ABC234/settings", "POST", {
+      sessionToken: "host-player-uuid-123",
+      settings: { roundTimeoutSec: 10 },
+    });
+    const res = await updateSettingsHandler(req, {
+      params: Promise.resolve({ code: "ABC234" }),
+    });
+    assert.strictEqual(res.status, 403, "Old host should now be rejected with 403");
+    const data = await res.json();
+    assert.strictEqual(data.success, false);
+    assert.strictEqual(
+      data.error,
+      "ไม่มีสิทธิ์แก้ไขการตั้งค่าห้อง (เฉพาะ Host เท่านั้น)"
+    );
+  }
+  console.log("✓ Passed: POST /api/room/[code]/settings enforces host authorization (403), bearer tokens, and host transfer.");
 
   // ----------------------------------------------------
   // Test 5: Direct sanitizeRoomState helper tests
   // ----------------------------------------------------
   console.log("\nTest 5: sanitizeRoomState helper function...");
   {
-    const raw = {
+    const rawActive = {
       status: "playing",
+      current_song_id: "secret-uuid-1",
       currentSong: {
         title: "Song A",
         artist: "Artist B",
@@ -457,13 +577,27 @@ async function runTests() {
         id: "song-1",
       },
     };
-    const sanitized = sanitizeRoomState(raw);
-    assert.strictEqual(sanitized.currentSong.id, "song-1");
-    assert.strictEqual(sanitized.currentSong.title, undefined);
-    assert.strictEqual(sanitized.currentSong.artist, undefined);
-    assert.strictEqual(sanitized.currentSong.lyrics_chorus, undefined);
+    const sanitizedActive = sanitizeRoomState(rawActive);
+    assert.strictEqual(sanitizedActive.current_song_id, null, "current_song_id must be null in playing state");
+    assert.strictEqual(sanitizedActive.currentSong.id, "song-1");
+    assert.strictEqual(sanitizedActive.currentSong.title, undefined);
+    assert.strictEqual(sanitizedActive.currentSong.artist, undefined);
+    assert.strictEqual(sanitizedActive.currentSong.lyrics_chorus, undefined);
+
+    const rawRevealing = {
+      status: "revealing",
+      current_song_id: "secret-uuid-1",
+      currentSong: {
+        title: "Song A",
+        artist: "Artist B",
+        id: "song-1",
+      },
+    };
+    const sanitizedRevealing = sanitizeRoomState(rawRevealing);
+    assert.strictEqual(sanitizedRevealing.current_song_id, "secret-uuid-1", "current_song_id preserved in revealing state");
+    assert.strictEqual(sanitizedRevealing.currentSong.title, "Song A");
   }
-  console.log("✓ Passed: sanitizeRoomState helper handles currentSong object.");
+  console.log("✓ Passed: sanitizeRoomState helper handles currentSong object and current_song_id sanitization.");
 
   console.log("\n==========================================");
   console.log("All Room Management API tests passed successfully!");

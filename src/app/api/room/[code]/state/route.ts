@@ -15,6 +15,7 @@ export function sanitizeRoomState(room: any): any {
   const sanitized = JSON.parse(JSON.stringify(room));
 
   if (sanitized.status !== "revealing" && sanitized.status !== "game_over") {
+    sanitized.current_song_id = null;
     const stripSongSecrets = (song: any) => {
       if (!song || typeof song !== "object") return song;
       delete song.title;

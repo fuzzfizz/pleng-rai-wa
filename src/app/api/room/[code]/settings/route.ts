@@ -38,7 +38,7 @@ export async function POST(
       );
     }
 
-    const { settings, newHostPlayerId } = body as {
+    const { settings, newHostPlayerId, sessionToken } = body as {
       sessionToken?: string;
       settings?: Partial<RoomSettings>;
       newHostPlayerId?: string;
@@ -51,6 +51,25 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: "ไม่พบห้องนี้ในระบบ" },
         { status: 404 }
+      );
+    }
+
+    const authHeader = request.headers.get("authorization");
+    const bearerToken = authHeader
+      ? authHeader.replace(/^Bearer\s+/i, "").trim()
+      : undefined;
+    const callerToken =
+      typeof sessionToken === "string" && sessionToken.trim().length > 0
+        ? sessionToken.trim()
+        : bearerToken;
+
+    if (!callerToken || callerToken !== currentRoom.host_player_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ไม่มีสิทธิ์แก้ไขการตั้งค่าห้อง (เฉพาะ Host เท่านั้น)",
+        },
+        { status: 403 }
       );
     }
 

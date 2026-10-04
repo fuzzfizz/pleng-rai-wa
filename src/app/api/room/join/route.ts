@@ -25,10 +25,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { roomCode, displayName, existingSessionToken } = body as {
+    const { roomCode, displayName, existingSessionToken, existingPlayerId } = body as {
       roomCode?: unknown;
       displayName?: unknown;
-      existingSessionToken?: unknown;
+      existingSessionToken?: string;
+      existingPlayerId?: string;
     };
 
     if (
@@ -81,13 +82,23 @@ export async function POST(req: NextRequest) {
         ? existingSessionToken.trim()
         : crypto.randomUUID();
 
-    const playerId = crypto.randomUUID();
+    let playerId =
+      typeof existingPlayerId === "string" &&
+      existingPlayerId.trim().length > 0
+        ? existingPlayerId.trim()
+        : crypto.randomUUID();
 
-    const isHost = Boolean(
-      existingSessionToken &&
-        typeof existingSessionToken === "string" &&
-        existingSessionToken.trim() === room.host_player_id
-    );
+    if (
+      typeof existingSessionToken === "string" &&
+      existingSessionToken.trim() === room.host_player_id
+    ) {
+      playerId = room.host_player_id;
+    }
+
+    const isHost =
+      (typeof existingSessionToken === "string" &&
+        existingSessionToken.trim() === room.host_player_id) ||
+      playerId === room.host_player_id;
 
     return NextResponse.json(
       {
