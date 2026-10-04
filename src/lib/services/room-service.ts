@@ -60,7 +60,7 @@ export class RoomService {
     const { data, error } = await client
       .from("rooms")
       .insert({
-        room_code: roomCode.toUpperCase(),
+        room_code: roomCode.trim().toUpperCase(),
         host_player_id: playerId,
         status: "lobby",
         settings: mergedSettings as unknown as Json,
@@ -74,7 +74,7 @@ export class RoomService {
     }
 
     return {
-      roomCode,
+      roomCode: roomCode.trim().toUpperCase(),
       sessionToken,
       playerId,
       room: data,
@@ -85,11 +85,13 @@ export class RoomService {
    * Retrieves room information by 6-character room code.
    */
   static async getRoomByCode(code: string): Promise<any> {
+    if (!code || typeof code !== "string") return null;
+    const cleanCode = code.trim().toUpperCase();
     const client = this.getClient();
     const { data, error } = await client
       .from("rooms")
       .select("*, songs(*)")
-      .eq("room_code", code.toUpperCase())
+      .eq("room_code", cleanCode)
       .single();
 
     if (error) return null;
@@ -103,8 +105,10 @@ export class RoomService {
     code: string,
     settings: Partial<RoomSettings>
   ): Promise<any> {
+    if (!code || typeof code !== "string") throw new Error("Invalid room code");
+    const cleanCode = code.trim().toUpperCase();
     const client = this.getClient();
-    const current = await this.getRoomByCode(code);
+    const current = await this.getRoomByCode(cleanCode);
     if (!current) throw new Error("Room not found");
 
     const currentSettings =
@@ -120,7 +124,7 @@ export class RoomService {
     const { data, error } = await client
       .from("rooms")
       .update({ settings: updatedSettings as unknown as Json })
-      .eq("room_code", code.toUpperCase())
+      .eq("room_code", cleanCode)
       .select()
       .single();
 
@@ -132,11 +136,13 @@ export class RoomService {
    * Updates status for a room identified by code.
    */
   static async updateRoomStatus(code: string, status: string): Promise<any> {
+    if (!code || typeof code !== "string") throw new Error("Invalid room code");
+    const cleanCode = code.trim().toUpperCase();
     const client = this.getClient();
     const { data, error } = await client
       .from("rooms")
       .update({ status })
-      .eq("room_code", code.toUpperCase())
+      .eq("room_code", cleanCode)
       .select()
       .single();
 
@@ -148,11 +154,13 @@ export class RoomService {
    * Transfers room ownership to a new host player ID.
    */
   static async transferHost(code: string, newHostPlayerId: string): Promise<any> {
+    if (!code || typeof code !== "string") throw new Error("Invalid room code");
+    const cleanCode = code.trim().toUpperCase();
     const client = this.getClient();
     const { data, error } = await client
       .from("rooms")
       .update({ host_player_id: newHostPlayerId })
-      .eq("room_code", code.toUpperCase())
+      .eq("room_code", cleanCode)
       .select()
       .single();
 
@@ -160,3 +168,4 @@ export class RoomService {
     return data;
   }
 }
+

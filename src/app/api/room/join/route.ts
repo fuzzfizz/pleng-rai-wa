@@ -1,0 +1,121 @@
+// ==========================================
+// เพลงไรวะ (Pleng-Rai-Wa) - Room Join Route
+// ==========================================
+
+import { NextRequest, NextResponse } from "next/server";
+import { RoomService } from "@/lib/services/room-service";
+import { isValidRoomCode } from "@/lib/room-code";
+
+export async function POST(req: NextRequest) {
+  try {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "ข้อมูล JSON ไม่ถูกต้อง" },
+        { status: 400 }
+      );
+    }
+
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { success: false, error: "ข้อมูล JSON ไม่ถูกต้อง" },
+        { status: 400 }
+      );
+    }
+
+    const { roomCode, displayName, existingSessionToken } = body as {
+      roomCode?: unknown;
+      displayName?: unknown;
+      existingSessionToken?: unknown;
+    };
+
+    if (
+      typeof roomCode !== "string" ||
+      !isValidRoomCode(roomCode)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "รหัสห้องไม่ถูกต้อง (ต้องเป็นตัวอักษรหรือตัวเลข 6 หลัก)",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof displayName !== "string" ||
+      displayName.trim().length === 0 ||
+      displayName.trim().length > 30
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ชื่อผู้เล่นต้องมีความยาวระหว่าง 1 ถึง 30 ตัวอักษร",
+        },
+        { status: 400 }
+      );
+    }
+
+    const cleanCode = roomCode.trim().toUpperCase();
+    const room = await RoomService.getRoomByCode(cleanCode);
+
+    if (!room) {
+      return NextResponse.json(
+        { success: false, error: "ไม่พบห้องนี้ในระบบ" },
+        { status: 404 }
+      );
+    }
+
+    if (room.status === "game_over") {
+      return NextResponse.json(
+        { success: false, error: "เกมในห้องนี้จบลงแล้ว" },
+        { status: 400 }
+      );
+    }
+
+    const sessionToken =
+      typeof existingSessionToken === "string" &&
+      existingSessionToken.trim().length > 0
+        ? existingSessionToken.trim()
+        : crypto.randomUUID();
+
+    const playerId = crypto.randomUUID();
+
+    const isHost = Boolean(
+      existingSessionToken &&
+        typeof existingSessionToken === "string" &&
+        existingSessionToken.trim() === room.host_player_id
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        roomCode: room.room_code,
+        sessionToken,
+        playerId,
+        isHost,
+        room: {
+          id: room.id,
+          roomCode: room.room_code,
+          status: room.status,
+          settings: room.settings,
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Join room error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "เกิดข้อผิดพลาดในการเข้าร่วมห้อง",
+      },
+      { status: 500 }
+    );
+  }
+}
