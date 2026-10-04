@@ -29,6 +29,8 @@ yarn-error.log*
 # Temporary media & download cache
 /temp/
 /downloads/
+/bin/
+*.exe
 *.mp3
 *.mp4
 *.webm

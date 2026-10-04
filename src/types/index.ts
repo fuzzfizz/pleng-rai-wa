@@ -36,6 +36,20 @@ export interface Song {
   createdAt?: string;
 }
 
+export interface ExtractedSongMetadata {
+  title: string;
+  artist: string;
+  aliases: string[];
+  releaseYear: number;
+  genreSlug: string;
+  era: string;
+  hookStartSec: number;
+  hookEndSec: number;
+  lyricsIntro: string;
+  lyricsChorus: string;
+  youtubeSearchQuery: string;
+}
+
 export interface Playlist {
   id: string;
   userId: string;
@@ -84,3 +98,5 @@ export interface RoomState {
   playedSongIds: string[];
   roundStartTime?: string;
 }
+
+export * from "./database";

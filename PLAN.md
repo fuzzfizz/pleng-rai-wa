@@ -47,24 +47,28 @@
 
 ---
 
-### 🟡 Phase 2: คลังเพลงและระบบ Admin AI Pipeline (Local Admin Tool)
-- [ ] **2.1 Database Schema (Supabase)**:
-  - [ ] สร้างตาราง `songs`, `genres`, `playlists`, `playlist_songs` บน Supabase PostgreSQL (เพิ่มคอลัมน์ `lyrics_intro` และ `lyrics_chorus`)
-  - [ ] กำหนด Row Level Security (RLS) เพื่อความปลอดภัย
-- [ ] **2.2 Local Admin Portal (`/admin`)**:
-  - [ ] สร้างหน้าเว็บแอดมินสำหรับรันบน Localhost (`/admin`) พร้อมระบบล็อกรหัสผ่าน Local
-  - [ ] สร้างฟอร์มรับ URL YouTube หรือชื่อเพลง/ศิลปิน
-- [ ] **2.3 Local Download & Audio Conversion (yt-dlp + ffmpeg)**:
-  - [ ] สร้าง API Route เบื้องหลังที่เรียกคำสั่ง `yt-dlp` และ `ffmpeg` ในเครื่อง
-  - [ ] แปลงไฟล์เสียงเป็น MP3 คุณภาพมาตรฐาน 128kbps พร้อมเขียน ID3 Tags
-  - [ ] ตรวจจับหรือสกัดช่วงความยาวเพลงทั้งหมด และท่อนฮุก (Chorus Timestamp)
-- [ ] **2.4 AI Metadata Extraction**:
-  - [ ] สร้าง Service เชื่อมต่อ Google Gemini API / Jev AI เพื่อสกัดข้อมูลอัตโนมัติ
-  - [ ] ดึงข้อมูล: ชื่อเพลงทางการ, ศิลปิน, ชื่อย่อ/ชื่อเรียกอื่น (Aliases), ปีที่ปล่อย, แนวเพลง, Timestamp ท่อนฮุก, และ **เนื้อเพลงท่อนเปิด (`lyrics_intro`) + ท่อนฮุก (`lyrics_chorus`)**
-  - [ ] แสดงข้อมูลบน UI ให้แอดมินสามารถตรวจสอบ/แก้ไขก่อนกดยืนยัน
-- [ ] **2.5 Cloudflare R2 Upload**:
-  - [ ] อัปโหลดเฉพาะไฟล์เพลงเต็ม (`full.mp3`) เพียงไฟล์เดียวขึ้น Cloudflare R2 (ประหยัดพื้นที่จัดเก็บ ไม่ต้องเก็บไฟล์ตัดซ้ำซ้อน)
-  - [ ] บันทึก Metadata และ Audio URL ลงตาราง `songs` ใน Supabase Database
+### 🟡 Phase 2: คลังเพลงและระบบ Admin AI Pipeline (Local Admin Tool) ✅ เสร็จสิ้นแล้ว
+- [x] **2.1 Database Schema (Supabase)**:
+  - [x] สร้าง SQL Migration `supabase/migrations/20261004_initial_schema.sql` (ตาราง `genres`, `songs`, `playlists`, `playlist_songs`, `rooms` พร้อม `lyrics_intro`, `lyrics_chorus` และ seed genres)
+  - [x] กำหนด Row Level Security (RLS) เพื่อความปลอดภัย
+  - [x] สร้าง Song Service (`src/lib/services/song-service.ts`) พร้อม Typed Database Models
+- [x] **2.2 Local Admin Portal (`/admin`)**:
+  - [x] สร้างหน้าเว็บแอดมินสำหรับรันบน Localhost (`/admin`) ใน `src/app/admin/page.tsx`
+  - [x] สร้างฟอร์มรับ URL YouTube หรือชื่อเพลง/ศิลปิน พร้อมปุ่มตัวอย่างเพลงทดสอบ
+  - [x] แท็บจัดการคลังเพลง (ค้นหา, เล่นเสียงพรีวิว, ลบเพลง) และแท็บตั้งค่า API Key
+- [x] **2.3 Local Download & Audio Conversion (yt-dlp + ffmpeg)**:
+  - [x] สร้างตัวช่วย `src/lib/audio-downloader.ts` เรียก `yt-dlp` และ `ffmpeg` แปลงเป็น MP3 128kbps อัตโนมัติ
+  - [x] ระบบ Auto-detection ตรวจหา binary ในเครื่อง หรือดาวน์โหลด yt-dlp ลง `./bin/` อัตโนมัติ
+  - [x] วัดความยาวเพลง (duration) และสกัดช่วงท่อนฮุก
+- [x] **2.4 AI Metadata Extraction**:
+  - [x] สร้าง Service `src/lib/ai-extractor.ts` เชื่อมต่อ Google Gemini API (`@google/genai`)
+  - [x] สกัดชื่อเพลง, ศิลปิน, ชื่อเรียกอื่น (Aliases), ปีที่ปล่อย, แนวเพลง, ท่อนฮุก, และเนื้อเพลงท่อนเปิด/ฮุก
+  - [x] มี Heuristic Fallback อัตโนมัติรองรับการทำงานแม้ยังไม่ได้ใส่ API Key
+  - [x] ฟอร์ม UI ให้แอดมินตรวจสอบและแก้ไขทุกฟิลด์ก่อนกดยืนยันนำเข้า
+- [x] **2.5 Cloudflare R2 Upload**:
+  - [x] สร้าง Client S3/R2 ใน `src/lib/r2.ts` รองรับทั้งการอัปโหลด, ลบ, และสตรีมมิ่งด้วย Range Requests
+  - [x] ระบบสำรองบันทึกลง Local (`public/audio/uploads/`) อัตโนมัติกรณีที่ยังไม่ได้ใส่ค่า R2 Credentials
+  - [x] บันทึก Metadata และ Audio URL ลงตาราง `songs` ใน Supabase Database ผ่าน `/api/admin/import`
 
 ---
 
