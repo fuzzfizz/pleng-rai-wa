@@ -81,8 +81,7 @@
 - [x] **Phase 1: Foundation**: ติดตั้ง Next.js, Tailwind, shadcn/ui, ฟอนต์ไทย, และเชื่อมต่อ Git
 - [x] **Phase 2: Admin AI Pipeline**: หน้า `/admin` พร้อมระบบดึง YouTube MP3 และ AI Auto-fill Tag
 - [x] **Phase 3: Core Game Engine**: ระบบตัดเสียง Audio Slice, Web Audio Player, SFX และระบบตรวจคำตอบ
-- [x] **Phase 4: Realtime Multiplayer**: ระบบสร้างห้อง, รหัสห้อง, QR Code, Lobby, FCFS Buzzer, Reconnect เมื่อรีเฟรช F5, TV Party Mode
-- [ ] **Phase 5: Member & Playlists**: ระบบโปรไฟล์สมาชิก และการสร้าง Playlist เพลงโปรดส่วนตัว
+- [x] **Phase 5: Member & Playlists**: ระบบโปรไฟล์สมาชิก (Email/Google Auth), หน้ารวมและแก้ไข Custom Playlist (`/playlists`), เลือกใช้เพลย์ลิสต์ในห้อง Multiplayer และ Solo Play
 - [ ] **Phase 6: Testing & Launch**: ปรับแต่ง Responsive มือถือ, ทดสอบเสถียรภาพ และ Deploy บน Vercel
 
 ---
