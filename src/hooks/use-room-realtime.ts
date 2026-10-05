@@ -766,7 +766,10 @@ export function useRoomRealtime(
           },
           body: JSON.stringify({
             sessionToken: token,
-            settings,
+            settings: {
+              ...settings,
+              ...("playlistId" in settings ? { playlistId: settings.playlistId ?? null } : {}),
+            },
           }),
         });
         const data = await res.json();

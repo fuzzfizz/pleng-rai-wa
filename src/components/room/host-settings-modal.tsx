@@ -6,7 +6,7 @@
 // ==========================================
 
 import React, { useState, useEffect } from "react";
-import type { Player, RoomSettings, GameMode, AnswerInputMode, LyricsType } from "@/types";
+import type { Player, RoomSettings, GameMode, AnswerInputMode, LyricsType, Playlist } from "@/types";
 import {
   X,
   Settings,
@@ -23,6 +23,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { soundEffects } from "@/lib/sound-effects";
+import { PlaylistService } from "@/lib/services/playlist-service";
+import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
+import { useAuth } from "@/hooks/use-auth";
 
 export interface HostSettingsModalProps {
   isOpen: boolean;
@@ -84,6 +87,15 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
     result.roundTimeoutSec = isNaN(val) || val <= 0 ? 15 : val;
   }
 
+  if (result.playlistId !== undefined) {
+    if (result.playlistId === null) {
+      result.playlistId = null;
+    } else {
+      const trimmed = result.playlistId ? String(result.playlistId).trim() : undefined;
+      result.playlistId = trimmed && trimmed.length > 0 ? trimmed : undefined;
+    }
+  }
+
   return result;
 }
 
@@ -96,8 +108,14 @@ export function HostSettingsModal({
   onSaveSettings,
   onTransferHost,
 }: HostSettingsModalProps): React.JSX.Element | null {
+  const { user } = useAuth();
   // Local draft state
   const [draft, setDraft] = useState<RoomSettings>({ ...settings });
+  const [songSourceType, setSongSourceType] = useState<"all" | "playlist">(
+    settings.playlistId ? "playlist" : "all"
+  );
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const [selectedTransferTarget, setSelectedTransferTarget] = useState<string>("");
   const [showTransferConfirm, setShowTransferConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -108,11 +126,53 @@ export function HostSettingsModal({
   useEffect(() => {
     if (isOpen) {
       setDraft({ ...settings });
+      setSongSourceType(settings.playlistId ? "playlist" : "all");
       setErrorMessage(null);
       setShowTransferConfirm(false);
       setSelectedTransferTarget("");
     }
   }, [isOpen, settings]);
+
+  // Load playlists when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    setIsLoadingPlaylists(true);
+
+    async function loadPlaylists() {
+      try {
+        const publicPromise = PlaylistService.getPublicPlaylists();
+        const userPromise = user?.id
+          ? PlaylistService.getUserPlaylists(user.id)
+          : Promise.resolve([]);
+
+        const [publicList, userList] = await Promise.all([
+          publicPromise.catch(() => []),
+          userPromise.catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        const map = new Map<string, Playlist>();
+        for (const p of userList) map.set(p.id, p);
+        for (const p of publicList) {
+          if (!map.has(p.id)) map.set(p.id, p);
+        }
+        setPlaylists(Array.from(map.values()));
+      } catch (err) {
+        console.warn("Could not load playlists in modal:", err);
+      } finally {
+        if (isMounted) setIsLoadingPlaylists(false);
+      }
+    }
+
+    loadPlaylists();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, user?.id]);
 
   // Close on Escape key
   useEffect(() => {
@@ -131,6 +191,21 @@ export function HostSettingsModal({
   // Other players eligible to become host
   const otherPlayers = players.filter((p) => p.id !== currentHostPlayerId);
 
+  const selectedPlaylist = playlists.find((p) => p.id === draft.playlistId);
+  const isSelectedValid = Boolean(
+    selectedPlaylist && isPlaylistPlayable(selectedPlaylist.songCount || 0)
+  );
+
+  const isPlaylistInvalid =
+    songSourceType === "playlist" &&
+    (!draft.playlistId || (!isLoadingPlaylists && !isSelectedValid));
+
+  const isSaveDisabled =
+    isSaving ||
+    isTransferring ||
+    isLoadingPlaylists ||
+    Boolean(isPlaylistInvalid);
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -139,7 +214,15 @@ export function HostSettingsModal({
         soundEffects.click();
       } catch {}
 
-      const payload = prepareSettingsPayload(draft);
+      const effectivePlaylistId =
+        songSourceType === "playlist" && draft.playlistId
+          ? draft.playlistId.trim()
+          : null;
+
+      const payload = prepareSettingsPayload({
+        ...draft,
+        playlistId: effectivePlaylistId,
+      });
       const res = await onSaveSettings(payload);
       // If callback returns boolean false, keep modal open
       if (res !== false) {
@@ -353,6 +436,141 @@ export function HostSettingsModal({
             </div>
           )}
 
+          {/* Song Source Selector (All Songs vs Custom Playlist) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider flex items-center justify-between">
+              <span>🎵 แหล่งเพลง (Song Source)</span>
+              {songSourceType === "playlist" && draft.playlistId && selectedPlaylist && isSelectedValid && (
+                <span className="text-[10px] text-purple-400 font-normal">
+                  เลือกแล้ว: {selectedPlaylist.title}
+                </span>
+              )}
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Option 1: All Songs */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSongSourceType("all");
+                  setDraft((prev) => ({ ...prev, playlistId: undefined }));
+                }}
+                className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer min-h-[44px] ${
+                  songSourceType === "all"
+                    ? "bg-purple-600/20 border-purple-500 ring-2 ring-purple-500/30 text-white shadow-lg shadow-purple-500/10"
+                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm text-white flex items-center gap-1.5">
+                    <span>🌐</span>
+                    <span>สุ่มจากคลังทั้งหมด (All Songs)</span>
+                  </span>
+                  {songSourceType === "all" && <Check className="w-4 h-4 text-purple-400" />}
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  สุ่มเพลงจากคลังเพลงหลักทั้งหมดของระบบ
+                </span>
+              </button>
+
+              {/* Option 2: Custom Playlist */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSongSourceType("playlist");
+                }}
+                className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer min-h-[44px] ${
+                  songSourceType === "playlist"
+                    ? "bg-purple-600/20 border-purple-500 ring-2 ring-purple-500/30 text-white shadow-lg shadow-purple-500/10"
+                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm text-white flex items-center gap-1.5">
+                    <span>🎶</span>
+                    <span>ใช้เพลย์ลิสต์ (Custom Playlist)</span>
+                  </span>
+                  {songSourceType === "playlist" && <Check className="w-4 h-4 text-purple-400" />}
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  เลือกเล่นเฉพาะเพลงจากเพลย์ลิสต์ที่กำหนด
+                </span>
+              </button>
+            </div>
+
+            {/* Custom Playlist Dropdown & Notices */}
+            {songSourceType === "playlist" && (
+              <div className="mt-3 p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-300">เลือกเพลย์ลิสต์สำหรับห้องนี้:</span>
+                  {isLoadingPlaylists && (
+                    <span className="flex items-center gap-1 text-purple-400 text-[11px]">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>กำลังโหลด...</span>
+                    </span>
+                  )}
+                </div>
+
+                <select
+                  value={draft.playlistId || ""}
+                  onChange={(e) => {
+                    const val = e.target.value.trim();
+                    setDraft((prev) => ({
+                      ...prev,
+                      playlistId: val.length > 0 ? val : undefined,
+                    }));
+                  }}
+                  disabled={isLoadingPlaylists}
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-purple-500 transition-colors min-h-[44px] cursor-pointer"
+                >
+                  <option value="">-- กรุณาเลือกเพลย์ลิสต์ --</option>
+                  {playlists.map((pl) => {
+                    const playable = isPlaylistPlayable(pl.songCount || 0);
+                    return (
+                      <option key={pl.id} value={pl.id}>
+                        {playable ? "🎵" : "⚠️"} {pl.title} ({pl.songCount || 0} เพลง)
+                        {!playable ? " (มีไม่ถึง 5 เพลง - เล่นไม่ได้)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+
+                {/* Validation Warnings / Feedback */}
+                {!draft.playlistId && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>กรุณาเลือกเพลย์ลิสต์ที่พร้อมใช้งาน (มีเพลงอย่างน้อย 5 เพลง) หรือเปลี่ยนเป็น &quot;สุ่มจากคลังทั้งหมด&quot;</span>
+                  </div>
+                )}
+
+                {draft.playlistId && selectedPlaylist && !isSelectedValid && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>
+                      เพลย์ลิสต์ &quot;{selectedPlaylist.title}&quot; มีเพียง {selectedPlaylist.songCount || 0} เพลง ไม่สามารถเริ่มเล่นได้ (ต้องมีอย่างน้อย 5 เพลง)
+                    </span>
+                  </div>
+                )}
+
+                {draft.playlistId && !isLoadingPlaylists && !selectedPlaylist && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>ไม่พบข้อมูลเพลย์ลิสต์ที่เลือก กรุณาเลือกเพลย์ลิสต์ใหม่จากรายการ</span>
+                  </div>
+                )}
+
+                {draft.playlistId && selectedPlaylist && isSelectedValid && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
+                    <Check className="w-4 h-4 shrink-0" />
+                    <span>
+                      เพลย์ลิสต์พร้อมเล่น: &quot;{selectedPlaylist.title}&quot; ({selectedPlaylist.songCount} เพลง)
+                      {selectedPlaylist.authorName ? ` โดย ${selectedPlaylist.authorName}` : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* 4. Total Rounds */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
@@ -533,15 +751,15 @@ export function HostSettingsModal({
             type="button"
             onClick={onClose}
             disabled={isSaving || isTransferring}
-            className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+            className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 min-h-[44px]"
           >
             ยกเลิก
           </button>
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving || isTransferring}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-pink-500/25 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isSaveDisabled}
+            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-pink-500/25 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
             {isSaving ? (
               <>

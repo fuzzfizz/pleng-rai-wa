@@ -116,10 +116,34 @@ export class RoomService {
         ? current.settings
         : {};
 
-    const updatedSettings = {
+    const updatedSettings: Record<string, any> = {
       ...currentSettings,
       ...settings,
     };
+
+    if ("playlistId" in settings) {
+      if (
+        settings.playlistId === null ||
+        settings.playlistId === undefined ||
+        (typeof settings.playlistId === "string" && !settings.playlistId.trim())
+      ) {
+        delete updatedSettings.playlistId;
+      } else {
+        updatedSettings.playlistId = String(settings.playlistId).trim();
+      }
+    }
+
+    if ("genreId" in settings) {
+      if (
+        settings.genreId === null ||
+        settings.genreId === undefined ||
+        (typeof settings.genreId === "string" && !settings.genreId.trim())
+      ) {
+        delete updatedSettings.genreId;
+      } else {
+        updatedSettings.genreId = String(settings.genreId).trim();
+      }
+    }
 
     const { data, error } = await client
       .from("rooms")

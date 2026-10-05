@@ -105,6 +105,7 @@ export async function POST(
     // Fetch random unplayed song
     const songs = await SongService.getRandomSongs(1, {
       genreId: settings.genreId,
+      playlistId: settings.playlistId,
       excludeIds: playedSongIds,
     });
 

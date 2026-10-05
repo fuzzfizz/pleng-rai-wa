@@ -115,13 +115,28 @@
 
 ---
 
-### 🟣 Phase 5: ระบบสมาชิกและ Custom Playlists
-- [ ] **5.1 User Authentication**:
-  - [ ] Supabase Auth (รองรับ Guest Mode ชั่วคราว และการสมัครผ่าน Email / Google)
-  - [ ] หน้าจัดการโปรไฟล์ผู้ใช้ (แก้ไขชื่อ Display Name, เลือกรูป Avatar)
-- [ ] **5.2 Custom Playlist Management**:
-  - [ ] หน้าค้นหาเพลงในคลัง และสร้าง Playlist ส่วนตัว
-  - [ ] ดึง Playlist ส่วนตัวมาใช้เป็นชุดคำถามในห้องเล่นเกมได้
+### 🟣 Phase 5: ระบบสมาชิกและ Custom Playlists ✅ เสร็จสิ้นแล้ว
+- [x] **5.1 Database Schema & Migration (`profiles`, `playlists`, `playlist_songs`)**:
+  - [x] SQL Migration `supabase/migrations/20261005_profiles_and_playlists.sql` พร้อมตาราง `profiles`, `playlists`, `playlist_songs`
+  - [x] Trigger `on_auth_user_created` สำหรับสร้าง Profile อัตโนมัติเมื่อผู้ใช้สมัครสมาชิก
+  - [x] Row Level Security (RLS) policies ปลอดภัยสำหรับข้อมูลโปรไฟล์ เพลย์ลิสต์ส่วนตัว และเพลย์ลิสต์สาธารณะ
+  - [x] TypeScript Models ใน `src/types/database.ts` และ `src/types/index.ts`
+- [x] **5.2 Client Auth & Profile Management**:
+  - [x] Context & Hook `useAuth` (`src/hooks/use-auth.ts`) รองรับ Email/Password, Google OAuth, และ State Sync
+  - [x] `AuthModal` (`src/components/auth/auth-modal.tsx`) รองรับ Guest-first policy สมัครเมื่อต้องการสร้างเพลย์ลิสต์
+  - [x] `ProfileModal` (`src/components/auth/profile-modal.tsx`) พร้อมตัวเลือก Emoji Avatar 20 แบบและเปลี่ยนชื่อเล่น
+  - [x] `NavHeader` (`src/components/common/nav-header.tsx`) แสดงสถานะล็อกอิน, เหรียญคะแนน และปุ่มเข้าสู่ระบบ
+- [x] **5.3 Custom Playlist Backend & Song Joining**:
+  - [x] `PlaylistService` (`src/lib/services/playlist-service.ts`) Typed CRUD สำหรับเพลย์ลิสต์ส่วนตัวและสาธารณะ
+  - [x] ขยาย `SongService.getRandomSongs` ให้รองรับออปชัน `playlistId`, song exclusion, recycling และ fallback อัตโนมัติ
+- [x] **5.4 Custom Playlist Management UI**:
+  - [x] หน้ารวมคลังเพลย์ลิสต์ `/playlists` แสดงรายการเพลย์ลิสต์ของฉันและของสาธารณะ พร้อมเวลาเล่นรวม
+  - [x] หน้าสร้างและแก้ไข `/playlists/new` และ `/playlists/[id]/edit` (`PlaylistEditor`)
+  - [x] ค้นหาเพลงในคลัง, เล่นเสียงตัวอย่าง 5 วินาที, จัดลำดับเพลง, และตรวจสอบเกณฑ์ขั้นต่ำ 5 เพลงสำหรับการเล่นเกม
+- [x] **5.5 Gameplay Integration (Multiplayer & Solo)**:
+  - [x] เพิ่มตัวเลือก "🎵 แหล่งเพลง (Song Source)" ใน `HostSettingsModal` เลือกระหว่างคลังทั้งหมดหรือเพลย์ลิสต์
+  - [x] ปรับ API `/api/room/[code]/next-round` ให้สุ่มเพลงจาก `settings.playlistId`
+  - [x] โหมดเล่นคนเดียว `/play/solo` รองรับ URL Query `?playlistId=` และ Selector สลับเพลย์ลิสต์พร้อม `<Suspense>`
 
 ---
 

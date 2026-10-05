@@ -6,12 +6,25 @@ import { supabase, getServiceSupabase } from "@/lib/supabase";
 import type { Song, Genre } from "@/types";
 import type { SongRow, GenreRow, SongInsert } from "@/types/database";
 
+let customClient: any = null;
+
+export function setDbClient(client: any): void {
+  customClient = client;
+}
+
+export function resetDbClient(): void {
+  customClient = null;
+}
+
 /**
  * Resolves the appropriate Supabase client.
  * Uses service role client in server environment when SUPABASE_SERVICE_ROLE_KEY is present,
  * otherwise falls back to the public anon client.
  */
-function getDbClient() {
+function getDbClient(): typeof supabase {
+  if (customClient) {
+    return customClient;
+  }
   if (typeof window === "undefined" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       return getServiceSupabase();
@@ -268,14 +281,83 @@ export async function deleteSong(id: string): Promise<boolean> {
   return count === null ? true : count > 0;
 }
 
+export interface GetRandomSongsOptions {
+  genreId?: string;
+  playlistId?: string | null;
+  excludeIds?: string[];
+  fallbackOnEmpty?: boolean;
+}
+
 /**
  * Fetches a random selection of songs for game rounds.
+ * Supports filtering by genre or playlist, and exclusion of already played songs.
  */
 export async function getRandomSongs(
   count: number,
-  options?: { genreId?: string; excludeIds?: string[] }
+  options?: GetRandomSongsOptions
 ): Promise<Song[]> {
   const client = getDbClient();
+
+  if (options?.playlistId) {
+    const { data, error } = await client
+      .from("playlist_songs")
+      .select("order_num, songs(*, genres(id, name_th, name_en, slug, icon))")
+      .eq("playlist_id", options.playlistId)
+      .order("order_num", { ascending: true });
+
+    if (error) {
+      console.error(
+        `Error fetching songs for playlist ${options.playlistId}:`,
+        error.message
+      );
+      throw error;
+    }
+
+    const playlistSongs = (
+      (data as unknown as Array<{
+        order_num: number;
+        songs: (SongRow & { genres?: GenreRow | null }) | null;
+      }>) || []
+    )
+      .filter((row) => row && row.songs)
+      .map((row) => mapSongFromRow(row.songs!));
+
+    // Fallback if no songs are in playlist
+    if (playlistSongs.length === 0) {
+      if (options.fallbackOnEmpty === false) {
+        return [];
+      }
+      // Fall back to general song pool
+      return getRandomSongs(count, {
+        genreId: options.genreId,
+        excludeIds: options.excludeIds,
+      });
+    }
+
+    let availableSongs = playlistSongs;
+
+    if (options.excludeIds && options.excludeIds.length > 0) {
+      const excludeSet = new Set(options.excludeIds);
+      const filtered = playlistSongs.filter((s) => !excludeSet.has(s.id));
+
+      if (filtered.length === 0) {
+        // If all songs are excluded, recycle all songs from the playlist
+        availableSongs = [...playlistSongs];
+      } else {
+        availableSongs = filtered;
+      }
+    }
+
+    // Shuffle with Fisher-Yates without mutating source array
+    const shuffled = [...availableSongs];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    return shuffled.slice(0, count);
+  }
+
   let query = client
     .from("songs")
     .select("*, genres(id, name_th, name_en, slug, icon)");
@@ -300,12 +382,13 @@ export async function getRandomSongs(
   }
 
   // Shuffle array using Fisher-Yates
-  for (let i = songs.length - 1; i > 0; i--) {
+  const shuffled = [...songs];
+  for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [songs[i], songs[j]] = [songs[j], songs[i]];
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  return songs.slice(0, count);
+  return shuffled.slice(0, count);
 }
 
 export class SongService {
@@ -316,4 +399,6 @@ export class SongService {
   static updateSong = updateSong;
   static deleteSong = deleteSong;
   static getGenres = getGenres;
+  static setDbClient = setDbClient;
+  static resetDbClient = resetDbClient;
 }

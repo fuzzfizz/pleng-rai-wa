@@ -50,6 +50,14 @@ export interface ExtractedSongMetadata {
   youtubeSearchQuery: string;
 }
 
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  avatar: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Playlist {
   id: string;
   userId: string;
@@ -58,6 +66,10 @@ export interface Playlist {
   isPublic: boolean;
   songCount: number;
   createdAt: string;
+  updatedAt?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  userProfile?: UserProfile;
 }
 
 export interface Player {
@@ -80,7 +92,7 @@ export interface RoomSettings {
   totalRounds: number; // 0 for unlimited, or e.g. 5, 10, 20
   targetScore: number; // 0 for disabled, or e.g. 10
   genreId?: string; // all or specific genre
-  playlistId?: string; // custom playlist
+  playlistId?: string | null; // custom playlist
 }
 
 export interface RoomState {
