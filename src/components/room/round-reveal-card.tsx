@@ -17,9 +17,7 @@ import {
   Disc,
   Tag,
   Calendar,
-  Sparkles,
   Loader2,
-  Volume2,
 } from "lucide-react";
 import type { Song } from "@/types";
 
@@ -88,6 +86,13 @@ export function RoundRevealCard({
     } catch {}
   }, [hasWinner]);
 
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
+
   // Audio hook player toggling
   const handleToggleAudio = useCallback(() => {
     if (!audioRef.current || !song?.audioUrl) return;
@@ -96,7 +101,11 @@ export function RoundRevealCard({
       audioRef.current.pause();
       setIsPlayingAudio(false);
     } else {
-      if (typeof song.hookStartSec === "number" && song.hookStartSec > 0) {
+      if (
+        audioRef.current.currentTime === 0 &&
+        typeof song.hookStartSec === "number" &&
+        song.hookStartSec > 0
+      ) {
         audioRef.current.currentTime = song.hookStartSec;
       }
       audioRef.current

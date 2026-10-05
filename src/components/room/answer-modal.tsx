@@ -7,7 +7,7 @@
 // ==========================================
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Search, Send, Clock, Sparkles, Loader2, Music, Check, X } from "lucide-react";
+import { Search, Send, Clock, Sparkles, Loader2, Music, X } from "lucide-react";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
 import type { Song, AnswerInputMode } from "@/types";
 

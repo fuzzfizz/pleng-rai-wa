@@ -16,13 +16,11 @@ import {
   Sparkles,
   Zap,
   Radio,
-  Award,
   Crown,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
 import type { Song, GameMode } from "@/types";
 import { ttsReader } from "@/lib/tts-reader";
-import { soundEffects } from "@/lib/sound-effects";
 import { BuzzerButton, resolveBuzzerStatus } from "./buzzer-button";
 import { AnswerModal } from "./answer-modal";
 import { WrongGuessBanner } from "./wrong-guess-banner";
@@ -81,6 +79,7 @@ export function GameView({
 
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
+  const [isBuzzing, setIsBuzzing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // 1. Audio / TTS Playback Orchestration
@@ -109,17 +108,24 @@ export function GameView({
     }
   }, [status, gameMode, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying]);
 
-  // Clean up TTS on unmount
+  // Clean up audio & TTS on unmount
   useEffect(() => {
     return () => {
+      audioRef.current?.pause();
       ttsReader.stopSpeaking();
     };
   }, []);
 
-  // Handle buzzer press
+  // Handle buzzer press with in-flight guard
   const handleBuzzPress = useCallback(async () => {
-    await buzz();
-  }, [buzz]);
+    if (isBuzzing) return;
+    setIsBuzzing(true);
+    try {
+      await buzz();
+    } finally {
+      setIsBuzzing(false);
+    }
+  }, [buzz, isBuzzing]);
 
   // Handle answer submission
   const handleSubmitAnswer = useCallback(
@@ -317,7 +323,7 @@ export function GameView({
               status={buzzerButtonStatus}
               buzzedPlayerName={buzzedPlayer?.displayName}
               onBuzz={handleBuzzPress}
-              disabled={status !== "question_active" || isExcludedFromBuzz}
+              disabled={status !== "question_active" || isExcludedFromBuzz || isBuzzing}
             />
           </div>
         )}

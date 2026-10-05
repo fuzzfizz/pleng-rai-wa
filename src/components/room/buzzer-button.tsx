@@ -70,6 +70,8 @@ export function BuzzerButton({
     if (status !== "ready" || disabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+
       // Don't intercept Spacebar if focused inside an input or textarea
       const target = e.target as HTMLElement | null;
       if (
