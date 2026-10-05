@@ -444,7 +444,7 @@ export function LobbyView({
         onClose={() => setSettingsModalOpen(false)}
         settings={settings}
         players={players}
-        currentHostPlayerId={myPlayer?.id || ""}
+        currentHostPlayerId={myPlayer?.id || players.find((p) => p.isHost)?.id || ""}
         onSaveSettings={onUpdateSettings}
         onTransferHost={onTransferHost}
       />
