@@ -50,6 +50,14 @@ export interface ExtractedSongMetadata {
   youtubeSearchQuery: string;
 }
 
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  avatar: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Playlist {
   id: string;
   userId: string;
@@ -58,6 +66,10 @@ export interface Playlist {
   isPublic: boolean;
   songCount: number;
   createdAt: string;
+  updatedAt?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  userProfile?: UserProfile;
 }
 
 export interface Player {

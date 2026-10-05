@@ -13,6 +13,30 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          display_name: string;
+          avatar: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          display_name: string;
+          avatar?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          display_name?: string;
+          avatar?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       genres: {
         Row: {
           id: string;
@@ -210,6 +234,10 @@ export interface Database {
   };
 }
 
+export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+export type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
+export type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
+
 export type GenreRow = Database["public"]["Tables"]["genres"]["Row"];
 export type GenreInsert = Database["public"]["Tables"]["genres"]["Insert"];
 export type GenreUpdate = Database["public"]["Tables"]["genres"]["Update"];
@@ -219,7 +247,14 @@ export type SongInsert = Database["public"]["Tables"]["songs"]["Insert"];
 export type SongUpdate = Database["public"]["Tables"]["songs"]["Update"];
 
 export type PlaylistRow = Database["public"]["Tables"]["playlists"]["Row"];
+export type PlaylistInsert = Database["public"]["Tables"]["playlists"]["Insert"];
+export type PlaylistUpdate = Database["public"]["Tables"]["playlists"]["Update"];
+
 export type PlaylistSongRow = Database["public"]["Tables"]["playlist_songs"]["Row"];
+export type PlaylistSongInsert = Database["public"]["Tables"]["playlist_songs"]["Insert"];
+export type PlaylistSongUpdate = Database["public"]["Tables"]["playlist_songs"]["Update"];
+
 export type RoomRow = Database["public"]["Tables"]["rooms"]["Row"];
 export type RoomInsert = Database["public"]["Tables"]["rooms"]["Insert"];
 export type RoomUpdate = Database["public"]["Tables"]["rooms"]["Update"];
+
