@@ -31,9 +31,12 @@ import {
 } from "@/lib/session-storage";
 import { validateNickname } from "@/app/room/[code]/page";
 import { getDeterministicAvatar } from "@/components/room/player-card";
+import { NavHeader } from "@/components/common/nav-header";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function HomePage() {
   const router = useRouter();
+  const { profile } = useAuth();
 
   // Join Room State
   const [roomCode, setRoomCode] = useState("");
@@ -54,6 +57,13 @@ export default function HomePage() {
       setLastRoomCode(last);
     }
   }, []);
+
+  // Pre-fill host nickname if authenticated
+  useEffect(() => {
+    if (profile?.displayName && !hostNickname) {
+      setHostNickname(profile.displayName);
+    }
+  }, [profile?.displayName, hostNickname]);
 
   // Handle Joining an existing room
   const handleJoinRoom = (e?: React.FormEvent) => {
@@ -120,9 +130,11 @@ export default function HomePage() {
     }
   };
 
-  const hostAvatarPreview = getDeterministicAvatar({
-    displayName: hostNickname || "หัวหน้าห้อง",
-  });
+  const hostAvatarPreview =
+    profile?.avatar ||
+    getDeterministicAvatar({
+      displayName: hostNickname || "หัวหน้าห้อง",
+    });
 
   return (
     <main className="relative min-h-screen flex flex-col items-center justify-between p-4 sm:p-8 bg-slate-950 bg-radial-glow overflow-hidden selection:bg-pink-500 selection:text-white">
@@ -132,27 +144,7 @@ export default function HomePage() {
       <div className="absolute top-40 right-10 w-80 h-80 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header */}
-      <header className="w-full max-w-5xl flex items-center justify-between z-10 py-2">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-violet-600 flex items-center justify-center shadow-lg shadow-pink-500/20">
-            <Music className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-white font-sans">เพลงไรวะ?</h1>
-            <p className="text-xs text-slate-400">Pleng-Rai-Wa Music Quiz</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin"
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors px-3 py-1.5 rounded-full border border-slate-800 hover:border-slate-700 bg-slate-900/60"
-          >
-            <Shield className="w-3.5 h-3.5" />
-            <span>Admin Portal</span>
-          </Link>
-        </div>
-      </header>
+      <NavHeader className="max-w-5xl z-10 py-2" />
 
       {/* Hero Section */}
       <section className="w-full max-w-3xl flex flex-col items-center text-center my-auto py-12 z-10">
@@ -179,6 +171,9 @@ export default function HomePage() {
               type="button"
               onClick={() => {
                 setCreateError(null);
+                if (!hostNickname && profile?.displayName) {
+                  setHostNickname(profile.displayName);
+                }
                 setIsCreateModalOpen(true);
               }}
               className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-semibold text-base shadow-lg shadow-pink-500/25 transition-all active:scale-[0.98] cursor-pointer"

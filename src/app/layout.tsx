@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   keywords: ["ทายเพลง", "เกมทายเพลง", "เพลงไรวะ", "เกมปาร์ตี้", "quiz", "music game"],
 };
 
+import { AuthProvider } from "@/hooks/use-auth";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="th" className={`${kanit.variable} ${prompt.variable} dark`}>
       <body className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-pink-500 selection:text-white">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
