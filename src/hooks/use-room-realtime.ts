@@ -396,10 +396,13 @@ export function reduceRoomRealtimeEvent(
       score: nextState.scores[p.id] !== undefined ? nextState.scores[p.id] : p.score,
     }));
     if (nextState.myPlayer && nextState.scores[nextState.myPlayer.id] !== undefined) {
-      nextState.myPlayer = {
-        ...nextState.myPlayer,
-        score: nextState.scores[nextState.myPlayer.id],
-      };
+      const newScore = nextState.scores[nextState.myPlayer.id];
+      if (nextState.myPlayer.score !== newScore) {
+        nextState.myPlayer = {
+          ...nextState.myPlayer,
+          score: newScore,
+        };
+      }
     }
   }
 
@@ -425,15 +428,50 @@ export function useRoomRealtime(
 ) {
   const cleanCode = (roomCode || "").trim().toUpperCase();
 
-  // Initialize state via pure state generator
+  // Initialize state via pure state generator (pass playSounds: false to keep reducer pure)
   const [state, dispatch] = useReducer(
-    (s: RoomRealtimeState, a: RoomRealtimeAction) => reduceRoomRealtimeEvent(s, a),
+    (s: RoomRealtimeState, a: RoomRealtimeAction) =>
+      reduceRoomRealtimeEvent(s, a, { playSounds: false }),
     createInitialRoomRealtimeState(cleanCode, initialPlayer)
   );
 
   const channelRef = useRef<any>(null);
   const lastEventRef = useRef<{ key: string; time: number } | null>(null);
+  const myPlayerRef = useRef<Player | null>(state.myPlayer);
   const [isMutedState, setIsMutedState] = useState(() => soundEffects.isMuted());
+
+  // Keep myPlayerRef synchronized for reconnect presence tracking
+  useEffect(() => {
+    myPlayerRef.current = state.myPlayer;
+  }, [state.myPlayer]);
+
+  // Reactive sync when initialPlayer changes asynchronously
+  useEffect(() => {
+    if (
+      initialPlayer?.id &&
+      (!state.myPlayer || state.myPlayer.id !== initialPlayer.id)
+    ) {
+      dispatch({
+        type: "init_player",
+        player: {
+          id: initialPlayer.id,
+          displayName: initialPlayer.displayName || "ผู้เล่น",
+          isHost: Boolean(initialPlayer.isHost),
+          isReady: Boolean(initialPlayer.isReady),
+          score: initialPlayer.score || 0,
+          sessionToken: initialPlayer.sessionToken || initialPlayer.id,
+          lastSeenAt: new Date().toISOString(),
+          avatarUrl: initialPlayer.avatarUrl,
+        },
+      });
+    }
+  }, [
+    initialPlayer?.id,
+    initialPlayer?.displayName,
+    initialPlayer?.isHost,
+    initialPlayer?.sessionToken,
+    state.myPlayer,
+  ]);
 
   // 1. Session persistence / restoration
   useEffect(() => {
@@ -488,7 +526,7 @@ export function useRoomRealtime(
   useEffect(() => {
     if (!cleanCode) return;
 
-    // Helper to safely dispatch broadcast event with de-duplication
+    // Helper to safely dispatch broadcast event with de-duplication and sound triggers
     const handleBroadcast = (event: string, payload: any) => {
       const key = `${event}:${JSON.stringify(payload || {})}`;
       const now = Date.now();
@@ -500,6 +538,28 @@ export function useRoomRealtime(
         return; // Ignore duplicate delivery within 1.5s
       }
       lastEventRef.current = { key, time: now };
+
+      // Trigger audio cues safely outside of the reducer
+      try {
+        switch (event) {
+          case "round_start":
+            soundEffects.countdownTick();
+            break;
+          case "buzzer_hit":
+            soundEffects.buzzer();
+            break;
+          case "wrong_guess":
+            soundEffects.wrong();
+            break;
+          case "round_reveal":
+            soundEffects.correct();
+            break;
+          case "game_over":
+            soundEffects.victoryFanfare();
+            break;
+        }
+      } catch {}
+
       dispatch({ type: "broadcast", event, payload });
     };
 
@@ -555,17 +615,18 @@ export function useRoomRealtime(
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         dispatch({ type: "set_connection", isConnected: true });
-        if (state.myPlayer) {
+        const currentPlayer = myPlayerRef.current;
+        if (currentPlayer) {
           try {
             await channel.track({
-              id: state.myPlayer.id,
-              displayName: state.myPlayer.displayName,
-              isHost: state.myPlayer.isHost,
-              isReady: state.myPlayer.isReady,
-              score: state.myPlayer.score,
-              sessionToken: state.myPlayer.sessionToken,
+              id: currentPlayer.id,
+              displayName: currentPlayer.displayName,
+              isHost: currentPlayer.isHost,
+              isReady: currentPlayer.isReady,
+              score: currentPlayer.score,
+              sessionToken: currentPlayer.sessionToken,
               lastSeenAt: new Date().toISOString(),
-              avatarUrl: state.myPlayer.avatarUrl,
+              avatarUrl: currentPlayer.avatarUrl,
             });
           } catch (err) {
             console.warn("[useRoomRealtime] Presence track failed:", err);
@@ -709,6 +770,9 @@ export function useRoomRealtime(
           }),
         });
         const data = await res.json();
+        if (data.success && data.room) {
+          dispatch({ type: "init_room", room: data.room });
+        }
         return Boolean(data.success);
       } catch {
         return false;
@@ -735,6 +799,9 @@ export function useRoomRealtime(
           }),
         });
         const data = await res.json();
+        if (data.success && data.room) {
+          dispatch({ type: "init_room", room: data.room });
+        }
         return Boolean(data.success);
       } catch {
         return false;
