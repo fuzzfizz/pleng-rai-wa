@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -21,9 +22,11 @@ import {
   Award,
   Music,
   Square,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { Song, GameMode, AnswerInputMode } from "@/types";
+import { Song, GameMode, AnswerInputMode, Playlist } from "@/types";
 import {
   playBuzzerSound,
   playCorrectSound,
@@ -35,6 +38,9 @@ import {
 } from "@/lib/sound-effects";
 import { ttsReader } from "@/lib/tts-reader";
 import { checkAnswer, searchSongAutocomplete } from "@/lib/answer-checker";
+import { PlaylistService } from "@/lib/services/playlist-service";
+import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
+import { useAuth } from "@/hooks/use-auth";
 
 // Built-in seed songs for immediate offline play
 const DEMO_SONGS: Song[] = [
@@ -82,7 +88,20 @@ const DEMO_SONGS: Song[] = [
   },
 ];
 
-export default function SoloPlayPage() {
+function SoloPlayContent() {
+  const searchParams = useSearchParams();
+  const queryPlaylistId = searchParams.get("playlistId");
+  const { user } = useAuth();
+
+  // Playlists State
+  const [availablePlaylists, setAvailablePlaylists] = useState<Playlist[]>([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("all");
+  const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
+  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(true);
+  const [isLoadingSongs, setIsLoadingSongs] = useState<boolean>(false);
+  const [playlistNotice, setPlaylistNotice] = useState<string | null>(null);
+  const defaultLibrarySongsRef = useRef<Song[]>(DEMO_SONGS);
+
   // Game Setup State
   const [songsPool, setSongsPool] = useState<Song[]>(DEMO_SONGS);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
@@ -109,25 +128,165 @@ export default function SoloPlayPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const currentSong = songsPool[currentSongIndex] || DEMO_SONGS[0];
+  const currentSong = songsPool[currentSongIndex] || songsPool[0] || DEMO_SONGS[0];
 
-  // Fetch real songs from DB if available
+  // Helper to reset round sounds & answers
+  const resetRoundState = () => {
+    audioRef.current?.pause();
+    ttsReader.stopSpeaking();
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    setIsPlayingAudio(false);
+    setIsBuzzed(false);
+    setBuzzerCountdown(null);
+    setIsRevealed(false);
+    setUserGuess("");
+    setFeedback(null);
+    setAutocompleteSuggestions([]);
+    setIsAITalking(false);
+  };
+
+  // Initial load: library songs + playlists + optional query param playlist
   useEffect(() => {
     setIsMuted(isSfxMuted());
+    let isMounted = true;
 
-    async function loadSongs() {
+    async function initialize() {
+      setIsLoadingPlaylists(true);
+
+      // 1. Fetch library songs
+      let librarySongs = DEMO_SONGS;
       try {
         const res = await fetch("/api/admin/songs");
         const data = await res.json();
         if (data.success && data.songs && data.songs.length > 0) {
-          setSongsPool(data.songs);
+          librarySongs = data.songs;
+          defaultLibrarySongsRef.current = data.songs;
         }
       } catch {
         // Fallback to DEMO_SONGS
       }
+
+      // 2. Fetch playlists
+      try {
+        const publicPromise = PlaylistService.getPublicPlaylists();
+        const userPromise = user?.id
+          ? PlaylistService.getUserPlaylists(user.id)
+          : Promise.resolve([]);
+
+        const [publicList, userList] = await Promise.all([
+          publicPromise.catch(() => []),
+          userPromise.catch(() => []),
+        ]);
+
+        const map = new Map<string, Playlist>();
+        for (const p of userList) map.set(p.id, p);
+        for (const p of publicList) {
+          if (!map.has(p.id)) map.set(p.id, p);
+        }
+        const merged = Array.from(map.values());
+        if (isMounted) {
+          setAvailablePlaylists(merged);
+        }
+      } catch (err) {
+        console.warn("Could not load playlists for solo play:", err);
+      } finally {
+        if (isMounted) setIsLoadingPlaylists(false);
+      }
+
+      // 3. Resolve initial playlist if query param exists
+      const targetPlaylistId = queryPlaylistId?.trim();
+      if (targetPlaylistId) {
+        if (isMounted) {
+          setSelectedPlaylistId(targetPlaylistId);
+          setIsLoadingSongs(true);
+        }
+        try {
+          const result = await PlaylistService.getPlaylistById(targetPlaylistId);
+          if (!isMounted) return;
+
+          if (result && result.songs && result.songs.length > 0) {
+            setSongsPool(result.songs);
+            setActivePlaylist(result.playlist);
+            setCurrentSongIndex(0);
+            setScore(0);
+            setStreak(0);
+            if (!isPlaylistPlayable(result.songs.length)) {
+              setPlaylistNotice(
+                `เพลย์ลิสต์นี้มี ${result.songs.length} เพลง (ต่ำกว่า 5 เพลง)`
+              );
+            }
+          } else {
+            setSongsPool(librarySongs);
+            setPlaylistNotice("ไม่พบเพลงในเพลย์ลิสต์ที่ระบุ กำลังใช้คลังเพลงหลักแทน");
+          }
+        } catch {
+          if (isMounted) {
+            setSongsPool(librarySongs);
+            setPlaylistNotice("ไม่สามารถโหลดเพลย์ลิสต์ได้ กำลังใช้คลังเพลงหลักแทน");
+          }
+        } finally {
+          if (isMounted) setIsLoadingSongs(false);
+        }
+      } else {
+        if (isMounted) {
+          setSongsPool(librarySongs);
+        }
+      }
     }
-    loadSongs();
-  }, []);
+
+    initialize();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, queryPlaylistId]);
+
+  // Handler for user switching playlist in dropdown
+  const handleSelectPlaylist = async (playlistId: string) => {
+    resetRoundState();
+    setPlaylistNotice(null);
+
+    if (playlistId === "all" || !playlistId) {
+      setSelectedPlaylistId("all");
+      setActivePlaylist(null);
+      setSongsPool(
+        defaultLibrarySongsRef.current.length > 0
+          ? defaultLibrarySongsRef.current
+          : DEMO_SONGS
+      );
+      setCurrentSongIndex(0);
+      setScore(0);
+      setStreak(0);
+      return;
+    }
+
+    setSelectedPlaylistId(playlistId);
+    setIsLoadingSongs(true);
+
+    try {
+      const result = await PlaylistService.getPlaylistById(playlistId);
+      if (!result || !result.songs || result.songs.length === 0) {
+        setPlaylistNotice("เพลย์ลิสต์นี้ยังไม่มีเพลง กำลังใช้คลังเพลงเดิม");
+        return;
+      }
+
+      setSongsPool(result.songs);
+      setActivePlaylist(result.playlist);
+      setCurrentSongIndex(0);
+      setScore(0);
+      setStreak(0);
+
+      if (!isPlaylistPlayable(result.songs.length)) {
+        setPlaylistNotice(
+          `เพลย์ลิสต์นี้มี ${result.songs.length} เพลง (ต่ำกว่า 5 เพลง)`
+        );
+      }
+    } catch (err: any) {
+      setPlaylistNotice(err?.message || "เกิดข้อผิดพลาดในการโหลดเพลย์ลิสต์");
+    } finally {
+      setIsLoadingSongs(false);
+    }
+  };
 
   // Keyboard shortcut for Buzzer (Spacebar)
   useEffect(() => {
@@ -364,6 +523,87 @@ export default function SoloPlayPage() {
 
       {/* Main Arena */}
       <main className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center gap-6">
+        {/* Playlist Selector Setup Bar */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl backdrop-blur-xl space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                <Music className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <label
+                  htmlFor="solo-playlist-select"
+                  className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1"
+                >
+                  🎵 เลือกชุดเพลงที่ต้องการซ้อม
+                </label>
+                <select
+                  id="solo-playlist-select"
+                  value={selectedPlaylistId}
+                  onChange={(e) => handleSelectPlaylist(e.target.value)}
+                  disabled={isLoadingPlaylists || isLoadingSongs}
+                  className="w-full bg-slate-950 border border-slate-700/80 hover:border-slate-600 focus:border-purple-500 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
+                >
+                  <option value="all">
+                    🌐 สุ่มเพลงทั้งหมด (All Library - {defaultLibrarySongsRef.current.length} เพลง)
+                  </option>
+                  {availablePlaylists.map((pl) => {
+                    const playable = isPlaylistPlayable(pl.songCount || 0);
+                    return (
+                      <option key={pl.id} value={pl.id}>
+                        {playable ? "🎶" : "⚠️"} {pl.title} ({pl.songCount || 0} เพลง)
+                        {!playable ? " - มีไม่ถึง 5 เพลง" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* Active Playlist Badge */}
+            {activePlaylist ? (
+              <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-3.5 py-2 rounded-2xl text-xs text-purple-200 self-start sm:self-auto shrink-0 min-h-[44px]">
+                <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                <span className="font-semibold truncate max-w-[180px]">
+                  {activePlaylist.title}
+                </span>
+                <span className="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-full text-purple-300 font-mono">
+                  {songsPool.length} เพลง
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPlaylist("all")}
+                  className="text-slate-400 hover:text-white ml-1 text-xs cursor-pointer p-1 min-h-[44px] min-w-[28px] flex items-center justify-center"
+                  title="สลับกลับไปคลังทั้งหมด"
+                  aria-label="สลับกลับไปคลังทั้งหมด"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-950/60 border border-slate-800/80 px-3.5 py-2 rounded-2xl shrink-0 min-h-[44px]">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>คลังเพลงมาตรฐาน ({songsPool.length} เพลง)</span>
+              </div>
+            )}
+          </div>
+
+          {/* Loading or Notice Messages */}
+          {isLoadingSongs && (
+            <div className="flex items-center gap-2 text-xs text-purple-300 animate-pulse pt-1">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>กำลังโหลดเพลงจากเพลย์ลิสต์...</span>
+            </div>
+          )}
+
+          {playlistNotice && (
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{playlistNotice}</span>
+            </div>
+          )}
+        </div>
+
         {/* Mode Selector Tabs */}
         <div className="grid grid-cols-3 gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
           <button
@@ -723,5 +963,22 @@ export default function SoloPlayPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function SoloPlayPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center font-sans">
+          <div className="flex items-center gap-3 text-purple-400">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span className="text-sm font-medium">กำลังโหลดโหมดซ้อมเดี่ยว...</span>
+          </div>
+        </div>
+      }
+    >
+      <SoloPlayContent />
+    </Suspense>
   );
 }
