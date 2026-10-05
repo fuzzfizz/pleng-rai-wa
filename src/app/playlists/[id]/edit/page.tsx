@@ -5,7 +5,7 @@
 // Edit existing playlist with ownership verification and song reordering
 // ==========================================
 
-import React, { use, useState, useEffect, Suspense } from "react";
+import React, { use, useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -39,6 +39,11 @@ function EditPlaylistContent({
   } | null>(null);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const initialPlaylist = useMemo(() => {
+    if (!playlistData) return null;
+    return { ...playlistData.playlist, songs: playlistData.songs };
+  }, [playlistData]);
 
   useEffect(() => {
     if (!playlistId) return;
@@ -121,12 +126,6 @@ function EditPlaylistContent({
       </div>
     );
   }
-
-  // Combine playlist with loaded songs for initial editor state
-  const initialPlaylist: Playlist & { songs?: Song[] } = {
-    ...playlistData.playlist,
-    songs: playlistData.songs,
-  };
 
   return (
     <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">

@@ -41,6 +41,7 @@ function PlaylistsPageContent(): React.JSX.Element {
   const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [errorPublic, setErrorPublic] = useState<string | null>(null);
   const [errorUser, setErrorUser] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -100,6 +101,7 @@ function PlaylistsPageContent(): React.JSX.Element {
 
   const handleDeletePlaylist = async (playlist: Playlist) => {
     if (!user) return;
+    setDeleteError(null);
     try {
       await PlaylistService.deletePlaylist(playlist.id, user.id);
       setUserPlaylists((prev) => prev.filter((p) => p.id !== playlist.id));
@@ -109,7 +111,7 @@ function PlaylistsPageContent(): React.JSX.Element {
       } catch {}
     } catch (err: any) {
       console.error("Error deleting playlist:", err);
-      alert(err?.message || "เกิดข้อผิดพลาดในการลบเพลย์ลิสต์");
+      setDeleteError(err?.message || "เกิดข้อผิดพลาดในการลบเพลย์ลิสต์");
     }
   };
 
@@ -144,6 +146,23 @@ function PlaylistsPageContent(): React.JSX.Element {
             <span>สร้างเพลย์ลิสต์ใหม่</span>
           </button>
         </div>
+
+        {/* Delete Error Banner */}
+        {deleteError && (
+          <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs sm:text-sm">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{deleteError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDeleteError(null)}
+              className="text-xs text-rose-400 hover:text-white underline cursor-pointer shrink-0"
+            >
+              ปิด
+            </button>
+          </div>
+        )}
 
         {/* Tab Controls */}
         <div className="flex items-center bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 w-full sm:w-auto sm:inline-flex">

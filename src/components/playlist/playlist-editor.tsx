@@ -167,7 +167,10 @@ export function PlaylistEditor({
 
       audio.onended = () => {
         setPreviewingSongId(null);
-        if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+        if (previewTimerRef.current) {
+          clearTimeout(previewTimerRef.current);
+          previewTimerRef.current = null;
+        }
       };
 
       audio.onerror = () => {
@@ -175,18 +178,54 @@ export function PlaylistEditor({
         if (song.audioUrl && !song.audioUrl.startsWith("/api/audio/slice")) {
           const fallbackAudio = new Audio(song.audioUrl);
           audioRef.current = fallbackAudio;
-          fallbackAudio.currentTime = song.hookStartSec || 0;
-          fallbackAudio.play().catch(() => setPreviewingSongId(null));
-          fallbackAudio.onended = () => setPreviewingSongId(null);
-          fallbackAudio.onerror = () => setPreviewingSongId(null);
+          fallbackAudio.addEventListener(
+            "loadedmetadata",
+            () => {
+              try {
+                fallbackAudio.currentTime = song.hookStartSec || 0;
+              } catch (e) {
+                console.warn("Could not seek fallback audio:", e);
+              }
+            },
+            { once: true }
+          );
+          fallbackAudio.play().catch(() => {
+            setPreviewingSongId(null);
+            if (previewTimerRef.current) {
+              clearTimeout(previewTimerRef.current);
+              previewTimerRef.current = null;
+            }
+          });
+          fallbackAudio.onended = () => {
+            setPreviewingSongId(null);
+            if (previewTimerRef.current) {
+              clearTimeout(previewTimerRef.current);
+              previewTimerRef.current = null;
+            }
+          };
+          fallbackAudio.onerror = () => {
+            setPreviewingSongId(null);
+            if (previewTimerRef.current) {
+              clearTimeout(previewTimerRef.current);
+              previewTimerRef.current = null;
+            }
+          };
         } else {
           setPreviewingSongId(null);
+          if (previewTimerRef.current) {
+            clearTimeout(previewTimerRef.current);
+            previewTimerRef.current = null;
+          }
         }
       };
 
       audio.play().catch((err) => {
         console.warn("Autoplay audio slice error:", err);
         setPreviewingSongId(null);
+        if (previewTimerRef.current) {
+          clearTimeout(previewTimerRef.current);
+          previewTimerRef.current = null;
+        }
       });
 
       // 5-second automatic cutoff
@@ -200,6 +239,10 @@ export function PlaylistEditor({
     } catch (err) {
       console.error("Audio preview failed:", err);
       setPreviewingSongId(null);
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
     }
   };
 
@@ -222,6 +265,10 @@ export function PlaylistEditor({
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
+      }
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
       }
       setPreviewingSongId(null);
     }
@@ -532,7 +579,7 @@ export function PlaylistEditor({
                       <button
                         type="button"
                         onClick={() => handleTogglePreview(song)}
-                        className={`min-h-[36px] min-w-[36px] p-2 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
+                        className={`min-h-[44px] min-w-[44px] p-2 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
                           isPreviewing
                             ? "bg-pink-500 text-white animate-pulse"
                             : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
@@ -562,7 +609,7 @@ export function PlaylistEditor({
                         type="button"
                         onClick={() => handleMoveUp(index)}
                         disabled={index === 0}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
                         title="เลื่อนขึ้น"
                       >
                         <ArrowUp className="w-3.5 h-3.5" />
@@ -571,7 +618,7 @@ export function PlaylistEditor({
                         type="button"
                         onClick={() => handleMoveDown(index)}
                         disabled={index === selectedSongs.length - 1}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
                         title="เลื่อนลง"
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
@@ -579,7 +626,7 @@ export function PlaylistEditor({
                       <button
                         type="button"
                         onClick={() => handleRemoveSong(index)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                         title="ลบเพลงนี้ออก"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -637,7 +684,7 @@ export function PlaylistEditor({
                       <button
                         type="button"
                         onClick={() => handleTogglePreview(song)}
-                        className={`min-h-[36px] min-w-[36px] p-2 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
+                        className={`min-h-[44px] min-w-[44px] p-2 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
                           isPreviewing
                             ? "bg-pink-500 text-white animate-pulse"
                             : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
