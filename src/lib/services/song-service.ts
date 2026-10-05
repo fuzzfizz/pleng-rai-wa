@@ -307,3 +307,13 @@ export async function getRandomSongs(
 
   return songs.slice(0, count);
 }
+
+export class SongService {
+  static getRandomSongs = getRandomSongs;
+  static getSongs = getSongs;
+  static getSongById = getSongById;
+  static insertSong = insertSong;
+  static updateSong = updateSong;
+  static deleteSong = deleteSong;
+  static getGenres = getGenres;
+}

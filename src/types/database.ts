@@ -221,3 +221,5 @@ export type SongUpdate = Database["public"]["Tables"]["songs"]["Update"];
 export type PlaylistRow = Database["public"]["Tables"]["playlists"]["Row"];
 export type PlaylistSongRow = Database["public"]["Tables"]["playlist_songs"]["Row"];
 export type RoomRow = Database["public"]["Tables"]["rooms"]["Row"];
+export type RoomInsert = Database["public"]["Tables"]["rooms"]["Insert"];
+export type RoomUpdate = Database["public"]["Tables"]["rooms"]["Update"];

@@ -4,7 +4,7 @@
 
 import { supabase, getServiceSupabase } from "@/lib/supabase";
 import { generateRoomCode } from "@/lib/room-code";
-import type { RoomSettings, RoomRow, Json } from "@/types";
+import type { RoomSettings, RoomRow, RoomUpdate, Json } from "@/types";
 
 export interface CreateRoomResult {
   roomCode: string;
@@ -160,6 +160,36 @@ export class RoomService {
     const { data, error } = await client
       .from("rooms")
       .update({ host_player_id: newHostPlayerId })
+      .eq("room_code", cleanCode)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Updates round-related room properties (current_song_id, played_song_ids, status).
+   */
+  static async updateRoomRound(
+    code: string,
+    updates: {
+      currentSongId?: string | null;
+      playedSongIds?: string[];
+      status?: string;
+    }
+  ): Promise<any> {
+    if (!code || typeof code !== "string") throw new Error("Invalid room code");
+    const cleanCode = code.trim().toUpperCase();
+    const client = this.getClient();
+    const payload: RoomUpdate = {};
+    if (updates.currentSongId !== undefined) payload.current_song_id = updates.currentSongId;
+    if (updates.playedSongIds !== undefined) payload.played_song_ids = updates.playedSongIds;
+    if (updates.status !== undefined) payload.status = updates.status;
+
+    const { data, error } = await client
+      .from("rooms")
+      .update(payload)
       .eq("room_code", cleanCode)
       .select()
       .single();
