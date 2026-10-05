@@ -17,9 +17,7 @@ import {
   Minimize2,
   LogOut,
   Trophy,
-  Crown,
   Zap,
-  Music,
   Disc3,
   Sparkles,
   Users,
@@ -124,15 +122,17 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     [players]
   );
 
-  // Audio / TTS playback for big TV speakers
+  // Audio / TTS playback for big TV speakers with unmount cleanup
   useEffect(() => {
     if (gameMode === "ai-lyrics") {
-      if (status === "question_active" && activeQuestion?.lyrics) {
+      if (status === "question_active" && activeQuestion?.lyrics && !isMuted) {
         ttsReader.speakLyrics(activeQuestion.lyrics);
       } else {
         ttsReader.stopSpeaking();
       }
-      return;
+      return () => {
+        ttsReader.stopSpeaking();
+      };
     }
 
     if (status === "question_active" && activeQuestion?.sliceUrl && audioRef.current) {
@@ -144,14 +144,21 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     } else if (audioRef.current) {
       audioRef.current.pause();
     }
-  }, [status, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying, gameMode]);
 
-  // Audio mute sync
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, [status, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying, gameMode, isMuted]);
+
+  // Audio and TTS mute sync
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isMuted;
     }
-  }, [isMuted]);
+    if (gameMode === "ai-lyrics" && isMuted) {
+      ttsReader.stopSpeaking();
+    }
+  }, [isMuted, gameMode]);
 
   // Countdown timer during buzzer phase
   useEffect(() => {

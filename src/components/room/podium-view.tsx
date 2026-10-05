@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import confetti from "canvas-confetti";
-import { Trophy, Crown, Medal, RotateCcw, Home, LogOut, Sparkles, Award } from "lucide-react";
+import { Trophy, Crown, RotateCcw, Home, LogOut, Sparkles, Award } from "lucide-react";
 import type { Player } from "@/types";
 import { soundEffects } from "@/lib/sound-effects";
 import { getDeterministicAvatar } from "./player-card";
@@ -154,6 +154,9 @@ export function PodiumView({
         return () => {
           clearTimeout(t1);
           clearTimeout(t2);
+          try {
+            confetti.reset?.();
+          } catch {}
         };
       } catch {
         // Non-browser or canvas-unsupported environment
