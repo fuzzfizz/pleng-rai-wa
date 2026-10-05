@@ -6,21 +6,17 @@
 // Session Restoration & Realtime Orchestration
 // ==========================================
 
-import React, { use, useState, useEffect, useCallback, Suspense } from "react";
+import React, { use, useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Music,
   Users,
   Tv,
-  LogOut,
   AlertCircle,
   Loader2,
   ArrowRight,
-  Sparkles,
   ShieldAlert,
-  Play,
-  User,
 } from "lucide-react";
 import { isValidRoomCode } from "@/lib/room-code";
 import {
@@ -35,7 +31,7 @@ import { GameView } from "@/components/room/game-view";
 import { TVView } from "@/components/room/tv-view";
 import { PodiumView } from "@/components/room/podium-view";
 import { getDeterministicAvatar } from "@/components/room/player-card";
-import type { RoomSettings, Song } from "@/types";
+import type { Player, RoomSettings } from "@/types";
 
 /**
  * Fallback room settings if room metadata hasn't arrived from server yet.
@@ -171,8 +167,19 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
     setIsHydrated(true);
   }, [cleanCode, isCodeValid]);
 
+  // Map PlayerSession (playerId) to Partial<Player> (id) for useRoomRealtime
+  const initialPlayer: Partial<Player> | undefined = useMemo(() => {
+    if (!storedSession) return undefined;
+    return {
+      id: storedSession.playerId,
+      displayName: storedSession.displayName,
+      isHost: Boolean(storedSession.isHost),
+      sessionToken: storedSession.sessionToken,
+    };
+  }, [storedSession]);
+
   // Realtime hook initialization
-  const roomRealtime = useRoomRealtime(cleanCode, storedSession || undefined);
+  const roomRealtime = useRoomRealtime(cleanCode, initialPlayer);
 
   // Leave room action
   const handleLeave = useCallback(() => {

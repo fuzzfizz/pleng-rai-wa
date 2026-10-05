@@ -32,6 +32,8 @@ import {
   STORAGE_KEY_PREFIX,
   STORAGE_KEY_LAST_ROOM,
 } from "../src/lib/session-storage";
+import { createInitialRoomRealtimeState } from "../src/hooks/use-room-realtime";
+import type { Player } from "../src/types";
 
 // Setup mock window.localStorage for Node testing environment
 function setupMockLocalStorage() {
@@ -260,6 +262,36 @@ async function runRoomPageIntegrationTests() {
   assert.ok(homePageElement, "HomePage element should instantiate");
 
   console.log("✓ Passed: React elements instantiate cleanly with correct prop contracts.\n");
+
+  // ----------------------------------------------------
+  // Test 8: Guest Join Session Mapping to Realtime Hook
+  // ----------------------------------------------------
+  console.log("Test 8: Guest Join Session Mapping to Realtime Hook...");
+
+  const guestSession = {
+    roomCode: "XYZ999",
+    playerId: "p-guest-456",
+    sessionToken: "tok-guest-456",
+    displayName: "Guest Gamer",
+    isHost: false,
+    savedAt: new Date().toISOString(),
+  };
+
+  // Map session to initialPlayer (simulating RoomPageContent mapping)
+  const mappedPlayer: Partial<Player> = {
+    id: guestSession.playerId,
+    displayName: guestSession.displayName,
+    isHost: Boolean(guestSession.isHost),
+    sessionToken: guestSession.sessionToken,
+  };
+
+  const initialHookState = createInitialRoomRealtimeState("XYZ999", mappedPlayer);
+  assert.ok(initialHookState.myPlayer, "myPlayer should be initialized from mapped session");
+  assert.strictEqual(initialHookState.myPlayer.id, "p-guest-456", "myPlayer.id must match session.playerId");
+  assert.strictEqual(initialHookState.myPlayer.displayName, "Guest Gamer");
+  assert.strictEqual(initialHookState.myPlayer.isHost, false);
+
+  console.log("✓ Passed: Guest session properly maps to initialPlayer with valid id for realtime hook.\n");
 
   console.log("==========================================");
   console.log("All Room Page Integration Tests Passed!");
