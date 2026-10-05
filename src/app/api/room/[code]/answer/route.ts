@@ -104,6 +104,42 @@ export async function POST(
     );
 
     if (!result.success) {
+      if (result.reason === "buzzer_timeout") {
+        const timeoutPayload = {
+          playerId: cleanPlayerId,
+          displayName: cleanDisplayName,
+          answerText: "(หมดเวลา)",
+          scoreDelta: -20,
+          scores: result.scores,
+          resumeAudio: true,
+          wrongGuesses: result.roundState?.wrongGuesses || [],
+          reason: "buzzer_timeout",
+        };
+
+        RealtimeBroadcastService.broadcast(
+          cleanCode,
+          "wrong_guess",
+          timeoutPayload
+        ).catch((err: unknown) => {
+          console.warn("Failed to broadcast buzzer timeout event:", err);
+        });
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: "หมดเวลาในการตอบคำถาม (เกิน 10 วินาที)",
+            isCorrect: false,
+            scoreDelta: -20,
+            newScore: result.newScore,
+            scores: result.scores,
+            resumeAudio: true,
+            wrongGuesses: result.roundState?.wrongGuesses || [],
+            reason: "buzzer_timeout",
+          },
+          { status: 200 }
+        );
+      }
+
       return NextResponse.json(
         {
           success: false,

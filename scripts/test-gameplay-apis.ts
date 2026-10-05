@@ -497,6 +497,36 @@ async function runGameplayTests() {
   assert.strictEqual(stateAfterTimeout?.roundStatus, "question_active");
   assert.ok(stateAfterTimeout?.excludedPlayerIds.includes(player2Id));
 
+  // Player 1 buzzes in round 2
+  const buzzR2P1Req = createMockRequest(
+    `http://localhost:3000/api/room/${roomCode}/buzz`,
+    "POST",
+    { playerId: player1Id, displayName: "Alice" }
+  );
+  const buzzR2P1Res = await buzzHandler(buzzR2P1Req, {
+    params: Promise.resolve({ code: roomCode }),
+  });
+  assert.strictEqual(buzzR2P1Res.status, 200);
+
+  // Simulate buzzer deadline passing
+  const p1BuzzedState = RoomStateStore.getRoomRoundState(roomCode);
+  if (p1BuzzedState) {
+    p1BuzzedState.buzzDeadline = new Date(Date.now() - 5000).toISOString();
+  }
+
+  // Player 1 tries to submit answer after 10s deadline expired -> auto-timeouts with buzzer_timeout
+  const expiredAnswerReq = createMockRequest(
+    `http://localhost:3000/api/room/${roomCode}/answer`,
+    "POST",
+    { playerId: player1Id, displayName: "Alice", answerText: "Too Late Song" }
+  );
+  const expiredAnswerRes = await answerHandler(expiredAnswerReq, {
+    params: Promise.resolve({ code: roomCode }),
+  });
+  const expiredAnswerData = await expiredAnswerRes.json();
+  assert.strictEqual(expiredAnswerData.isCorrect, false);
+  assert.strictEqual(expiredAnswerData.scoreDelta, -20);
+
   console.log("✓ Passed: Buzzer timeout penalized player by -20 and reopened buzzer.\n");
 
   // ----------------------------------------------------

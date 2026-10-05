@@ -11,9 +11,7 @@ const globalForRealtime = globalThis as unknown as {
 };
 const localListeners =
   globalForRealtime.__realtimeListeners ?? new Map<string, Set<RealtimeListener>>();
-if (process.env.NODE_ENV !== "production") {
-  globalForRealtime.__realtimeListeners = localListeners;
-}
+globalForRealtime.__realtimeListeners = localListeners;
 
 export class RealtimeBroadcastService {
   /**

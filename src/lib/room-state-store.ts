@@ -75,9 +75,7 @@ const globalForRoomState = globalThis as unknown as {
 };
 const roomRoundStates =
   globalForRoomState.__roomRoundStates ?? new Map<string, RoomRoundState>();
-if (process.env.NODE_ENV !== "production") {
-  globalForRoomState.__roomRoundStates = roomRoundStates;
-}
+globalForRoomState.__roomRoundStates = roomRoundStates;
 
 export class RoomStateStore {
   /**
@@ -154,16 +152,29 @@ export class RoomStateStore {
       return { success: false, reason: "round_not_active" };
     }
 
-    if (state.excludedPlayerIds.includes(playerId)) {
-      return { success: false, reason: "already_guessed_wrong" };
-    }
-
-    if (state.buzzedPlayerId || state.roundStatus === "buzzed") {
-      return { success: false, reason: "already_buzzed" };
+    if (state.roundStatus === "buzzed") {
+      // Auto-expire previous buzzer if deadline exceeded without submitting
+      if (
+        state.buzzedPlayerId &&
+        state.buzzDeadline &&
+        Date.now() > new Date(state.buzzDeadline).getTime()
+      ) {
+        this.timeoutBuzzer(cleanCode, state.buzzedPlayerId);
+      } else {
+        return { success: false, reason: "already_buzzed" };
+      }
     }
 
     if (state.roundStatus !== "question_active") {
       return { success: false, reason: "round_not_active" };
+    }
+
+    if (state.excludedPlayerIds.includes(playerId)) {
+      return { success: false, reason: "already_guessed_wrong" };
+    }
+
+    if (state.buzzedPlayerId) {
+      return { success: false, reason: "already_buzzed" };
     }
 
     const now = new Date();
@@ -209,6 +220,21 @@ export class RoomStateStore {
         newScore: defaultScore,
         scores: scoresSnapshot,
         reason: "unauthorized_or_not_buzzed",
+      };
+    }
+
+    // Check if buzzer deadline expired before answering
+    if (state.buzzDeadline && Date.now() > new Date(state.buzzDeadline).getTime()) {
+      this.timeoutBuzzer(cleanCode, playerId);
+      return {
+        success: false,
+        isCorrect: false,
+        matchedAs: "",
+        similarity: 0,
+        scoreDelta: -20,
+        newScore: state.scores[playerId] ?? 0,
+        scores: { ...state.scores },
+        reason: "buzzer_timeout",
       };
     }
 
