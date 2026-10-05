@@ -95,23 +95,23 @@
 
 ---
 
-### 🔵 Phase 4: ระบบห้องและ Realtime Multiplayer (กำลังดำเนินการ ⏳)
-- [ ] **4.1 ระบบสร้างห้องและจัดการ Lobby**:
+### 🔵 Phase 4: ระบบห้องและ Realtime Multiplayer ✅ เสร็จสิ้นแล้ว
+- [x] **4.1 ระบบสร้างห้องและจัดการ Lobby**:
   - [x] ระบบสุ่ม Room Code 6 ตัวอักษรแบบปลอดภัย ตัดตัวอักษรสับสน (`src/lib/room-code.ts`)
   - [x] Room Service สำหรับจัดการห้องใน Supabase (`src/lib/services/room-service.ts`)
   - [x] API Routes สำหรับห้อง: `/api/room/create`, `/api/room/join`, `/api/room/[code]/state` (Anti-cheat sanitized), `/api/room/[code]/settings` (Host authorization)
-  - [ ] ตัวสร้าง QR Code และปุ่ม Copy ลิงก์สำหรับชวนเพื่อน
-  - [ ] หน้า Lobby รอผู้เล่น แสดงชื่อ, Avatar, และสถานะ Ready
-  - [ ] สิทธิ์ Host: เลือกโหมด, เลือก Genre/Playlist, ตั้งเวลาตอบ, กำหนดจำนวนข้อ และปุ่ม Transfer Host
-- [ ] **4.2 Session Persistence & Reconnect**:
-  - [ ] บันทึก `session_token` และ `room_code` ลงใน LocalStorage
-  - [ ] รองรับการกด F5 รีเฟรชหน้าจอ หรือสัญญาณหลุด ให้ Reconnect กลับเข้าห้องเดิมอัตโนมัติ
-- [ ] **4.3 Realtime Game Synchronization (Supabase Realtime)**:
-  - [ ] ซิงค์ Event การเริ่มเพลงพร้อมกันทุกหน้าจอ
-  - [ ] ระบบแย่งกดกริ่งแบบ First-Come-First-Serve (FCFS) ฝั่ง Server
-  - [ ] ล็อกสิทธิ์ให้ผู้ที่กดกริ่งคนแรกตอบภายในเวลาที่กำหนด
-  - [ ] อัปเดตคะแนน Scoreboard แบบ Realtime
-  - [ ] สรุปผลการแข่งขัน (Podium / Winner Announcement)
+  - [x] ตัวสร้าง QR Code และปุ่ม Copy ลิงก์สำหรับชวนเพื่อน (`src/components/room/qr-code-modal.tsx`)
+  - [x] หน้า Lobby รอผู้เล่น แสดงชื่อ, Avatar, และสถานะ Ready (`src/components/room/lobby-view.tsx`, `player-card.tsx`)
+  - [x] สิทธิ์ Host: เลือกโหมด, เลือก Genre/Playlist, ตั้งเวลาตอบ, กำหนดจำนวนข้อ และปุ่ม Transfer Host (`src/components/room/host-settings-modal.tsx`)
+- [x] **4.2 Session Persistence & Reconnect**:
+  - [x] บันทึก `session_token` และ `room_code` ลงใน LocalStorage (`src/lib/session-storage.ts`)
+  - [x] รองรับการกด F5 รีเฟรชหน้าจอ หรือสัญญาณหลุด ให้ Reconnect กลับเข้าห้องเดิมอัตโนมัติ (`src/hooks/use-room-realtime.ts`, `src/app/room/[code]/page.tsx`)
+- [x] **4.3 Realtime Game Synchronization (Supabase Realtime)**:
+  - [x] ซิงค์ Event การเริ่มเพลงพร้อมกันทุกหน้าจอ (`src/app/api/room/[code]/next-round`, `useRoomRealtime`)
+  - [x] ระบบแย่งกดกริ่งแบบ First-Come-First-Serve (FCFS) ฝั่ง Server (`src/lib/room-state-store.ts`, `/api/room/[code]/buzz`, `buzzer-button.tsx`)
+  - [x] ล็อกสิทธิ์ให้ผู้ที่กดกริ่งคนแรกตอบภายในเวลาที่กำหนด พร้อมระบบกริ่งเปิดใหม่เมื่อตอบผิด (`/api/room/[code]/answer`, `answer-modal.tsx`, `wrong-guess-banner.tsx`)
+  - [x] อัปเดตคะแนน Scoreboard แบบ Realtime และเฉลยเพลงพร้อมเสียงฮุก (`round-reveal-card.tsx`, `game-view.tsx`)
+  - [x] สรุปผลการแข่งขัน (Podium / Winner Announcement) และ TV Party Display Mode (`src/components/room/podium-view.tsx`, `src/components/room/tv-view.tsx`)
 
 ---
 
