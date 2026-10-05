@@ -88,8 +88,12 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
   }
 
   if (result.playlistId !== undefined) {
-    const trimmed = result.playlistId ? String(result.playlistId).trim() : undefined;
-    result.playlistId = trimmed && trimmed.length > 0 ? trimmed : undefined;
+    if (result.playlistId === null) {
+      result.playlistId = null;
+    } else {
+      const trimmed = result.playlistId ? String(result.playlistId).trim() : undefined;
+      result.playlistId = trimmed && trimmed.length > 0 ? trimmed : undefined;
+    }
   }
 
   return result;
@@ -211,7 +215,9 @@ export function HostSettingsModal({
       } catch {}
 
       const effectivePlaylistId =
-        songSourceType === "playlist" ? draft.playlistId : undefined;
+        songSourceType === "playlist" && draft.playlistId
+          ? draft.playlistId.trim()
+          : null;
 
       const payload = prepareSettingsPayload({
         ...draft,

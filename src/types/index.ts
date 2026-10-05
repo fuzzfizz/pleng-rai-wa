@@ -92,7 +92,7 @@ export interface RoomSettings {
   totalRounds: number; // 0 for unlimited, or e.g. 5, 10, 20
   targetScore: number; // 0 for disabled, or e.g. 10
   genreId?: string; // all or specific genre
-  playlistId?: string; // custom playlist
+  playlistId?: string | null; // custom playlist
 }
 
 export interface RoomState {

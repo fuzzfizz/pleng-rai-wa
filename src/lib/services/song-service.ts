@@ -283,7 +283,7 @@ export async function deleteSong(id: string): Promise<boolean> {
 
 export interface GetRandomSongsOptions {
   genreId?: string;
-  playlistId?: string;
+  playlistId?: string | null;
   excludeIds?: string[];
   fallbackOnEmpty?: boolean;
 }

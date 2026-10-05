@@ -123,7 +123,81 @@ async function runTests() {
     "Numeric playlistId should be stringified and preserved"
   );
 
-  console.log("✓ Passed: prepareSettingsPayload correctly normalizes, trims, and clears playlistId.\n");
+  // 1.8 Explicit null playlistId is preserved (for clearing playlist over JSON)
+  const payload8 = prepareSettingsPayload({
+    playlistId: null,
+  });
+  assert.strictEqual(
+    payload8.playlistId,
+    null,
+    "Explicit null playlistId must be preserved"
+  );
+
+  // 1.9 RoomService.updateRoomSettings deletes playlistId when null or empty
+  {
+    const originalGetClient = (RoomService as any).getClient;
+    const originalGetRoomByCode = RoomService.getRoomByCode;
+    let savedSettingsPayload: any = null;
+
+    try {
+      RoomService.getRoomByCode = async (code: string) => {
+        return {
+          room_code: code,
+          settings: {
+            ...DEFAULT_ROOM_SETTINGS,
+            playlistId: "existing-playlist-123",
+          },
+        };
+      };
+
+      (RoomService as any).getClient = () => ({
+        from: () => ({
+          update: (payload: any) => {
+            savedSettingsPayload = payload.settings;
+            return {
+              eq: () => ({
+                select: () => ({
+                  single: async () => ({
+                    data: { room_code: "TEST01", settings: payload.settings },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          },
+        }),
+      });
+
+      // Clear with null
+      await RoomService.updateRoomSettings("TEST01", { playlistId: null });
+      assert.strictEqual(
+        savedSettingsPayload.playlistId,
+        undefined,
+        "playlistId must be deleted from settings when null is passed"
+      );
+
+      // Clear with empty string
+      await RoomService.updateRoomSettings("TEST01", { playlistId: "" });
+      assert.strictEqual(
+        savedSettingsPayload.playlistId,
+        undefined,
+        "playlistId must be deleted from settings when empty string is passed"
+      );
+
+      // Set new playlistId
+      await RoomService.updateRoomSettings("TEST01", { playlistId: "new-playlist-456" });
+      assert.strictEqual(
+        savedSettingsPayload.playlistId,
+        "new-playlist-456",
+        "Valid playlistId must be updated in settings"
+      );
+    } finally {
+      (RoomService as any).getClient = originalGetClient;
+      RoomService.getRoomByCode = originalGetRoomByCode;
+    }
+  }
+
+  console.log("✓ Passed: prepareSettingsPayload and RoomService correctly handle clearing playlistId.\n");
 
   // -----------------------------------------------------------------------------
   // Test 2: Next Round API passes playlistId to SongService.getRandomSongs
