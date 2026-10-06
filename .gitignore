@@ -45,3 +45,6 @@ Thumbs.db
 .obsidian/
 *.swp
 *.swo
+
+# Superpowers scratch
+/.superpowers/

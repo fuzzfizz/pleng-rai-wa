@@ -234,7 +234,7 @@ export function ProfileModal({
                   onChange={(e) => setDisplayName(e.target.value)}
                   maxLength={30}
                   disabled={isSaving}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                  className="w-full min-h-[44px] bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
                 />
               </div>
             </div>

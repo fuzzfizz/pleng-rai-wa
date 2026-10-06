@@ -52,8 +52,8 @@ export function BuzzerButton({
   // Safe haptic feedback trigger
   const triggerHaptic = useCallback(() => {
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-        navigator.vibrate(40);
+      if (typeof window !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate?.([45]);
       }
     } catch {}
   }, []);
@@ -105,7 +105,7 @@ export function BuzzerButton({
       {status === "ready" && !disabled && (
         <div
           aria-hidden="true"
-          className="absolute w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 rounded-full bg-pink-500/20 animate-ping pointer-events-none"
+          className="absolute w-56 h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 rounded-full bg-pink-500/20 animate-ping pointer-events-none"
         />
       )}
 
@@ -125,7 +125,7 @@ export function BuzzerButton({
             ? "คุณตอบผิดในข้อนี้แล้ว"
             : "รอเริ่มรอบ"
         }
-        className={`relative z-10 w-48 h-48 sm:w-56 sm:h-56 md:w-60 md:h-60 rounded-full flex flex-col items-center justify-center p-4 text-center transition-all duration-200 border-4 shadow-2xl focus:outline-none focus:ring-4 focus:ring-pink-500/50 ${
+        className={`relative z-10 w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-full flex flex-col items-center justify-center p-4 text-center touch-manipulation [touch-action:manipulation] active:scale-95 transition-transform duration-75 border-4 shadow-2xl focus:outline-none focus:ring-4 focus:ring-pink-500/50 ${
           status === "ready" && !disabled
             ? "bg-gradient-to-br from-pink-500 via-rose-500 to-purple-600 border-pink-300 text-white shadow-[0_0_50px_rgba(236,72,153,0.7)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse"
             : status === "buzzed_by_me"
@@ -139,10 +139,10 @@ export function BuzzerButton({
       >
         {status === "ready" && (
           <>
-            <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm mb-2 shadow-inner">
-              <Bell className="w-10 h-10 sm:w-12 sm:h-12 text-white animate-bounce" />
+            <div className="p-3 sm:p-3.5 md:p-4 bg-white/20 rounded-full backdrop-blur-sm mb-2 shadow-inner">
+              <Bell className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-white animate-bounce" />
             </div>
-            <span className="text-xl sm:text-2xl font-black tracking-wide drop-shadow-md">
+            <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-wide drop-shadow-md">
               กดกริ่ง!
             </span>
             <span className="text-xs sm:text-sm font-semibold text-pink-100/90 mt-1 uppercase tracking-wider bg-black/20 px-2.5 py-0.5 rounded-full">
@@ -153,10 +153,10 @@ export function BuzzerButton({
 
         {status === "buzzed_by_me" && (
           <>
-            <div className="p-3 bg-amber-400/20 rounded-full mb-2">
-              <Sparkles className="w-10 h-10 sm:w-12 sm:h-12 text-amber-300 animate-spin" />
+            <div className="p-3 sm:p-3.5 md:p-4 bg-amber-400/20 rounded-full mb-2">
+              <Sparkles className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-amber-300 animate-spin" />
             </div>
-            <span className="text-base sm:text-lg font-black text-amber-300 leading-tight">
+            <span className="text-base sm:text-lg md:text-xl font-black text-amber-300 leading-tight">
               คุณได้สิทธิ์ตอบ!
             </span>
             <span className="text-xs sm:text-sm font-semibold text-amber-200/80 mt-1 bg-amber-950/60 px-2 py-0.5 rounded-full">
@@ -167,25 +167,25 @@ export function BuzzerButton({
 
         {status === "locked_by_other" && (
           <>
-            <div className="p-3 bg-slate-800 rounded-full mb-2">
-              <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
+            <div className="p-3 sm:p-3.5 md:p-4 bg-slate-800 rounded-full mb-2">
+              <Lock className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-slate-400" />
             </div>
-            <span className="text-sm sm:text-base font-bold text-slate-200 px-3 line-clamp-2 leading-tight">
+            <span className="text-sm sm:text-base md:text-lg font-bold text-slate-200 px-3 line-clamp-2 leading-tight">
               {buzzedPlayerName ? `[${buzzedPlayerName}]` : "ผู้เล่นอื่น"}
             </span>
-            <span className="text-xs text-slate-400 mt-1">กำลังตอบ...</span>
+            <span className="text-xs sm:text-sm text-slate-400 mt-1">กำลังตอบ...</span>
           </>
         )}
 
         {status === "excluded" && (
           <>
-            <div className="p-3 bg-rose-950/80 rounded-full mb-2 border border-rose-500/30">
-              <XCircle className="w-8 h-8 sm:w-10 sm:h-10 text-rose-400" />
+            <div className="p-3 sm:p-3.5 md:p-4 bg-rose-950/80 rounded-full mb-2 border border-rose-500/30">
+              <XCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-rose-400" />
             </div>
-            <span className="text-xs sm:text-sm font-bold text-rose-300 px-2 leading-tight">
+            <span className="text-xs sm:text-sm md:text-base font-bold text-rose-300 px-2 leading-tight">
               คุณตอบผิดในข้อนี้แล้ว
             </span>
-            <span className="text-[11px] text-rose-400/70 mt-1">
+            <span className="text-[11px] sm:text-xs text-rose-400/70 mt-1">
               รอข้อถัดไป
             </span>
           </>
@@ -193,10 +193,10 @@ export function BuzzerButton({
 
         {status === "idle" && (
           <>
-            <div className="p-3 bg-slate-800/60 rounded-full mb-2">
-              <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-slate-600 animate-spin" />
+            <div className="p-3 sm:p-3.5 md:p-4 bg-slate-800/60 rounded-full mb-2">
+              <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-slate-600 animate-spin" />
             </div>
-            <span className="text-sm font-medium text-slate-500">
+            <span className="text-sm sm:text-base font-medium text-slate-500">
               รอเริ่มรอบถัดไป...
             </span>
           </>

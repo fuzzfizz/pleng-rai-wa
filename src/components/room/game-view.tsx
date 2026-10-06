@@ -231,12 +231,12 @@ export function GameView({
           </div>
 
           {/* Audio Mute & Exit Button */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={toggleMute}
               aria-label={isMuted ? "เปิดเสียงเอฟเฟกต์" : "ปิดเสียงเอฟเฟกต์"}
-              className={`p-2 rounded-xl border transition ${
+              className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl border flex items-center justify-center transition touch-manipulation cursor-pointer ${
                 isMuted
                   ? "bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300"
                   : "bg-slate-900 border-pink-500/30 text-pink-400 shadow-sm"
@@ -250,7 +250,7 @@ export function GameView({
                 type="button"
                 onClick={onLeaveRoom}
                 aria-label="ออกจากห้องเล่นเกม"
-                className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 transition"
+                className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 transition flex items-center justify-center touch-manipulation cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -375,7 +375,7 @@ export function GameView({
               <button
                 type="button"
                 onClick={onLeaveRoom}
-                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-base shadow-lg hover:from-pink-400 hover:to-purple-500 transition active:scale-95 cursor-pointer mt-2"
+                className="w-full min-h-[44px] py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-base shadow-lg hover:from-pink-400 hover:to-purple-500 transition active:scale-95 cursor-pointer mt-2 touch-manipulation"
               >
                 กลับสู่หน้าหลัก / ล็อบบี้
               </button>
@@ -399,7 +399,7 @@ export function GameView({
       {/* ==================================================== */}
       {/* BOTTOM BAR: Status cue pill                          */}
       {/* ==================================================== */}
-      <footer className="p-3 text-center text-xs text-slate-500 border-t border-slate-900 bg-slate-950/80">
+      <footer className="p-3 pb-safe text-center text-xs text-slate-500 border-t border-slate-900 bg-slate-950/80">
         <p>
           ห้อง: <span className="font-mono font-bold text-pink-400">{roomCode}</span> •{" "}
           {status === "question_active"

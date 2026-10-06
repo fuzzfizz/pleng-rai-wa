@@ -368,6 +368,9 @@ function SoloPlayContent() {
     setIsPlayingAudio(false);
     setIsBuzzed(true);
     playBuzzerSound();
+    if (typeof window !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate?.([45]);
+    }
 
     // Start 10-second answer countdown
     setBuzzerCountdown(10);
@@ -473,13 +476,13 @@ function SoloPlayContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans bg-radial-glow overflow-x-hidden">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col font-sans bg-radial-glow overflow-x-hidden pt-safe pb-safe">
       {/* Top Bar */}
       <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-4 sm:px-8 py-3 sticky top-0 z-30 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="w-9 h-9 rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] p-2.5 shrink-0 rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition-colors touch-manipulation"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
@@ -508,8 +511,10 @@ function SoloPlayContent() {
           )}
 
           <button
+            type="button"
             onClick={toggleMute}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
+            aria-label={isMuted ? "เปิดเสียง" : "ปิดเสียง"}
+            className={`w-11 h-11 min-h-[44px] min-w-[44px] p-2.5 shrink-0 rounded-xl border flex items-center justify-center transition-colors cursor-pointer touch-manipulation ${
               isMuted
                 ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
                 : "border-slate-800 bg-slate-900 text-slate-400 hover:text-white"
@@ -542,7 +547,7 @@ function SoloPlayContent() {
                   value={selectedPlaylistId}
                   onChange={(e) => handleSelectPlaylist(e.target.value)}
                   disabled={isLoadingPlaylists || isLoadingSongs}
-                  className="w-full bg-slate-950 border border-slate-700/80 hover:border-slate-600 focus:border-purple-500 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
+                  className="w-full bg-slate-950 border border-slate-700/80 hover:border-slate-600 focus:border-purple-500 rounded-xl px-3 py-2 text-base sm:text-sm text-white focus:outline-none transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
                 >
                   <option value="all">
                     🌐 สุ่มเพลงทั้งหมด (All Library - {defaultLibrarySongsRef.current.length} เพลง)
@@ -612,7 +617,7 @@ function SoloPlayContent() {
               setIsBuzzed(false);
               setIsPlayingAudio(false);
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameMode === "audio-slice" ? "bg-pink-600 text-white shadow-lg shadow-pink-600/20" : "text-slate-400 hover:text-white"
             }`}
           >
@@ -625,7 +630,7 @@ function SoloPlayContent() {
               setGameMode("buzzer");
               setIsPlayingAudio(false);
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameMode === "buzzer" ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20" : "text-slate-400 hover:text-white"
             }`}
           >
@@ -639,7 +644,7 @@ function SoloPlayContent() {
               setIsPlayingAudio(false);
               setIsBuzzed(false);
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameMode === "ai-lyrics" ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/20" : "text-slate-400 hover:text-white"
             }`}
           >
@@ -677,7 +682,7 @@ function SoloPlayContent() {
                   <button
                     key={dur}
                     onClick={() => setSliceDuration(dur)}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
                       sliceDuration === dur
                         ? "bg-pink-500 text-white shadow-lg shadow-pink-500/25"
                         : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
@@ -690,9 +695,11 @@ function SoloPlayContent() {
 
               {/* Big Play Button */}
               <button
+                type="button"
                 onClick={handlePlaySlice}
                 disabled={isPlayingAudio}
-                className={`w-28 h-28 rounded-full flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                aria-label="ฟังเสียงตัวอย่างเสี้ยววินาที"
+                className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
                   isPlayingAudio
                     ? "bg-pink-500 text-white scale-105 shadow-2xl shadow-pink-500/50 animate-pulse"
                     : "bg-gradient-to-tr from-pink-500 to-purple-600 hover:scale-105 text-white shadow-xl shadow-pink-500/30"
@@ -736,8 +743,10 @@ function SoloPlayContent() {
                 )}
 
                 <button
+                  type="button"
                   onClick={isPlayingAudio ? handleBuzz : handleToggleBuzzerSong}
-                  className={`w-36 h-36 rounded-full flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  aria-label={isBuzzed ? "กดกริ่งแล้ว" : isPlayingAudio ? "กดกริ่งแย่งตอบ" : "เริ่มเปิดเพลง"}
+                  className={`w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
                     isBuzzed
                       ? "bg-amber-500 text-slate-950 scale-105 shadow-2xl shadow-amber-500/50"
                       : isPlayingAudio
@@ -747,19 +756,19 @@ function SoloPlayContent() {
                 >
                   {isBuzzed ? (
                     <>
-                      <Bell className="w-10 h-10" />
-                      <span className="text-xs font-black">กดกริ่งแล้ว!</span>
+                      <Bell className="w-10 h-10 sm:w-12 sm:h-12" />
+                      <span className="text-xs sm:text-sm font-black">กดกริ่งแล้ว!</span>
                     </>
                   ) : isPlayingAudio ? (
                     <>
-                      <Bell className="w-12 h-12 animate-wiggle" />
-                      <span className="text-xs font-black">กดกริ่งแย่งตอบ!</span>
+                      <Bell className="w-12 h-12 sm:w-14 sm:h-14 animate-wiggle" />
+                      <span className="text-xs sm:text-sm font-black">กดกริ่งแย่งตอบ!</span>
                       <span className="text-[10px] opacity-80">(Spacebar)</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-10 h-10 ml-1" />
-                      <span className="text-xs font-bold">เริ่มเปิดเพลง</span>
+                      <Play className="w-10 h-10 sm:w-12 sm:h-12 ml-1" />
+                      <span className="text-xs sm:text-sm font-bold">เริ่มเปิดเพลง</span>
                     </>
                   )}
                 </button>
@@ -780,8 +789,9 @@ function SoloPlayContent() {
               {/* Lyrics Type Switch */}
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setLyricsType("chorus")}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
                     lyricsType === "chorus"
                       ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/25"
                       : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
@@ -790,8 +800,9 @@ function SoloPlayContent() {
                   🎵 ท่อนฮุก (Chorus)
                 </button>
                 <button
+                  type="button"
                   onClick={() => setLyricsType("intro")}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
                     lyricsType === "intro"
                       ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/25"
                       : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
@@ -804,8 +815,10 @@ function SoloPlayContent() {
               {/* Speak Button */}
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={isAITalking ? handleStopSpeaking : handleSpeakLyrics}
-                  className={`w-28 h-28 rounded-full flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  aria-label={isAITalking ? "หยุดพูด" : "ให้ AI อ่านเนื้อเพลง"}
+                  className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
                     isAITalking
                       ? "bg-cyan-500 text-white shadow-2xl shadow-cyan-500/50 scale-105 animate-pulse"
                       : "bg-gradient-to-tr from-cyan-500 to-blue-600 hover:scale-105 text-white shadow-xl shadow-cyan-500/30"
@@ -858,7 +871,7 @@ function SoloPlayContent() {
 
               <button
                 onClick={handleNextSong}
-                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-lg shadow-purple-600/25"
+                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs px-4 py-2.5 min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-lg shadow-purple-600/25"
               >
                 <span>เพลงถัดไป</span>
                 <ArrowRight className="w-4 h-4" />
@@ -876,7 +889,7 @@ function SoloPlayContent() {
               <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
                 <button
                   onClick={() => setInputMode("autocomplete")}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  className={`px-3 py-2 min-h-[44px] rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
                     inputMode === "autocomplete" ? "bg-slate-800 text-white font-medium" : "text-slate-500"
                   }`}
                 >
@@ -884,7 +897,7 @@ function SoloPlayContent() {
                 </button>
                 <button
                   onClick={() => setInputMode("free-text")}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  className={`px-3 py-2 min-h-[44px] rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
                     inputMode === "free-text" ? "bg-slate-800 text-white font-medium" : "text-slate-500"
                   }`}
                 >
@@ -902,12 +915,12 @@ function SoloPlayContent() {
                   value={userGuess}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmitAnswer()}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
                 />
                 <button
                   onClick={() => handleSubmitAnswer()}
                   disabled={!userGuess.trim()}
-                  className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold px-6 rounded-2xl text-sm transition-colors cursor-pointer shadow-lg shadow-purple-600/20"
+                  className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold px-6 min-h-[44px] rounded-2xl text-base sm:text-sm transition-colors cursor-pointer shadow-lg shadow-purple-600/20 flex items-center justify-center"
                 >
                   ตอบ
                 </button>
@@ -924,7 +937,7 @@ function SoloPlayContent() {
                         setAutocompleteSuggestions([]);
                         handleSubmitAnswer(song.title);
                       }}
-                      className="w-full text-left px-3.5 py-2 rounded-xl text-xs hover:bg-slate-800 transition-colors flex items-center justify-between text-slate-200 cursor-pointer"
+                      className="w-full text-left px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs hover:bg-slate-800 transition-colors flex items-center justify-between text-slate-200 cursor-pointer"
                     >
                       <span className="font-semibold text-white">{song.title}</span>
                       <span className="text-slate-500 text-[11px]">{song.artist}</span>
@@ -945,7 +958,7 @@ function SoloPlayContent() {
                     message: `เฉลย: เพลง "${currentSong.title}" โดย ${currentSong.artist}`,
                   });
                 }}
-                className="text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 cursor-pointer"
+                className="text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 cursor-pointer min-h-[44px] py-2 px-1"
               >
                 <HelpCircle className="w-3.5 h-3.5" />
                 <span>ยอมแพ้ / ดูเฉลย</span>
@@ -953,7 +966,7 @@ function SoloPlayContent() {
 
               <button
                 onClick={handleNextSong}
-                className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer min-h-[44px] py-2 px-1"
               >
                 <span>ข้ามไปเพลงถัดไป</span>
                 <ArrowRight className="w-3.5 h-3.5" />

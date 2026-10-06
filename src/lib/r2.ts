@@ -19,12 +19,15 @@ let s3ClientInstance: S3Client | null = null;
  */
 export function getR2Client(): S3Client {
   if (!s3ClientInstance) {
-    const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
-    const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "";
-    const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "";
+    const accountId =
+      process.env.R2_ACCOUNT_ID || process.env.CLOUDFLARE_R2_ACCOUNT_ID;
+    const accessKeyId =
+      process.env.R2_ACCESS_KEY_ID || process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "";
+    const secretAccessKey =
+      process.env.R2_SECRET_ACCESS_KEY || process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "";
 
     if (!accountId) {
-      console.warn("[Cloudflare R2] Warning: CLOUDFLARE_R2_ACCOUNT_ID is not defined.");
+      console.warn("[Cloudflare R2] Warning: R2_ACCOUNT_ID or CLOUDFLARE_R2_ACCOUNT_ID is not defined.");
     }
 
     s3ClientInstance = new S3Client({
@@ -54,7 +57,8 @@ export async function uploadAudioToR2(
   contentType: string = "audio/mpeg"
 ): Promise<string> {
   const client = getR2Client();
-  const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME || "pleng-rai-wa-audio";
+  const bucketName =
+    process.env.R2_BUCKET_NAME || process.env.CLOUDFLARE_R2_BUCKET_NAME || "pleng-rai-wa-audio";
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
@@ -66,7 +70,9 @@ export async function uploadAudioToR2(
   await client.send(command);
 
   // If a public R2 domain or dev URL is configured (e.g. https://pub-xxx.r2.dev or custom cdn)
-  const publicUrlBase = process.env.CLOUDFLARE_R2_PUBLIC_URL?.replace(/\/+$/, "");
+  const publicUrlBase = (
+    process.env.R2_PUBLIC_DOMAIN || process.env.CLOUDFLARE_R2_PUBLIC_URL
+  )?.replace(/\/+$/, "");
   if (publicUrlBase) {
     return `${publicUrlBase}/${key}`;
   }

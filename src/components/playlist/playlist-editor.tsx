@@ -456,7 +456,7 @@ export function PlaylistEditor({
             }}
             placeholder="เช่น เพลงฮิตยุค 90s, กามิกาเซ่ในตำนาน..."
             maxLength={60}
-            className="w-full min-h-[44px] px-4 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors"
+            className="w-full min-h-[44px] px-4 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors"
           />
         </div>
 
@@ -470,7 +470,7 @@ export function PlaylistEditor({
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             placeholder="เพิ่มคำอธิบายสั้นๆ เกี่ยวกับเพลงในลิสต์นี้..."
-            className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors resize-none"
+            className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors resize-none"
           />
         </div>
 
@@ -651,7 +651,7 @@ export function PlaylistEditor({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="ค้นหาตามชื่อเพลง หรือ ศิลปิน..."
-                className="w-full min-h-[44px] pl-10 pr-4 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors"
+                className="w-full min-h-[44px] pl-10 pr-4 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors"
               />
               {isSearching && (
                 <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-pink-500" />
