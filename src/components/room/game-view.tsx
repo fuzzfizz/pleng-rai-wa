@@ -168,15 +168,15 @@ export function GameView({
   const roundText = totalRounds > 0 ? `ข้อที่ ${currentRound}/${totalRounds}` : `ข้อที่ ${currentRound}`;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between selection:bg-pink-500 selection:text-white relative overflow-hidden">
-      {/* Background neon ambient gradients */}
+    <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0c0a09] text-stone-900 dark:text-white flex flex-col justify-between selection:bg-amber-500 selection:text-stone-950 relative overflow-hidden transition-colors duration-200">
+      {/* Background warm ambient gradients */}
       <div
         aria-hidden="true"
-        className="fixed top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"
+        className="fixed top-0 left-1/4 w-96 h-96 bg-amber-500/10 dark:bg-amber-600/10 rounded-full blur-3xl pointer-events-none"
       />
       <div
         aria-hidden="true"
-        className="fixed bottom-0 right-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-3xl pointer-events-none"
+        className="fixed bottom-0 right-1/4 w-96 h-96 bg-orange-500/10 dark:bg-orange-700/08 rounded-full blur-3xl pointer-events-none"
       />
 
       {/* Hidden Audio Player for question slice */}
@@ -192,15 +192,15 @@ export function GameView({
       {/* ==================================================== */}
       {/* TOP HEADER: Round info, game mode badge, sound mute  */}
       {/* ==================================================== */}
-      <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-30 bg-white/80 dark:bg-stone-950/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800/80 px-4 py-3 sm:px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
           {/* Round Indicator & Mode Badge */}
           <div className="flex items-center gap-2.5">
-            <span className="px-3 py-1 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full font-black text-xs sm:text-sm text-white shadow-md shadow-pink-500/20">
+            <span className="px-3 py-1 bg-amber-500 rounded-full font-black text-xs sm:text-sm text-stone-950 shadow-md shadow-amber-500/20">
               {roundText}
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-xs font-semibold text-slate-300">
-              <Zap className="w-3.5 h-3.5 text-pink-400" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-full text-xs font-semibold text-stone-700 dark:text-stone-300">
+              <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               {modeLabel}
             </span>
           </div>
@@ -215,14 +215,14 @@ export function GameView({
                   key={p.id}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shrink-0 transition ${
                     isMe
-                      ? "bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm"
-                      : "bg-slate-900/90 text-slate-300 border border-slate-800"
+                      ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50 shadow-sm"
+                      : "bg-white/80 dark:bg-stone-900/90 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-800"
                   }`}
                 >
                   <span className="text-[13px]">{avatar}</span>
                   <span className="truncate max-w-[70px] sm:max-w-[90px]">{p.displayName}</span>
-                  {idx === 0 && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
-                  <span className="px-1.5 py-0.2 rounded bg-slate-950 text-amber-400 font-mono text-[11px]">
+                  {idx === 0 && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
+                  <span className="px-1.5 py-0.2 rounded bg-stone-100 dark:bg-stone-950 text-amber-600 dark:text-amber-400 font-mono text-[11px]">
                     {p.score}
                   </span>
                 </div>
@@ -238,8 +238,8 @@ export function GameView({
               aria-label={isMuted ? "เปิดเสียงเอฟเฟกต์" : "ปิดเสียงเอฟเฟกต์"}
               className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl border flex items-center justify-center transition touch-manipulation cursor-pointer ${
                 isMuted
-                  ? "bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300"
-                  : "bg-slate-900 border-pink-500/30 text-pink-400 shadow-sm"
+                  ? "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 shadow-sm"
               }`}
             >
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -250,7 +250,7 @@ export function GameView({
                 type="button"
                 onClick={onLeaveRoom}
                 aria-label="ออกจากห้องเล่นเกม"
-                className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 transition flex items-center justify-center touch-manipulation cursor-pointer"
+                className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-500 hover:text-rose-500 hover:border-rose-500/40 transition flex items-center justify-center touch-manipulation cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -285,19 +285,19 @@ export function GameView({
             {/* Audio Wave / Lyrics Reading Visualization */}
             <div className="flex flex-col items-center gap-2 my-2 text-center">
               {gameMode === "ai-lyrics" ? (
-                <div className="max-w-lg p-4 rounded-2xl bg-slate-900/90 border border-purple-500/40 shadow-[0_0_30px_rgba(168,85,247,0.2)] text-purple-200">
-                  <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-400 mb-1">
-                    <Radio className="w-4 h-4 animate-pulse text-purple-400" />
+                <div className="max-w-lg p-4 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-amber-500/40 shadow-lg text-amber-800 dark:text-amber-200">
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                    <Radio className="w-4 h-4 animate-pulse text-amber-500" />
                     <span>AI กำลังอ่านท่อนเนื้อเพลง</span>
                   </div>
-                  <p className="text-base sm:text-lg font-semibold italic text-white drop-shadow">
+                  <p className="text-base sm:text-lg font-semibold italic text-stone-900 dark:text-white drop-shadow">
                     &ldquo;{activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}&rdquo;
                   </p>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 h-10 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full">
-                  <Music className="w-4 h-4 text-pink-400 mr-1" />
-                  <span className="text-xs font-bold text-slate-400 mr-2">
+                <div className="flex items-center gap-1.5 h-10 px-4 py-2 bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 rounded-full shadow-sm">
+                  <Music className="w-4 h-4 text-amber-500 mr-1" />
+                  <span className="text-xs font-bold text-stone-600 dark:text-stone-400 mr-2">
                     {isAudioPlaying ? "กำลังเปิดเสียงตัวอย่าง..." : "เพลงหยุดชั่วคราว"}
                   </span>
                   {[0.4, 0.9, 0.6, 1.0, 0.7, 0.3, 0.8].map((scale, i) => (
@@ -305,8 +305,8 @@ export function GameView({
                       key={i}
                       className={`w-1 rounded-full transition-all duration-300 ${
                         isAudioPlaying
-                          ? "bg-gradient-to-t from-pink-500 to-purple-400 animate-pulse"
-                          : "bg-slate-700 h-2"
+                          ? "bg-gradient-to-t from-amber-500 to-orange-400 animate-pulse"
+                          : "bg-stone-300 dark:bg-stone-700 h-2"
                       }`}
                       style={{
                         height: isAudioPlaying ? `${Math.round(scale * 24)}px` : "6px",
@@ -330,15 +330,15 @@ export function GameView({
 
         {/* 3. Game Over Screen */}
         {status === "game_over" && (
-          <div className="w-full max-w-lg bg-slate-900/95 border-2 border-amber-400 rounded-3xl p-7 text-center shadow-[0_0_60px_rgba(245,158,11,0.35)] flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
-            <div className="p-3 bg-amber-500/20 rounded-full text-amber-300">
+          <div className="w-full max-w-lg bg-white/95 dark:bg-stone-900/95 border-2 border-amber-400 rounded-3xl p-7 text-center shadow-2xl flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
+            <div className="p-3 bg-amber-500/20 rounded-full text-amber-600 dark:text-amber-300">
               <Trophy className="w-12 h-12 animate-bounce" />
             </div>
             <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-amber-300 tracking-wide">
+              <h2 className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-300 tracking-wide">
                 จบการแข่งขัน!
               </h2>
-              <p className="text-sm text-slate-400 mt-1">สรุปคะแนนผู้ชนะประจำห้อง</p>
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">สรุปคะแนนผู้ชนะประจำห้อง</p>
             </div>
 
             <div className="w-full space-y-2">
@@ -350,12 +350,12 @@ export function GameView({
                     key={p.id}
                     className={`flex items-center justify-between px-4 py-2.5 rounded-2xl border ${
                       isWinner
-                        ? "bg-amber-500/20 border-amber-400/80 text-amber-200 shadow-md"
-                        : "bg-slate-950/80 border-slate-800 text-slate-300"
+                        ? "bg-amber-500/15 border-amber-400/80 text-amber-800 dark:text-amber-200 shadow-sm"
+                        : "bg-stone-50 dark:bg-stone-950/80 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-sm w-5 text-slate-400">
+                      <span className="font-mono font-bold text-sm w-5 text-stone-400">
                         #{rank + 1}
                       </span>
                       <span className="text-xl">{avatar}</span>
@@ -363,7 +363,7 @@ export function GameView({
                         {p.displayName}
                       </span>
                     </div>
-                    <span className="font-mono font-black text-base text-amber-400">
+                    <span className="font-mono font-black text-base text-amber-600 dark:text-amber-400">
                       {p.score} แต้ม
                     </span>
                   </div>
@@ -375,7 +375,7 @@ export function GameView({
               <button
                 type="button"
                 onClick={onLeaveRoom}
-                className="w-full min-h-[44px] py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-base shadow-lg hover:from-pink-400 hover:to-purple-500 transition active:scale-95 cursor-pointer mt-2 touch-manipulation"
+                className="w-full min-h-[44px] py-3.5 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-base shadow-md shadow-amber-500/20 transition active:scale-95 cursor-pointer mt-2 touch-manipulation"
               >
                 กลับสู่หน้าหลัก / ล็อบบี้
               </button>
@@ -399,9 +399,9 @@ export function GameView({
       {/* ==================================================== */}
       {/* BOTTOM BAR: Status cue pill                          */}
       {/* ==================================================== */}
-      <footer className="p-3 pb-safe text-center text-xs text-slate-500 border-t border-slate-900 bg-slate-950/80">
+      <footer className="p-3 pb-safe text-center text-xs text-stone-500 border-t border-stone-200 dark:border-stone-900 bg-white/80 dark:bg-stone-950/80">
         <p>
-          ห้อง: <span className="font-mono font-bold text-pink-400">{roomCode}</span> •{" "}
+          ห้อง: <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{roomCode}</span> •{" "}
           {status === "question_active"
             ? "แตะกริ่งหรือกด Spacebar เพื่อแย่งตอบ"
             : status === "buzzed"

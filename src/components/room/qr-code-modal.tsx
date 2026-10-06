@@ -112,54 +112,54 @@ export function QRCodeModal({ isOpen, onClose, roomCode }: QRCodeModalProps): Re
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm sm:max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center overflow-hidden"
+        className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient background glows */}
-        <div className="absolute -top-16 -left-16 w-40 h-40 bg-pink-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -right-16 w-40 h-40 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-16 -left-16 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -right-16 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Close button */}
         <button
           onClick={onClose}
           aria-label="ปิดหน้าต่าง"
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-full transition-colors cursor-pointer"
+          className="absolute top-4 right-4 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Title */}
         <div className="flex items-center justify-center gap-2 mb-2">
-          <div className="p-2 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
             <QrCode className="w-5 h-5" />
           </div>
-          <h2 id="qr-modal-title" className="text-xl font-bold text-white tracking-tight">
+          <h2 id="qr-modal-title" className="text-xl font-bold text-stone-900 dark:text-stone-100 tracking-tight font-serif">
             สแกนเข้าห้องเล่นเกม
           </h2>
         </div>
-        <p className="text-xs sm:text-sm text-slate-400 mb-6">
+        <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mb-6">
           เปิดกล้องมือถือสแกน QR Code หรือแชร์ลิงก์ให้เพื่อนเข้าร่วมได้ทันที
         </p>
 
         {/* QR Code Canvas Card */}
-        <div className="inline-flex flex-col items-center justify-center bg-white p-5 rounded-2xl shadow-xl shadow-black/40 mb-6 transition-transform hover:scale-[1.02]">
+        <div className="inline-flex flex-col items-center justify-center bg-white p-5 rounded-2xl shadow-md border border-stone-200 dark:border-stone-700 mb-6 transition-transform hover:scale-[1.02]">
           <QRCodeCanvas
             value={joinUrl}
             size={220}
             level="M"
             marginSize={1}
             bgColor="#ffffff"
-            fgColor="#090d16"
+            fgColor="#1c1917"
           />
         </div>
 
         {/* Prominent Room Code */}
         <div className="mb-6">
-          <div className="text-xs text-slate-400 font-medium mb-1 uppercase tracking-wider">
+          <div className="text-xs text-stone-500 dark:text-stone-400 font-medium mb-1 uppercase tracking-wider">
             รหัสห้อง (Room Code)
           </div>
-          <div className="inline-block px-5 py-2.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 shadow-inner">
-            <span className="font-mono text-2xl sm:text-3xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-300 to-cyan-300 select-all">
+          <div className="inline-block px-5 py-2.5 rounded-2xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 shadow-inner">
+            <span className="font-mono text-2xl sm:text-3xl font-extrabold tracking-widest text-amber-600 dark:text-amber-400 select-all">
               {spacedCode || "------"}
             </span>
           </div>
@@ -169,10 +169,10 @@ export function QRCodeModal({ isOpen, onClose, roomCode }: QRCodeModalProps): Re
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={handleCopyLink}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-medium text-sm transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 min-h-[44px] rounded-2xl font-semibold text-sm transition-all cursor-pointer ${
               copiedLink
                 ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/25"
-                : "bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white shadow-lg shadow-pink-500/25 active:scale-[0.98]"
+                : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-md shadow-amber-500/20 active:scale-[0.98]"
             }`}
           >
             {copiedLink ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
@@ -181,10 +181,10 @@ export function QRCodeModal({ isOpen, onClose, roomCode }: QRCodeModalProps): Re
 
           <button
             onClick={handleCopyCode}
-            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-medium text-sm transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 py-3 px-4 min-h-[44px] rounded-2xl font-semibold text-sm transition-all cursor-pointer ${
               copiedCode
                 ? "bg-emerald-600 text-white border border-emerald-500"
-                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 active:scale-[0.98]"
+                : "bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-stone-700 active:scale-[0.98]"
             }`}
           >
             {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

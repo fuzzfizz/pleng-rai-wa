@@ -271,8 +271,8 @@ export function PodiumView({
     <div className="relative w-full min-h-screen min-h-[100dvh] max-w-5xl mx-auto flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 select-none pt-safe pb-safe">
       {/* Ambient background glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/3 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-72 h-72 bg-amber-600/08 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Banner */}
       <div className="text-center mb-6 sm:mb-10 z-10">
@@ -361,8 +361,8 @@ export function PodiumView({
       {runnersUp.length > 0 && (
         <div className="w-full max-w-2xl mt-8 mb-6 z-10">
           <div className="flex items-center gap-2 mb-3 px-2">
-            <Award className="w-5 h-5 text-purple-400" />
-            <h2 className="text-base sm:text-lg font-bold text-slate-200">
+            <Award className="w-5 h-5 text-amber-500" />
+            <h2 className="text-base sm:text-lg font-bold text-stone-800 dark:text-stone-200">
               อันดับผู้ร่วมแข่งขันอื่นๆ ({runnersUp.length} คน)
             </h2>
           </div>
@@ -379,13 +379,13 @@ export function PodiumView({
               return (
                 <div
                   key={player.id || idx}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-slate-900/80 border border-slate-800/90 shadow-sm backdrop-blur-sm"
+                  className="flex items-center justify-between p-3 rounded-2xl bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800/90 shadow-sm backdrop-blur-sm"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="font-mono text-sm font-extrabold text-slate-400 w-6 text-center">
+                    <span className="font-mono text-sm font-extrabold text-stone-400 w-6 text-center">
                       #{rank}
                     </span>
-                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center border border-slate-700 shrink-0">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 flex items-center justify-center border border-stone-200 dark:border-stone-700 shrink-0">
                       {isImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -398,7 +398,7 @@ export function PodiumView({
                       )}
                     </div>
                     <span
-                      className="font-bold text-sm text-slate-200 truncate"
+                      className="font-bold text-sm text-stone-800 dark:text-slate-200 truncate"
                       title={player.displayName}
                     >
                       {player.displayName}
@@ -406,7 +406,7 @@ export function PodiumView({
                   </div>
 
                   <div className="shrink-0 pl-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-300 bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-full">
                       <Trophy className="w-3 h-3" />
                       <span>{player.score ?? 0}</span>
                     </span>
@@ -420,28 +420,26 @@ export function PodiumView({
 
       {/* Post-Game Actions */}
       <div className="w-full max-w-md flex flex-col sm:flex-row items-center justify-center gap-3 mt-8 z-10">
-        {/* Host action: Play Again */}
         {isHost && onPlayAgain && (
           <button
             type="button"
             onClick={handlePlayAgain}
             disabled={isProcessingAction}
-            className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:from-amber-400 hover:via-pink-400 hover:to-purple-500 text-white font-extrabold text-base shadow-lg shadow-pink-500/25 transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
+            className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-base shadow-md shadow-amber-500/20 transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
           >
             <RotateCcw className="w-5 h-5" />
             <span>เริ่มเกมใหม่ (Play Again)</span>
           </button>
         )}
 
-        {/* Host action: Back to Lobby */}
         {isHost && onBackToLobby && (
           <button
             type="button"
             onClick={handleBackToLobby}
             disabled={isProcessingAction}
-            className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 border border-slate-700 font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
+            className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
           >
-            <Home className="w-5 h-5 text-slate-400" />
+            <Home className="w-5 h-5 text-stone-400" />
             <span>กลับสู่ Lobby</span>
           </button>
         )}

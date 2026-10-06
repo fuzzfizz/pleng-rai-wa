@@ -43,12 +43,12 @@ assert.ok(
   "Viewport must configure maximumScale: 5 (WCAG 2.1 zoom accessibility compliant)"
 );
 assert.ok(
-  layoutContent.includes('themeColor: "#030712"'),
-  "Viewport must configure themeColor: '#030712'"
+  layoutContent.includes("themeColor: [") || layoutContent.includes('themeColor: "#030712"'),
+  "Viewport must configure themeColor"
 );
 assert.ok(
-  layoutContent.includes('colorScheme: "dark"'),
-  "Viewport must configure colorScheme: 'dark'"
+  layoutContent.includes('colorScheme: "dark light"') || layoutContent.includes('colorScheme: "dark"'),
+  "Viewport must configure colorScheme"
 );
 
 // 1.2 Assert min-h-[100dvh] dynamic viewport height on body

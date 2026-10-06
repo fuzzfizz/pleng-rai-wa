@@ -158,17 +158,17 @@ export function RoundRevealCard({
       </div>
 
       {/* Revealed Song Metadata Card */}
-      <div className="flex flex-col sm:flex-row items-center gap-5 p-4 sm:p-5 bg-slate-950/80 border border-slate-800 rounded-2xl shadow-inner">
+      <div className="flex flex-col sm:flex-row items-center gap-5 p-4 sm:p-5 bg-stone-50 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-inner">
         {/* Vinyl / Cover Art Graphic */}
-        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-pink-500 via-purple-600 to-indigo-700 p-0.5 shadow-lg shrink-0 flex items-center justify-center group overflow-hidden">
-          <div className="w-full h-full bg-slate-950 rounded-2xl flex items-center justify-center relative overflow-hidden">
+        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-amber-600 via-amber-500 to-orange-600 p-0.5 shadow-md shrink-0 flex items-center justify-center group overflow-hidden">
+          <div className="w-full h-full bg-stone-100 dark:bg-stone-950 rounded-2xl flex items-center justify-center relative overflow-hidden">
             <Disc
-              className={`w-14 h-14 sm:w-16 sm:h-16 text-pink-400 transition-transform duration-1000 ${
+              className={`w-14 h-14 sm:w-16 sm:h-16 text-amber-600 dark:text-amber-400 transition-transform duration-1000 ${
                 isPlayingAudio ? "animate-spin" : "group-hover:rotate-45"
               }`}
             />
             {isPlayingAudio && (
-              <span className="absolute inset-0 bg-pink-500/20 animate-pulse pointer-events-none" />
+              <span className="absolute inset-0 bg-amber-500/20 animate-pulse pointer-events-none" />
             )}
           </div>
         </div>
@@ -177,29 +177,29 @@ export function RoundRevealCard({
         <div className="flex-1 text-center sm:text-left overflow-hidden w-full">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1.5">
             {song?.genre?.nameTh && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
                 <Tag className="w-3 h-3" />
                 {song.genre.nameTh}
               </span>
             )}
             {song?.releaseYear && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                <Calendar className="w-3 h-3 text-slate-400" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700">
+                <Calendar className="w-3 h-3 text-stone-500 dark:text-slate-400" />
                 ปี {song.releaseYear}
               </span>
             )}
             {song?.era && (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-500/30">
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/10 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-500/30">
                 ยุค {song.era}
               </span>
             )}
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-black text-white truncate drop-shadow">
+          <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white truncate drop-shadow-sm">
             {song?.title || "ไม่ทราบชื่อเพลง"}
           </h2>
-          <p className="text-sm sm:text-base text-slate-300 font-medium truncate mt-0.5">
-            ศิลปิน: <span className="text-amber-300 font-semibold">{song?.artist || "ไม่ระบุศิลปิน"}</span>
+          <p className="text-sm sm:text-base text-stone-600 dark:text-slate-300 font-medium truncate mt-0.5">
+            ศิลปิน: <span className="text-amber-700 dark:text-amber-400 font-semibold">{song?.artist || "ไม่ระบุศิลปิน"}</span>
           </p>
 
           {/* Audio Hook Player Button */}
@@ -209,10 +209,10 @@ export function RoundRevealCard({
                 type="button"
                 onClick={handleToggleAudio}
                 aria-label={isPlayingAudio ? "หยุดเสียงท่อนฮุก" : "ฟังท่อนฮุกเต็ม"}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl text-xs sm:text-sm font-bold transition shadow-md active:scale-95 touch-manipulation cursor-pointer ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl text-xs sm:text-sm font-bold transition shadow-sm active:scale-95 touch-manipulation cursor-pointer ${
                   isPlayingAudio
-                    ? "bg-rose-500 text-white shadow-rose-500/40"
-                    : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                    ? "bg-rose-500 text-white shadow-rose-500/30"
+                    : "bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700"
                 }`}
               >
                 {isPlayingAudio ? (
@@ -222,7 +222,7 @@ export function RoundRevealCard({
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4 text-pink-400" />
+                    <Play className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <span>ฟังท่อนฮุกเต็ม</span>
                   </>
                 )}
@@ -239,10 +239,10 @@ export function RoundRevealCard({
             type="button"
             onClick={onNextRound}
             disabled={isLoadingNext}
-            className={`w-full min-h-[48px] py-4 px-6 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-xl touch-manipulation ${
+            className={`w-full min-h-[48px] py-4 px-6 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-md touch-manipulation ${
               isLoadingNext
-                ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
-                : "bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white shadow-pink-500/30 cursor-pointer"
+                ? "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-slate-500 cursor-not-allowed border border-stone-300 dark:border-stone-700"
+                : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/20 cursor-pointer"
             }`}
           >
             {isLoadingNext ? (
@@ -253,7 +253,7 @@ export function RoundRevealCard({
             ) : isFinalRound ? (
               <>
                 <span>ดูผลสรุปการแข่งขัน (Game Over)</span>
-                <Trophy className="w-5 h-5 text-amber-300" />
+                <Trophy className="w-5 h-5 text-stone-950" />
               </>
             ) : (
               <>
@@ -263,8 +263,8 @@ export function RoundRevealCard({
             )}
           </button>
         ) : (
-          <div className="w-full py-3.5 px-4 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-center gap-2.5 text-slate-400 text-sm font-semibold">
-            <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+          <div className="w-full py-3.5 px-4 bg-stone-100 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-2xl flex items-center justify-center gap-2.5 text-stone-600 dark:text-slate-400 text-sm font-semibold">
+            <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
             <span>รอ Host เริ่มข้อถัดไป...</span>
           </div>
         )}

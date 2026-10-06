@@ -269,23 +269,23 @@ export function HostSettingsModal({
       }}
     >
       <div
-        className="relative w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl text-left my-auto max-h-[92vh] flex flex-col overflow-hidden"
+        className="relative w-full max-w-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 sm:p-7 shadow-2xl text-left my-auto max-h-[92vh] flex flex-col overflow-hidden text-stone-900 dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}
-        <div className="absolute top-0 right-1/4 w-60 h-28 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-60 h-28 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 shrink-0">
+        <div className="flex items-center justify-between pb-4 border-b border-stone-200 dark:border-stone-800/80 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
               <Settings className="w-5 h-5" />
             </div>
             <div>
-              <h2 id="host-settings-title" className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              <h2 id="host-settings-title" className="text-lg sm:text-xl font-bold font-serif text-stone-900 dark:text-white tracking-tight">
                 ตั้งค่าห้องเกม (Host Settings)
               </h2>
-              <p className="text-xs text-slate-400">ปรับเปลี่ยนโหมด กติกา และเวลาสำหรับทุกคนในห้อง</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">ปรับเปลี่ยนโหมด กติกา และเวลาสำหรับทุกคนในห้อง</p>
             </div>
           </div>
 
@@ -293,7 +293,7 @@ export function HostSettingsModal({
             onClick={onClose}
             disabled={isSaving || isTransferring}
             aria-label="ปิดหน้าต่าง"
-            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/80 rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
@@ -302,7 +302,7 @@ export function HostSettingsModal({
         {/* Scrollable Settings Form */}
         <div className="flex-1 overflow-y-auto py-4 space-y-6 pr-1">
           {errorMessage && (
-            <div className="flex items-center gap-2 p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs sm:text-sm">
+            <div className="flex items-center gap-2 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs sm:text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
@@ -310,7 +310,7 @@ export function HostSettingsModal({
 
           {/* 1. Game Mode Selector */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               🎮 โหมดเกม (Game Mode)
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -320,16 +320,16 @@ export function HostSettingsModal({
                 onClick={() => setDraft((prev) => ({ ...prev, gameMode: "audio-slice" }))}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                   draft.gameMode === "audio-slice"
-                    ? "bg-purple-600/20 border-purple-500 ring-2 ring-purple-500/30 text-white shadow-lg shadow-purple-500/10"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-base">🎧</span>
-                  {draft.gameMode === "audio-slice" && <Check className="w-4 h-4 text-purple-400" />}
+                  {draft.gameMode === "audio-slice" && <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                 </div>
-                <span className="font-semibold text-sm text-white">Audio Slice</span>
-                <span className="text-[11px] text-slate-400 leading-tight">ตัดเสียงเสี้ยววินาที</span>
+                <span className="font-semibold text-sm text-stone-900 dark:text-white">Audio Slice</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">ตัดเสียงเสี้ยววินาที</span>
               </button>
 
               {/* Buzzer Battle */}
@@ -338,16 +338,16 @@ export function HostSettingsModal({
                 onClick={() => setDraft((prev) => ({ ...prev, gameMode: "buzzer" }))}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                   draft.gameMode === "buzzer"
-                    ? "bg-pink-600/20 border-pink-500 ring-2 ring-pink-500/30 text-white shadow-lg shadow-pink-500/10"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-base">🔔</span>
-                  {draft.gameMode === "buzzer" && <Check className="w-4 h-4 text-pink-400" />}
+                  {draft.gameMode === "buzzer" && <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                 </div>
-                <span className="font-semibold text-sm text-white">Buzzer Battle</span>
-                <span className="text-[11px] text-slate-400 leading-tight">แย่งกดกริ่งตอบ</span>
+                <span className="font-semibold text-sm text-stone-900 dark:text-white">Buzzer Battle</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">แย่งกดกริ่งตอบ</span>
               </button>
 
               {/* AI Lyrics */}
@@ -362,16 +362,16 @@ export function HostSettingsModal({
                 }
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                   draft.gameMode === "ai-lyrics"
-                    ? "bg-cyan-600/20 border-cyan-500 ring-2 ring-cyan-500/30 text-white shadow-lg shadow-cyan-500/10"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-base">🤖</span>
-                  {draft.gameMode === "ai-lyrics" && <Check className="w-4 h-4 text-cyan-400" />}
+                  {draft.gameMode === "ai-lyrics" && <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                 </div>
-                <span className="font-semibold text-sm text-white">AI Lyrics</span>
-                <span className="text-[11px] text-slate-400 leading-tight">AI อ่านเนื้อเพลงไร้อารมณ์</span>
+                <span className="font-semibold text-sm text-stone-900 dark:text-white">AI Lyrics</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">AI อ่านเนื้อเพลงไร้อารมณ์</span>
               </button>
             </div>
           </div>
@@ -379,7 +379,7 @@ export function HostSettingsModal({
           {/* 2. Audio Slice Duration (Shown for audio-slice and buzzer) */}
           {(draft.gameMode === "audio-slice" || draft.gameMode === "buzzer") && (
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
                 ⏱️ ความยาวท่อนเสียงที่ตัดมาให้ฟัง
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -390,8 +390,8 @@ export function HostSettingsModal({
                     onClick={() => setDraft((prev) => ({ ...prev, sliceDurationSec: opt.value }))}
                     className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
                       draft.sliceDurationSec === opt.value
-                        ? "bg-purple-600/20 border-purple-500 text-purple-200 ring-1 ring-purple-500/30"
-                        : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                        ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
                     {opt.label}
@@ -404,7 +404,7 @@ export function HostSettingsModal({
           {/* 3. Lyrics Type (Shown for AI Lyrics) */}
           {draft.gameMode === "ai-lyrics" && (
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
                 📖 ส่วนของเนื้อเพลงที่ให้ AI อ่าน
               </label>
               <div className="grid grid-cols-2 gap-2.5">
@@ -413,24 +413,24 @@ export function HostSettingsModal({
                   onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "chorus" }))}
                   className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
                     draft.lyricsType === "chorus" || !draft.lyricsType
-                      ? "bg-cyan-600/20 border-cyan-500 text-cyan-200 ring-1 ring-cyan-500/30"
-                      : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   <div className="font-semibold">ท่อนฮุก (Chorus)</div>
-                  <div className="text-[11px] text-slate-400">เนื้อเพลงท่อนจำ คุ้นหูง่ายกว่า</div>
+                  <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงท่อนจำ คุ้นหูง่ายกว่า</div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "intro" }))}
                   className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
                     draft.lyricsType === "intro"
-                      ? "bg-cyan-600/20 border-cyan-500 text-cyan-200 ring-1 ring-cyan-500/30"
-                      : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   <div className="font-semibold">ท่อนเปิด (Intro / Verse 1)</div>
-                  <div className="text-[11px] text-slate-400">ท้าทายความจำระดับแฟนพันธุ์แท้</div>
+                  <div className="text-[11px] text-stone-500 dark:text-stone-400">ท้าทายความจำระดับแฟนพันธุ์แท้</div>
                 </button>
               </div>
             </div>
@@ -438,10 +438,10 @@ export function HostSettingsModal({
 
           {/* Song Source Selector (All Songs vs Custom Playlist) */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider flex items-center justify-between">
+            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider flex items-center justify-between">
               <span>🎵 แหล่งเพลง (Song Source)</span>
               {songSourceType === "playlist" && draft.playlistId && selectedPlaylist && isSelectedValid && (
-                <span className="text-[10px] text-purple-400 font-normal">
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">
                   เลือกแล้ว: {selectedPlaylist.title}
                 </span>
               )}
@@ -456,18 +456,18 @@ export function HostSettingsModal({
                 }}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer min-h-[44px] ${
                   songSourceType === "all"
-                    ? "bg-purple-600/20 border-purple-500 ring-2 ring-purple-500/30 text-white shadow-lg shadow-purple-500/10"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-white flex items-center gap-1.5">
+                  <span className="font-semibold text-sm text-stone-900 dark:text-white flex items-center gap-1.5">
                     <span>🌐</span>
                     <span>สุ่มจากคลังทั้งหมด (All Songs)</span>
                   </span>
-                  {songSourceType === "all" && <Check className="w-4 h-4 text-purple-400" />}
+                  {songSourceType === "all" && <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                 </div>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
                   สุ่มเพลงจากคลังเพลงหลักทั้งหมดของระบบ
                 </span>
               </button>
@@ -480,18 +480,18 @@ export function HostSettingsModal({
                 }}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer min-h-[44px] ${
                   songSourceType === "playlist"
-                    ? "bg-purple-600/20 border-purple-500 ring-2 ring-purple-500/30 text-white shadow-lg shadow-purple-500/10"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-white flex items-center gap-1.5">
+                  <span className="font-semibold text-sm text-stone-900 dark:text-white flex items-center gap-1.5">
                     <span>🎶</span>
                     <span>ใช้เพลย์ลิสต์ (Custom Playlist)</span>
                   </span>
-                  {songSourceType === "playlist" && <Check className="w-4 h-4 text-purple-400" />}
+                  {songSourceType === "playlist" && <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                 </div>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
                   เลือกเล่นเฉพาะเพลงจากเพลย์ลิสต์ที่กำหนด
                 </span>
               </button>
@@ -499,11 +499,11 @@ export function HostSettingsModal({
 
             {/* Custom Playlist Dropdown & Notices */}
             {songSourceType === "playlist" && (
-              <div className="mt-3 p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+              <div className="mt-3 p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800/80 space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-300">เลือกเพลย์ลิสต์สำหรับห้องนี้:</span>
+                  <span className="font-semibold text-stone-700 dark:text-stone-300">เลือกเพลย์ลิสต์สำหรับห้องนี้:</span>
                   {isLoadingPlaylists && (
-                    <span className="flex items-center gap-1 text-purple-400 text-[11px]">
+                    <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px]">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>กำลังโหลด...</span>
                     </span>
@@ -520,7 +520,7 @@ export function HostSettingsModal({
                     }));
                   }}
                   disabled={isLoadingPlaylists}
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-purple-500 transition-colors min-h-[44px] cursor-pointer"
+                  className="w-full bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-amber-500 transition-colors min-h-[44px] cursor-pointer"
                 >
                   <option value="">-- กรุณาเลือกเพลย์ลิสต์ --</option>
                   {playlists.map((pl) => {
@@ -536,14 +536,14 @@ export function HostSettingsModal({
 
                 {/* Validation Warnings / Feedback */}
                 {!draft.playlistId && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>กรุณาเลือกเพลย์ลิสต์ที่พร้อมใช้งาน (มีเพลงอย่างน้อย 5 เพลง) หรือเปลี่ยนเป็น &quot;สุ่มจากคลังทั้งหมด&quot;</span>
                   </div>
                 )}
 
                 {draft.playlistId && selectedPlaylist && !isSelectedValid && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>
                       เพลย์ลิสต์ &quot;{selectedPlaylist.title}&quot; มีเพียง {selectedPlaylist.songCount || 0} เพลง ไม่สามารถเริ่มเล่นได้ (ต้องมีอย่างน้อย 5 เพลง)
@@ -552,14 +552,14 @@ export function HostSettingsModal({
                 )}
 
                 {draft.playlistId && !isLoadingPlaylists && !selectedPlaylist && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>ไม่พบข้อมูลเพลย์ลิสต์ที่เลือก กรุณาเลือกเพลย์ลิสต์ใหม่จากรายการ</span>
                   </div>
                 )}
 
                 {draft.playlistId && selectedPlaylist && isSelectedValid && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs">
                     <Check className="w-4 h-4 shrink-0" />
                     <span>
                       เพลย์ลิสต์พร้อมเล่น: &quot;{selectedPlaylist.title}&quot; ({selectedPlaylist.songCount} เพลง)
@@ -573,7 +573,7 @@ export function HostSettingsModal({
 
           {/* 4. Total Rounds */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               🎯 จำนวนข้อทั้งหมด (Total Rounds)
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -584,8 +584,8 @@ export function HostSettingsModal({
                   onClick={() => setDraft((prev) => ({ ...prev, totalRounds: opt.value }))}
                   className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
                     draft.totalRounds === opt.value
-                      ? "bg-purple-600/20 border-purple-500 text-purple-200 ring-1 ring-purple-500/30"
-                      : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   {opt.label}
@@ -596,7 +596,7 @@ export function HostSettingsModal({
 
           {/* 5. Round Timeout */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               ⏳ เวลาตอบต่อข้อ (Round Timeout)
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -607,8 +607,8 @@ export function HostSettingsModal({
                   onClick={() => setDraft((prev) => ({ ...prev, roundTimeoutSec: opt.value }))}
                   className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
                     draft.roundTimeoutSec === opt.value
-                      ? "bg-purple-600/20 border-purple-500 text-purple-200 ring-1 ring-purple-500/30"
-                      : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   {opt.label}
@@ -619,7 +619,7 @@ export function HostSettingsModal({
 
           {/* 6. Answer Input Mode */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               ✍️ รูปแบบการส่งคำตอบ (Answer Input Mode)
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -628,17 +628,17 @@ export function HostSettingsModal({
                 onClick={() => setDraft((prev) => ({ ...prev, answerInputMode: "autocomplete" }))}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                   draft.answerInputMode === "autocomplete"
-                    ? "bg-pink-600/20 border-pink-500 ring-1 ring-pink-500/30 text-white"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                    ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-white">Autocomplete (ค้นหาชื่อเพลง)</span>
+                  <span className="font-semibold text-sm text-stone-900 dark:text-white">Autocomplete (ค้นหาชื่อเพลง)</span>
                   {draft.answerInputMode === "autocomplete" && (
-                    <Check className="w-4 h-4 text-pink-400" />
+                    <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   )}
                 </div>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
                   พิมพ์คำแรกแล้วจะมีตัวเลือกขึ้นมาให้กด สะดวกบนมือถือ
                 </span>
               </button>
@@ -648,17 +648,17 @@ export function HostSettingsModal({
                 onClick={() => setDraft((prev) => ({ ...prev, answerInputMode: "free-text" }))}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                   draft.answerInputMode === "free-text"
-                    ? "bg-pink-600/20 border-pink-500 ring-1 ring-pink-500/30 text-white"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                    ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-white">Free-text (พิมพ์เองทั้งหมด)</span>
+                  <span className="font-semibold text-sm text-stone-900 dark:text-white">Free-text (พิมพ์เองทั้งหมด)</span>
                   {draft.answerInputMode === "free-text" && (
-                    <Check className="w-4 h-4 text-pink-400" />
+                    <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   )}
                 </div>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
                   พิมพ์ชื่อเพลงแบบไม่มีตัวเลือกช่วย ท้าทายความแม่นยำ
                 </span>
               </button>
@@ -666,18 +666,18 @@ export function HostSettingsModal({
           </div>
 
           {/* 7. Host Transfer Section */}
-          <div className="pt-4 border-t border-slate-800/80">
-            <label className="block text-xs font-semibold text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="pt-4 border-t border-stone-200 dark:border-stone-800/80">
+            <label className="block text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
               <UserCheck className="w-4 h-4" />
               <span>โอนสิทธิ์ความเป็น Host (Transfer Host)</span>
             </label>
 
             {otherPlayers.length === 0 ? (
-              <p className="text-xs text-slate-500 italic bg-slate-950/40 p-3 rounded-2xl border border-slate-800/60">
+              <p className="text-xs text-stone-500 italic bg-stone-50 dark:bg-stone-950/40 p-3 rounded-2xl border border-stone-200 dark:border-stone-800/60">
                 ไม่มีผู้เล่นอื่นในห้อง สามารถโอนสิทธิ์ได้เมื่อมีเพื่อนคนอื่นเข้าร่วมห้องแล้ว
               </p>
             ) : (
-              <div className="space-y-3 bg-slate-950/40 p-3.5 rounded-2xl border border-slate-800/60">
+              <div className="space-y-3 bg-stone-50 dark:bg-stone-950/40 p-3.5 rounded-2xl border border-stone-200 dark:border-stone-800/60">
                 <div className="flex flex-col sm:flex-row gap-2">
                   <select
                     value={selectedTransferTarget}
@@ -685,7 +685,7 @@ export function HostSettingsModal({
                       setSelectedTransferTarget(e.target.value);
                       setShowTransferConfirm(false);
                     }}
-                    className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-amber-400 min-h-[44px]"
+                    className="flex-1 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-amber-500 min-h-[44px]"
                   >
                     <option value="">-- เลือกผู้เล่นที่จะโอนสิทธิ์ให้ --</option>
                     {otherPlayers.map((player) => (
@@ -700,7 +700,7 @@ export function HostSettingsModal({
                       type="button"
                       disabled={!selectedTransferTarget || isTransferring}
                       onClick={() => setShowTransferConfirm(true)}
-                      className="px-4 py-2 min-h-[44px] flex items-center justify-center rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      className="px-4 py-2 min-h-[44px] flex items-center justify-center rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     >
                       โอนสิทธิ์ Host
                     </button>
@@ -709,16 +709,16 @@ export function HostSettingsModal({
 
                 {showTransferConfirm && targetPlayer && (
                   <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                    <p className="text-xs text-amber-200">
+                    <p className="text-xs text-amber-800 dark:text-amber-200">
                       ⚠️ ยืนยันโอนสิทธิ์ Host ให้{" "}
-                      <strong className="text-white font-semibold">{targetPlayer.displayName}</strong>{" "}
+                      <strong className="text-stone-900 dark:text-white font-semibold">{targetPlayer.displayName}</strong>{" "}
                       ใช่หรือไม่? คุณจะกลายเป็นผู้เล่นธรรมดาทันที
                     </p>
                     <div className="flex gap-2 justify-end">
                       <button
                         type="button"
                         onClick={() => setShowTransferConfirm(false)}
-                        className="px-3 py-1.5 min-h-[44px] flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
+                        className="px-3 py-1.5 min-h-[44px] flex items-center justify-center rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-medium cursor-pointer"
                       >
                         ยกเลิก
                       </button>
@@ -726,7 +726,7 @@ export function HostSettingsModal({
                         type="button"
                         disabled={isTransferring}
                         onClick={handleExecuteTransfer}
-                        className="px-3.5 py-1.5 min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-50"
+                        className="px-3.5 py-1.5 min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-50"
                       >
                         {isTransferring ? (
                           <>
@@ -746,12 +746,12 @@ export function HostSettingsModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="pt-4 border-t border-slate-800/80 flex items-center justify-end gap-3 shrink-0">
+        <div className="pt-4 border-t border-stone-200 dark:border-stone-800/80 flex items-center justify-end gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving || isTransferring}
-            className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 min-h-[44px]"
+            className="px-5 py-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 min-h-[44px]"
           >
             ยกเลิก
           </button>
@@ -759,7 +759,7 @@ export function HostSettingsModal({
             type="button"
             onClick={handleSave}
             disabled={isSaveDisabled}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-pink-500/25 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-sm font-bold shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
             {isSaving ? (
               <>

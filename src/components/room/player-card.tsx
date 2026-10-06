@@ -80,13 +80,13 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
     avatar.startsWith("/");
 
   // Determine card container borders and glow
-  let containerStyle = "border-slate-800 bg-slate-900/80 hover:border-slate-700/80";
+  let containerStyle = "border-stone-200 dark:border-stone-800 bg-white/90 dark:bg-stone-900/80 hover:border-stone-300 dark:hover:border-stone-700/80 shadow-sm";
   if (isCurrentPlayer) {
     containerStyle =
-      "border-pink-500/50 bg-slate-900/95 ring-2 ring-pink-500/40 shadow-lg shadow-pink-500/10";
+      "border-amber-500/60 bg-amber-500/5 dark:bg-amber-950/20 ring-2 ring-amber-500/40 shadow-md shadow-amber-500/10";
   } else if (player.isReady) {
     containerStyle =
-      "border-emerald-500/40 bg-slate-900/90 ring-1 ring-emerald-500/30 shadow-md shadow-emerald-500/5";
+      "border-emerald-500/40 bg-white/95 dark:bg-stone-900/90 ring-1 ring-emerald-500/30 shadow-sm";
   }
 
   const displayName = isCurrentPlayer
@@ -99,12 +99,12 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
     >
       {/* Current player subtle gradient badge glow */}
       {isCurrentPlayer && (
-        <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
       )}
 
       {/* Left: Avatar & Name */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="relative shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-slate-800 to-slate-700/60 border border-slate-700/50 shadow-inner overflow-hidden">
+        <div className="relative shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700/50 shadow-inner overflow-hidden">
           {isImageAvatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -124,7 +124,7 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
               title="Host"
               className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 border border-amber-300 flex items-center justify-center shadow-sm"
             >
-              <Crown className="w-3 h-3 text-slate-950 fill-slate-950" />
+              <Crown className="w-3 h-3 text-stone-950 fill-stone-950" />
             </div>
           )}
         </div>
@@ -133,7 +133,7 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
           <div className="flex items-center gap-1.5">
             <span
               className={`font-semibold text-sm sm:text-base truncate ${
-                isCurrentPlayer ? "text-pink-300" : "text-white"
+                isCurrentPlayer ? "text-amber-800 dark:text-amber-300 font-bold" : "text-stone-900 dark:text-white"
               }`}
               title={displayName}
             >
@@ -143,7 +143,7 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
 
           {/* Score display */}
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-300 bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
               <Trophy className="w-3 h-3" />
               <span>{player.score ?? 0} คะแนน</span>
             </span>
