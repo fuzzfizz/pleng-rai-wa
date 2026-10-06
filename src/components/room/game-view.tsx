@@ -399,7 +399,7 @@ export function GameView({
       {/* ==================================================== */}
       {/* BOTTOM BAR: Status cue pill                          */}
       {/* ==================================================== */}
-      <footer className="p-3 text-center text-xs text-slate-500 border-t border-slate-900 bg-slate-950/80">
+      <footer className="p-3 pb-safe text-center text-xs text-slate-500 border-t border-slate-900 bg-slate-950/80">
         <p>
           ห้อง: <span className="font-mono font-bold text-pink-400">{roomCode}</span> •{" "}
           {status === "question_active"

@@ -18,6 +18,9 @@
 - [ความคุ้มค่าและความเป็นไปได้ในการรันฟรี (Free Feasibility)](#-ความคุ้มค่าและความเป็นไปได้ในการรันฟรี-free-feasibility)
 - [แผนการพัฒนา (Roadmap)](#-แผนการพัฒนา-roadmap)
 - [การติดตั้งและใช้งานสำหรับนักพัฒนา (Getting Started)](#-การติดตั้งและใช้งานสำหรับนักพัฒนา-getting-started)
+- [การนำขึ้นระบบจริง (Production Deployment)](#-การนำขึ้นระบบจริง-production-deployment)
+- [Mobile Ergonomics & PWA Installation](#-mobile-ergonomics--pwa-installation)
+- [ชุดทดสอบระบบ (Automated Verification Suites)](#-ชุดทดสอบระบบ-automated-verification-suites)
 - [Git Repository](#-git-repository)
 
 ---
@@ -82,14 +85,14 @@
 - [x] **Phase 2: Admin AI Pipeline**: หน้า `/admin` พร้อมระบบดึง YouTube MP3 และ AI Auto-fill Tag
 - [x] **Phase 3: Core Game Engine**: ระบบตัดเสียง Audio Slice, Web Audio Player, SFX และระบบตรวจคำตอบ
 - [x] **Phase 5: Member & Playlists**: ระบบโปรไฟล์สมาชิก (Email/Google Auth), หน้ารวมและแก้ไข Custom Playlist (`/playlists`), เลือกใช้เพลย์ลิสต์ในห้อง Multiplayer และ Solo Play
-- [ ] **Phase 6: Testing & Launch**: ปรับแต่ง Responsive มือถือ, ทดสอบเสถียรภาพ และ Deploy บน Vercel
+- [x] **Phase 6: Testing & Launch**: ปรับแต่ง Responsive มือถือ, ระบบ PWA Web App Manifest, Haptic Touch Juice, ตรวจสอบความพร้อมผ่าน Suite อัตโนมัติ 14 ชุด (100% Green) และคู่มือ Deploy บน Vercel
 
 ---
 
 ## 💻 การติดตั้งและใช้งานสำหรับนักพัฒนา (Getting Started)
 
 ### ความต้องการของระบบ (Prerequisites)
-- [Node.js](https://nodejs.org/) v18.17 หรือสูงกว่า
+- [Node.js](https://nodejs.org/) v18.17 หรือสูงกว่า (แนะนำ Node.js 20.x)
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) และ [ffmpeg](https://ffmpeg.org/) (สำหรับรัน Local Admin Pipeline)
 - บัญชี [Supabase](https://supabase.com/) และ [Cloudflare](https://www.cloudflare.com/)
 
@@ -107,6 +110,104 @@ npm run dev
 ```
 
 เปิดบราวเซอร์ไปที่ `http://localhost:3000` สำหรับหน้าเกม และ `http://localhost:3000/admin` สำหรับเครื่องมือเพิ่มเพลง
+
+---
+
+## 🚀 การนำขึ้นระบบจริง (Production Deployment)
+
+สถาปัตยกรรมของโปรเจคนี้ได้รับการออกแบบให้สามารถ **Deploy และเปิดให้บริการสู่สาธารณะได้ฟรี 100% ตลอดชีพ (100% Free Public Feasibility)** โดยใช้บริการ Free Tier ที่เสถียรและทรงพลัง:
+
+| บริการ | Tier | ฟังก์ชันการทำงาน | ข้อจำกัดฟรีที่ได้รับ |
+| :--- | :--- | :--- | :--- |
+| **Vercel** | Hobby (Free) | Next.js Serverless & Static Hosting, Edge CDN | 100GB Bandwidth/เดือน, Fast Global Edge |
+| **Supabase** | Free Tier | PostgreSQL Database, Auth, Realtime WebSocket | 500MB DB, 200 Realtime Concurrents, 50k MAU |
+| **Cloudflare R2** | Free Tier | เก็บไฟล์เสียง MP3 และสตรีมมิ่งความเร็วสูง | 10GB Storage, **$0 Egress Fees (ไม่คิดค่าแบนด์วิดท์สตรีม)** |
+| **Google AI Studio** | Free Tier | AI Gemini Model สกัด Metadata และตรวจจับท่อนฮุก | 1,500 Requests/วัน (ฟรีไม่มีค่าใช้จ่าย) |
+
+### ตาราง Production Environment Variables
+
+กำหนดค่า Environment Variables บนหน้า **Vercel Project Settings > Environment Variables**:
+
+| Variable Name | Required? | คำอธิบาย & แหล่งที่มาของข้อมูล | ตัวอย่างค่า |
+| :--- | :---: | :--- | :--- |
+| `NEXT_PUBLIC_SUPABASE_URL` | **Yes** | Supabase Project URL จากหน้า Settings > API | `https://xyzproject.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Yes** | Supabase Anonymous Public Key จากหน้า Settings > API | `eyJhbGciOi...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Yes** | Supabase Service Role Key (สิทธิ์ Admin สำหรับ API routes) | `eyJhbGciOi...` |
+| `R2_ACCOUNT_ID` | **Yes** | Cloudflare Account ID (หรือใช้ `CLOUDFLARE_R2_ACCOUNT_ID`) | `a1b2c3d4e5f6...` |
+| `R2_ACCESS_KEY_ID` | **Yes** | R2 API Token Access Key ID (สิทธิ์ Object Read/Write) | `9876543210abcdef...` |
+| `R2_SECRET_ACCESS_KEY` | **Yes** | R2 API Token Secret Access Key | `fedcba0123456...` |
+| `R2_BUCKET_NAME` | **Yes** | ชื่อ R2 Bucket ที่สร้างไว้สำหรับเก็บไฟล์เสียง | `pleng-rai-wa-audio` |
+| `R2_PUBLIC_DOMAIN` | **Yes** | Public Domain หรือ R2 Dev URL (หรือใช้ `CLOUDFLARE_R2_PUBLIC_URL`) | `https://pub-xxxxxx.r2.dev` |
+| `GEMINI_API_KEY` | **Yes** | Google AI Studio API Key จาก [aistudio.google.com](https://aistudio.google.com/) | `AIzaSy...` |
+| `ADMIN_SECRET_KEY` | **Yes** | รหัสผ่านสำหรับเข้าใช้งานหน้า `/admin` ในการเพิ่มเพลง | `your-secure-admin-secret` |
+| `NEXT_PUBLIC_SITE_URL` | Optional | URL โดเมนหลักของระบบสำหรับสร้างลิงก์และ OpenGraph | `https://pleng-rai-wa.vercel.app` |
+
+> 💡 **Tip:** ระบบรองรับทั้งชื่อตัวแปรแบบย่อ (`R2_*`) และชื่อเต็ม (`CLOUDFLARE_R2_*`) เพื่อความยืดหยุ่นในการตั้งค่า
+
+### Vercel Deployment Checklist
+
+เมื่อเชื่อมต่อ GitHub Repository กับ Vercel ให้ตรวจสอบการตั้งค่าดังนี้:
+
+- [x] **Framework Preset**: `Next.js`
+- [x] **Root Directory**: `./`
+- [x] **Build Command**: `npm run build`
+- [x] **Output Directory**: `.next` (ค่าเริ่มต้น)
+- [x] **Install Command**: `npm install`
+- [x] **Node.js Version**: `20.x` (แนะนำ) หรือ `>= 18.17`
+- [x] **Environment Variables**: กรอกตัวแปรทั้งหมดตามตารางด้านบนให้ครบถ้วนใน Environment: `Production`, `Preview`, `Development`
+- [x] **Database Migration**: รันคำสั่ง SQL Migration จากไฟล์ `supabase/migrations/20261005_profiles_and_playlists.sql` ใน Supabase SQL Editor
+- [x] **Supabase Auth Redirect URL**: เพิ่ม `https://<your-project>.vercel.app/**` ใน Supabase Dashboard > Authentication > URL Configuration
+
+---
+
+## 📱 Mobile Ergonomics & PWA Installation
+
+เว็บเกม "เพลงไรวะ" ได้รับการปรับแต่งเพื่อประสบการณ์การเล่นที่ลื่นไหลบนสมาร์ทโฟนทุกระบบ:
+
+### 1. การติดตั้งแบบเว็บแอป (PWA Installation)
+- **Web App Manifest**: รองรับโหมดหน้าต่างเต็มจอไร้แถบ URL (`display: "standalone"`) ผ่าน Next.js Metadata Route `/manifest.webmanifest`
+- **iOS Safari**: กดปุ่ม **แชร์ (Share)** ➔ เลือก **"เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"**
+- **Android Chrome**: แตะเมนู **3 จุด (⋮)** ➔ เลือก **"ติดตั้งแอป (Install App)"** หรือ **"เพิ่มลงในหน้าจอหลัก"**
+
+### 2. ฟีเจอร์ความลื่นไหลสำหรับมือถือ (Mobile Game Juice)
+- **Safe Area Inset Adaptation**: ป้องกันขอบจอบดบังเนื้อหาสำหรับ iPhone ที่มี Dynamic Island หรือขอบปุ่ม Home (`.pt-safe`, `.pb-safe` อิงตาม `env(safe-area-inset-*)`)
+- **iOS Safari Auto-Zoom Prevention**: ช่องกรอกข้อความและ Dropdown ทั้งหมดใช้ `font-size >= 16px` (`text-base` / `text-base sm:text-sm`) หมดปัญหากล้องซูมเข้าอัตโนมัติขณะแตะพิมพ์ชื่อเพลง
+- **Eliminate 300ms Tap Delay**: ปุ่มกริ่งแย่งตอบใช้คุณสมบัติ CSS `touch-manipulation` และ `[touch-action:manipulation]` เพื่อการตอบสนองทันที
+- **Tactile Haptic Vibration**: ตอบสนองการกดกริ่งด้วยแรงสั่น 45ms (`navigator.vibrate?.([45])`) และอนิเมชันยุบตัว `active:scale-95 duration-75`
+- **Generous Touch Targets**: ปุ่มควบคุมหลักทุกปุ่มรองรับขนาดสัมผัสขั้นต่ำ >= 44px (`min-h-[44px]` / `min-w-[44px]`) ตามมาตรฐาน WCAG 2.1 Ergonomics
+
+---
+
+## 🧪 ชุดทดสอบระบบ (Automated Verification Suites)
+
+โปรเจคมีชุดทดสอบครอบคลุมทุกโมดูลรวม 14 ชุดทดสอบ สามารถรันเพื่อตรวจสอบความถูกต้องได้ตลอดเวลา:
+
+```bash
+# รันชุดตรวจสอบความพร้อม Phase 6 (Ergonomics, PWA, Tactile Buzzer, Viewport)
+npx tsx scripts/test-phase6-readiness.ts
+
+# ตรวจสอบ Type Safety ทั้งหมด
+npx tsc --noEmit
+
+# ทดสอบ Production Build
+npm run build
+```
+
+รายชื่อชุดทดสอบทั้ง 14 ชุดในไดเรกทอรี `scripts/`:
+1. `test-phase6-readiness.ts`: Viewport, CSS Safe-Area, PWA Manifest, Haptics, Touch Targets, iOS Font sizes
+2. `test-auth-components.ts`: useAuth hook, Context contracts, Modals & NavHeader
+3. `test-gameplay-apis.ts`: FCFS Buzzer Locking, Anti-cheat Secret redaction, Penalties & Round progression
+4. `test-playlist-gameplay.ts`: Settings payload, SongService joining & Solo play resolution
+5. `test-playlist-service.ts`: Playlist CRUD, Sequence preservation, Visibility filtering
+6. `test-playlist-ui.ts`: Playlist Editor, 5-song validation thresholds & Duration utilities
+7. `test-profiles-migration.ts`: Database Schema, RLS policies & Profile models
+8. `test-room-apis.ts`: Room CRUD, Host authorization & State sanitization
+9. `test-room-code.ts`: 6-char room code generation, Ambiguity exclusion & Entropy
+10. `test-room-gameplay-ui.ts`: Buzzer button, Answer modal, Timer colors & Autocomplete
+11. `test-room-lobby.ts`: Lobby view, QR Code generation, Player avatars & Host settings
+12. `test-room-page-integration.ts`: Session storage lifecycle, Nickname validation & View resolution
+13. `test-room-realtime.ts`: Supabase Realtime broadcast reducer & Sound FX cues
+14. `test-room-tv-podium.ts`: TV Spectator mode & 3-Tier Podium winner fanfare
 
 ---
 

@@ -268,7 +268,7 @@ export function PodiumView({
   };
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 select-none">
+    <div className="relative w-full min-h-screen min-h-[100dvh] max-w-5xl mx-auto flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 select-none pt-safe pb-safe">
       {/* Ambient background glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />

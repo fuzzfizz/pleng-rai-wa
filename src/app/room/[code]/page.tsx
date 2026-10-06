@@ -310,7 +310,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
                   }}
                   maxLength={25}
                   disabled={isJoining}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
                 />
                 <span className="absolute right-3.5 top-3.5 text-xs text-slate-500 font-mono">
                   {nickname.length}/25

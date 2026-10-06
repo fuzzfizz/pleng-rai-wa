@@ -198,7 +198,7 @@ export default function HomePage() {
                     if (joinError) setJoinError(null);
                   }}
                   maxLength={6}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-center tracking-widest font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-pink-500 transition-colors uppercase"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-center tracking-widest font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-pink-500 transition-colors uppercase"
                 />
                 <button
                   type="submit"
@@ -350,7 +350,7 @@ export default function HomePage() {
                     }}
                     maxLength={25}
                     disabled={isCreating}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
                   />
                   <span className="absolute right-3.5 top-3.5 text-xs text-slate-500 font-mono">
                     {hostNickname.length}/25
