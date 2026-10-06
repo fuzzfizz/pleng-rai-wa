@@ -2,15 +2,14 @@
 
 // ==========================================
 // เพลงไรวะ (Pleng-Rai-Wa) - Home Landing Page
-// Room creation modal, 6-character code join, solo practice link,
-// recent room rejoin shortcut, and game mode showcase
+// Styled with Vinyl Cafe & Warm Lo-Fi Aesthetic
+// Dual Mode (Light & Dark) Support
 // ==========================================
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Music,
   Users,
   Play,
   Sparkles,
@@ -18,11 +17,11 @@ import {
   Bell,
   Bot,
   ArrowRight,
-  Shield,
   X,
   Loader2,
   AlertCircle,
   RotateCcw,
+  Disc3,
 } from "lucide-react";
 import { isValidRoomCode } from "@/lib/room-code";
 import {
@@ -137,35 +136,35 @@ export default function HomePage() {
     });
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center justify-between p-4 sm:p-8 bg-slate-950 bg-radial-glow overflow-hidden selection:bg-pink-500 selection:text-white">
-      {/* Decorative ambient background lights */}
-      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-20 left-10 w-72 h-72 bg-pink-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-40 right-10 w-80 h-80 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
+    <main className="relative min-h-screen flex flex-col items-center justify-between p-4 sm:p-8 bg-[#FAF7F2] dark:bg-[#0c0a09] bg-radial-glow overflow-hidden transition-colors duration-200">
+      {/* Decorative ambient background lights (Warm Lo-Fi Dusk Embers) */}
+      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/10 dark:bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-20 left-10 w-72 h-72 bg-orange-500/10 dark:bg-orange-700/08 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-40 right-10 w-80 h-80 bg-amber-400/08 dark:bg-amber-700/06 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header */}
       <NavHeader className="max-w-5xl z-10 py-2" />
 
       {/* Hero Section */}
       <section className="w-full max-w-3xl flex flex-col items-center text-center my-auto py-12 z-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-400 text-xs font-medium mb-6">
-          <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-          <span>เว็บเกมทายเพลงออนไลน์ เล่นฟรีกับเพื่อนได้ทุกที่</span>
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium mb-6 shadow-sm">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+          <span>เว็บเกมทายเพลงออนไลน์ บรรยากาศชิวๆ เล่นฟรีกับเพื่อน</span>
         </div>
 
-        <h2 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-4 leading-tight">
+        <h2 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 leading-tight">
           ฟังแป๊บเดียว... <br />
-          <span className="bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 text-gradient">
+          <span className="text-gradient">
             จะรู้ไหมว่า "เพลงไรวะ?"
           </span>
         </h2>
 
-        <p className="text-base sm:text-lg text-slate-400 max-w-xl mb-8">
+        <p className="text-base sm:text-lg text-stone-600 dark:text-stone-400 max-w-xl mb-8 leading-relaxed">
           ประลองความเซียนเพลงไทย ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
         </p>
 
         {/* Action Box */}
-        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl">
+        <div className="w-full max-w-md bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-xl backdrop-blur-xl">
           <div className="flex flex-col gap-3">
             <button
               type="button"
@@ -176,15 +175,15 @@ export default function HomePage() {
                 }
                 setIsCreateModalOpen(true);
               }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-semibold text-base shadow-lg shadow-pink-500/25 transition-all active:scale-[0.98] cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-base shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer"
             >
               <Users className="w-5 h-5" />
               <span>สร้างห้องเล่นกับเพื่อน</span>
             </button>
 
             <div className="relative flex items-center justify-center my-1">
-              <div className="border-t border-slate-800 w-full" />
-              <span className="bg-slate-900 px-3 text-xs text-slate-500">หรือเข้าร่วมห้อง</span>
+              <div className="border-t border-stone-200 dark:border-stone-800 w-full" />
+              <span className="bg-white dark:bg-stone-900 px-3 text-xs text-stone-500">หรือเข้าร่วมห้อง</span>
             </div>
 
             <form onSubmit={handleJoinRoom} className="flex flex-col gap-1.5">
@@ -198,11 +197,11 @@ export default function HomePage() {
                     if (joinError) setJoinError(null);
                   }}
                   maxLength={6}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-center tracking-widest font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-pink-500 transition-colors uppercase"
+                  className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-center tracking-widest font-mono text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors uppercase"
                 />
                 <button
                   type="submit"
-                  className="bg-slate-800 hover:bg-slate-700 text-white px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95"
+                  className="bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-white px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
                   title="เข้าร่วมห้อง"
                 >
                   <ArrowRight className="w-4 h-4" />
@@ -210,7 +209,7 @@ export default function HomePage() {
               </div>
 
               {joinError && (
-                <p className="text-xs text-rose-400 text-center font-medium mt-1 flex items-center justify-center gap-1">
+                <p className="text-xs text-rose-500 text-center font-medium mt-1 flex items-center justify-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" />
                   <span>{joinError}</span>
                 </p>
@@ -222,7 +221,7 @@ export default function HomePage() {
               <div className="pt-1">
                 <Link
                   href={`/room/${lastRoomCode}`}
-                  className="w-full py-2 px-3 rounded-xl bg-purple-500/10 border border-purple-500/25 hover:bg-purple-500/15 text-purple-300 text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/15 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>กลับเข้าห้องล่าสุด: <strong className="font-mono">{lastRoomCode}</strong></span>
@@ -232,7 +231,7 @@ export default function HomePage() {
 
             <Link
               href="/play/solo"
-              className="mt-1 w-full py-2.5 text-xs text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-slate-800/50"
+              className="mt-1 w-full py-2.5 text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50"
             >
               <Play className="w-3.5 h-3.5" />
               <span>เล่นคนเดียวซ้อมมือก่อน</span>
@@ -245,34 +244,34 @@ export default function HomePage() {
       <section className="w-full max-w-5xl z-10 py-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Mode 1 */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 hover:border-pink-500/40 transition-colors">
-            <div className="w-10 h-10 rounded-xl bg-pink-500/10 text-pink-400 flex items-center justify-center mb-3">
+          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 hover:border-amber-500/40 transition-colors shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
               <Volume2 className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">โหมด Audio Slice</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <h3 className="text-base font-semibold text-stone-900 dark:text-white mb-1">โหมด Audio Slice</h3>
+            <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
               ฟังเสียงเพลงสั้นเพียง 1, 2 หรือ 5 วินาที แล้วทายชื่อเพลง ท้าทายหูทิพย์ขั้นสุด
             </p>
           </div>
 
           {/* Mode 2 */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 hover:border-purple-500/40 transition-colors">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3">
+          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 hover:border-orange-500/40 transition-colors shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-3">
               <Bell className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">โหมดกดกริ่งแย่งตอบ</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <h3 className="text-base font-semibold text-stone-900 dark:text-white mb-1">โหมดกดกริ่งแย่งตอบ</h3>
+            <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
               เพลงจะเล่นไปเรื่อยๆ ใครมั่นใจให้กดกริ่งหยุดเพลงทันที คนกดเร็วสุดได้สิทธิ์ตอบก่อน!
             </p>
           </div>
 
           {/* Mode 3 */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 hover:border-cyan-500/40 transition-colors">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-3">
+          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 hover:border-amber-500/40 transition-colors shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-amber-600/15 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-3">
               <Bot className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">โหมด AI อ่านเนื้อเพลง ⭐</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <h3 className="text-base font-semibold text-stone-900 dark:text-white mb-1">โหมด AI อ่านเนื้อเพลง ⭐</h3>
+            <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
               ให้เสียง AI อ่านเนื้อเพลงท่อนเปิดหรือท่อนฮุกแบบเรียบนิ่ง ไร้ทำนอง ชวนขำและจำยากมาก
             </p>
           </div>
@@ -280,10 +279,10 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="w-full max-w-5xl flex items-center justify-between text-xs text-slate-600 py-4 border-t border-slate-900 z-10">
+      <footer className="w-full max-w-5xl flex items-center justify-between text-xs text-stone-500 py-4 border-t border-stone-200 dark:border-stone-900 z-10">
         <p>© 2026 เพลงไรวะ? (Pleng-Rai-Wa) • 100% Free Public Music Game</p>
         <div className="flex gap-4">
-          <Link href="/admin" className="hover:text-slate-400 transition-colors">
+          <Link href="/admin" className="hover:text-stone-900 dark:hover:text-stone-300 transition-colors">
             เครื่องมือเพิ่มเพลง
           </Link>
         </div>
@@ -293,9 +292,9 @@ export default function HomePage() {
       {/* CREATE ROOM MODAL                                        */}
       {/* ======================================================== */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-md animate-in fade-in duration-200">
           <div
-            className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-in zoom-in-95 duration-200"
             role="dialog"
             aria-modal="true"
           >
@@ -305,35 +304,35 @@ export default function HomePage() {
               onClick={() => {
                 if (!isCreating) setIsCreateModalOpen(false);
               }}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition cursor-pointer"
+              className="absolute top-5 right-5 text-stone-500 hover:text-stone-900 dark:hover:text-white p-1 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
 
             {/* Modal Title */}
             <div className="text-center mb-5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-pink-500/20">
-                <Users className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <Users className="w-6 h-6" />
               </div>
-              <h3 className="text-2xl font-black text-white">สร้างห้องเล่นกับเพื่อน</h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <h3 className="text-2xl font-black text-stone-900 dark:text-white">สร้างห้องเล่นกับเพื่อน</h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
                 ตั้งชื่อเล่นของคุณเพื่อรับบทเป็นหัวหน้าห้อง (Host)
               </p>
             </div>
 
             {/* Live Host Avatar Preview */}
             <div className="flex flex-col items-center justify-center mb-5">
-              <div className="w-16 h-16 rounded-2xl bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-3xl shadow-inner select-none transition-transform hover:scale-105">
+              <div className="w-16 h-16 rounded-2xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center text-3xl shadow-inner select-none transition-transform hover:scale-105">
                 <span>{hostAvatarPreview}</span>
               </div>
-              <span className="text-xs text-slate-500 mt-1">อวาตาร์ประจำตัวคุณ</span>
+              <span className="text-xs text-stone-500 mt-1">อวาตาร์ประจำตัวคุณ</span>
             </div>
 
             <form onSubmit={handleCreateRoom} className="space-y-4">
               <div>
                 <label
                   htmlFor="hostNickname"
-                  className="block text-xs font-semibold text-slate-300 mb-1.5"
+                  className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5"
                 >
                   ชื่อเล่นของคุณ (1-25 ตัวอักษร)
                 </label>
@@ -350,17 +349,17 @@ export default function HomePage() {
                     }}
                     maxLength={25}
                     disabled={isCreating}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                    className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none transition-colors"
                   />
-                  <span className="absolute right-3.5 top-3.5 text-xs text-slate-500 font-mono">
+                  <span className="absolute right-3.5 top-3.5 text-xs text-stone-500 font-mono">
                     {hostNickname.length}/25
                   </span>
                 </div>
               </div>
 
               {createError && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
                   <span>{createError}</span>
                 </div>
               )}
@@ -370,14 +369,14 @@ export default function HomePage() {
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
                   disabled={isCreating}
-                  className="flex-1 py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition-colors cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-3 px-4 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 font-semibold text-sm transition-colors cursor-pointer disabled:opacity-50 min-h-[44px]"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating || hostNickname.trim().length === 0}
-                  className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-pink-500/25 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
                 >
                   {isCreating ? (
                     <>
