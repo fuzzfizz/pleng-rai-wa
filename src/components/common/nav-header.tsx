@@ -2,7 +2,8 @@
 
 // ==========================================
 // เพลงไรวะ (Pleng-Rai-Wa) - Navigation Header
-// Shared Navbar with Logo, Navigation Links, Auth State & Modals
+// Shared Navbar with Logo, Navigation Links, Theme Toggle, Auth State & Modals
+// Styled with Vinyl Cafe & Warm Lo-Fi Aesthetic
 // ==========================================
 
 import React, { useState, useRef, useEffect } from "react";
@@ -19,11 +20,12 @@ import {
   ChevronDown,
   Menu,
   X,
-  Sparkles,
+  Disc3,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { ProfileModal } from "@/components/auth/profile-modal";
+import { ThemeToggle } from "@/components/common/theme-toggle";
 import { soundEffects } from "@/lib/sound-effects";
 
 export interface NavHeaderProps {
@@ -36,7 +38,7 @@ export function NavHeader({
   showNavigationLinks = true,
 }: NavHeaderProps): React.JSX.Element {
   const pathname = usePathname();
-  const { user, profile, isLoading, isGuest, signOut } = useAuth();
+  const { user, profile, isLoading, signOut } = useAuth();
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<"signin" | "signup">("signin");
@@ -95,7 +97,7 @@ export function NavHeader({
   return (
     <>
       <header
-        className={`w-full flex items-center justify-between z-20 ${className}`}
+        className={`w-full flex items-center justify-between z-20 transition-colors duration-200 ${className}`}
       >
         {/* Brand Logo */}
         <Link
@@ -107,24 +109,24 @@ export function NavHeader({
             } catch {}
           }}
         >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-violet-600 flex items-center justify-center shadow-lg shadow-pink-500/20 group-hover:scale-105 transition-transform">
-            <Music className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+            <Disc3 className="w-5 h-5 text-stone-950 animate-[spin_8s_linear_infinite]" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xl font-bold tracking-tight text-white font-sans group-hover:text-pink-300 transition-colors">
+              <span className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100 font-sans group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 เพลงไรวะ?
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-sans tracking-wide">
-              Pleng-Rai-Wa Music Quiz
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 font-sans tracking-wide">
+              Vinyl & Music Quiz
             </p>
           </div>
         </Link>
 
         {/* Center Navigation Links (Desktop) */}
         {showNavigationLinks && (
-          <nav className="hidden md:flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 px-3 py-1.5 rounded-full backdrop-blur-md">
+          <nav className="hidden md:flex items-center gap-1.5 bg-stone-100/90 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800/80 px-3 py-1.5 rounded-full backdrop-blur-md shadow-sm">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               const Icon = link.icon;
@@ -134,8 +136,8 @@ export function NavHeader({
                   href={link.href}
                   className={`flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
                     isActive
-                      ? "bg-pink-500/15 text-pink-400 border border-pink-500/30"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold"
+                      : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50"
                   }`}
                   onClick={() => {
                     try {
@@ -151,11 +153,14 @@ export function NavHeader({
           </nav>
         )}
 
-        {/* Right Auth Area */}
-        <div className="flex items-center gap-2.5">
+        {/* Right Auth Area & Theme Toggle */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Theme Toggle Button */}
+          <ThemeToggle />
+
           {isLoading ? (
             // Loading Skeleton
-            <div className="h-9 w-28 bg-slate-800/60 border border-slate-700/40 rounded-full animate-pulse" />
+            <div className="h-9 w-28 bg-stone-200 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700/40 rounded-full animate-pulse" />
           ) : user && profile ? (
             // Authenticated User Pill
             <div className="relative" ref={menuRef}>
@@ -167,17 +172,17 @@ export function NavHeader({
                   } catch {}
                   setIsUserMenuOpen((prev) => !prev);
                 }}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-stone-100 dark:bg-stone-900/80 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
                 aria-expanded={isUserMenuOpen}
               >
-                <span className="w-7 h-7 rounded-full bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-sm">
+                <span className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm">
                   {profile.avatar || "🦊"}
                 </span>
-                <span className="text-xs font-semibold text-slate-200 max-w-[110px] truncate">
+                <span className="text-xs font-semibold text-stone-800 dark:text-stone-200 max-w-[110px] truncate">
                   {profile.displayName || "นักฟังเพลง"}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                  className={`w-3.5 h-3.5 text-stone-500 dark:text-stone-400 transition-transform ${
                     isUserMenuOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -185,13 +190,13 @@ export function NavHeader({
 
               {/* User Dropdown Menu */}
               {isUserMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-2xl backdrop-blur-xl z-30 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-3 py-2 border-b border-slate-800/80">
-                    <p className="text-xs font-semibold text-white truncate flex items-center gap-1.5">
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-2 shadow-xl backdrop-blur-xl z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-2 border-b border-stone-200 dark:border-stone-800/80">
+                    <p className="text-xs font-semibold text-stone-900 dark:text-white truncate flex items-center gap-1.5">
                       <span>{profile.avatar}</span>
                       <span>{profile.displayName}</span>
                     </p>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400 truncate mt-0.5">
                       {user.email}
                     </p>
                   </div>
@@ -200,27 +205,27 @@ export function NavHeader({
                     <button
                       type="button"
                       onClick={handleOpenProfile}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800/70 rounded-xl transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/70 rounded-xl transition-colors cursor-pointer text-left"
                     >
-                      <User className="w-4 h-4 text-pink-400" />
+                      <User className="w-4 h-4 text-amber-500" />
                       <span>จัดการโปรไฟล์</span>
                     </button>
 
                     <Link
                       href="/playlists?tab=my"
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800/70 rounded-xl transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/70 rounded-xl transition-colors cursor-pointer text-left"
                     >
-                      <ListMusic className="w-4 h-4 text-purple-400" />
+                      <ListMusic className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       <span>เพลย์ลิสต์ของฉัน</span>
                     </Link>
                   </div>
 
-                  <div className="pt-1 border-t border-slate-800/80">
+                  <div className="pt-1 border-t border-stone-200 dark:border-stone-800/80">
                     <button
                       type="button"
                       onClick={handleSignOut}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer text-left"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>ออกจากระบบ</span>
@@ -234,9 +239,9 @@ export function NavHeader({
             <button
               type="button"
               onClick={() => handleOpenAuth("signin")}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-pink-500/40 text-slate-200 hover:text-pink-300 text-xs font-semibold transition-all shadow-sm cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 text-xs font-semibold transition-all shadow-sm cursor-pointer active:scale-95"
             >
-              <LogIn className="w-3.5 h-3.5 text-pink-400" />
+              <LogIn className="w-3.5 h-3.5 text-amber-500" />
               <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
             </button>
           )}
@@ -246,7 +251,7 @@ export function NavHeader({
             <button
               type="button"
               onClick={() => setIsMobileNavOpen((prev) => !prev)}
-              className="md:hidden p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white cursor-pointer"
+              className="md:hidden p-2 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
               title="เมนู"
             >
               {isMobileNavOpen ? (
@@ -261,7 +266,7 @@ export function NavHeader({
 
       {/* Mobile Navigation Drawer */}
       {showNavigationLinks && isMobileNavOpen && (
-        <div className="md:hidden w-full bg-slate-900/95 border border-slate-800 rounded-2xl p-3 my-2 z-20 backdrop-blur-xl animate-in fade-in slide-in-from-top-1">
+        <div className="md:hidden w-full bg-white/95 dark:bg-stone-900/95 border border-stone-200 dark:border-stone-800 rounded-2xl p-3 my-2 z-20 backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1">
           <nav className="flex flex-col gap-1">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
@@ -273,8 +278,8 @@ export function NavHeader({
                   onClick={() => setIsMobileNavOpen(false)}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                     isActive
-                      ? "bg-pink-500/15 text-pink-400 font-semibold"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 font-semibold"
+                      : "text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-white"
                   }`}
                 >
                   {Icon && <Icon className="w-4 h-4" />}
