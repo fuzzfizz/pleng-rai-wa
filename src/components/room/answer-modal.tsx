@@ -169,7 +169,7 @@ export function AnswerModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
               aria-label="ปิดหน้าต่างคำตอบ"
             >
               <X className="w-5 h-5" />
@@ -229,7 +229,7 @@ export function AnswerModal({
               }
               autoComplete="off"
               autoFocus
-              className="w-full pl-11 pr-4 py-3.5 bg-slate-950/90 border-2 border-slate-700 focus:border-amber-400 rounded-2xl text-white placeholder-slate-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-400/20 text-base sm:text-lg transition shadow-inner"
+              className="w-full min-h-[44px] pl-11 pr-4 py-3.5 bg-slate-950/90 border-2 border-slate-700 focus:border-amber-400 rounded-2xl text-white placeholder-slate-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-400/20 text-base sm:text-lg transition shadow-inner"
             />
           </div>
 
@@ -243,7 +243,7 @@ export function AnswerModal({
                     key={song.id || idx}
                     type="button"
                     onClick={() => handleSubmit(song.title)}
-                    className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between text-sm transition group ${
+                    className={`w-full text-left px-3 py-2.5 min-h-[44px] rounded-xl flex items-center justify-between text-sm transition group cursor-pointer ${
                       isHighlighted
                         ? "bg-amber-500 text-slate-950 font-bold"
                         : "hover:bg-slate-800/80 text-slate-200"
@@ -278,7 +278,7 @@ export function AnswerModal({
           <button
             type="submit"
             disabled={!inputValue.trim() || isSubmitting}
-            className={`w-full py-3.5 px-6 rounded-2xl font-bold text-base sm:text-lg flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] ${
+            className={`w-full min-h-[44px] py-3.5 px-6 rounded-2xl font-bold text-base sm:text-lg flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] ${
               inputValue.trim() && !isSubmitting
                 ? "bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 shadow-amber-500/30 cursor-pointer"
                 : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"

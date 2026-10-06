@@ -206,8 +206,9 @@ export function AuthModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting || isGoogleLoading}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+            className="p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
             title="ปิด"
+            aria-label="ปิด"
           >
             <X className="w-5 h-5" />
           </button>
@@ -221,7 +222,7 @@ export function AuthModal({
               setTab("signin");
               setErrorMessage(null);
             }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+            className={`flex-1 min-h-[44px] py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center justify-center ${
               tab === "signin"
                 ? "bg-slate-800 text-white shadow-sm"
                 : "text-slate-400 hover:text-slate-200"
@@ -235,7 +236,7 @@ export function AuthModal({
               setTab("signup");
               setErrorMessage(null);
             }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+            className={`flex-1 min-h-[44px] py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center justify-center ${
               tab === "signup"
                 ? "bg-slate-800 text-white shadow-sm"
                 : "text-slate-400 hover:text-slate-200"
@@ -269,7 +270,7 @@ export function AuthModal({
                   onChange={(e) => setDisplayName(e.target.value)}
                   maxLength={30}
                   disabled={isSubmitting || isGoogleLoading}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                  className="w-full min-h-[44px] bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -287,7 +288,7 @@ export function AuthModal({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isSubmitting || isGoogleLoading}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                className="w-full min-h-[44px] bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -304,7 +305,7 @@ export function AuthModal({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isSubmitting || isGoogleLoading}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                className="w-full min-h-[44px] bg-slate-950 border border-slate-800 focus:border-pink-500 rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -312,7 +313,7 @@ export function AuthModal({
           <button
             type="submit"
             disabled={isSubmitting || isGoogleLoading}
-            className="mt-2 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-semibold text-sm shadow-lg shadow-pink-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] disabled:opacity-50"
+            className="mt-2 w-full min-h-[44px] py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-semibold text-sm shadow-lg shadow-pink-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] disabled:opacity-50"
           >
             {isSubmitting ? (
               <>
@@ -345,7 +346,7 @@ export function AuthModal({
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isSubmitting || isGoogleLoading}
-          className="w-full py-2.5 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-white text-xs font-medium transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+          className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-white text-xs font-medium transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 active:scale-[0.98]"
         >
           {isGoogleLoading ? (
             <Loader2 className="w-4 h-4 animate-spin text-slate-400" />

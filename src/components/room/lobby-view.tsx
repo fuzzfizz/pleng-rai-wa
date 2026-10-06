@@ -185,7 +185,7 @@ export function LobbyView({
   const settingsSummary = formatSettingsSummary(settings);
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between p-4 sm:p-8 bg-slate-950 bg-radial-glow overflow-x-hidden selection:bg-pink-500 selection:text-white">
+    <div className="relative min-h-screen min-h-[100dvh] flex flex-col justify-between p-4 sm:p-8 bg-slate-950 bg-radial-glow overflow-x-hidden selection:bg-pink-500 selection:text-white pt-safe pb-safe">
       {/* Decorative ambient background lights */}
       <div className="absolute top-12 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-16 right-1/4 w-80 h-80 bg-pink-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -195,7 +195,7 @@ export function LobbyView({
         <div className="flex items-center gap-3">
           <button
             onClick={handleLeave}
-            className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-full border border-slate-800 hover:border-slate-700 bg-slate-900/70 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-white px-3 py-2 min-h-[44px] rounded-full border border-slate-800 hover:border-slate-700 bg-slate-900/70 transition-colors cursor-pointer"
             title="ออกจากห้องกลับหน้าหลัก"
           >
             <LogOut className="w-4 h-4" />
@@ -216,7 +216,7 @@ export function LobbyView({
             href={`/room/${cleanCode}?view=tv`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-white px-3 py-1.5 rounded-full border border-purple-500/30 hover:border-purple-500/60 bg-purple-500/10 hover:bg-purple-500/20 transition-all shadow-sm shadow-purple-500/10"
+            className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-white px-3 py-2 min-h-[44px] rounded-full border border-purple-500/30 hover:border-purple-500/60 bg-purple-500/10 hover:bg-purple-500/20 transition-all shadow-sm shadow-purple-500/10"
             title="เปิดจอใหญ่สำหรับปาร์ตี้ / ต่อทีวี"
           >
             <Tv className="w-3.5 h-3.5" />
@@ -227,7 +227,7 @@ export function LobbyView({
           {/* Sound FX Toggle */}
           <button
             onClick={handleToggleSfx}
-            className={`p-2 rounded-full border text-xs transition-colors cursor-pointer ${
+            className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full border text-xs transition-colors cursor-pointer ${
               sfxMuted
                 ? "bg-slate-900/80 border-slate-800 text-slate-500 hover:text-slate-300"
                 : "bg-pink-500/10 border-pink-500/30 text-pink-400 hover:text-pink-300 shadow-sm"
@@ -268,7 +268,7 @@ export function LobbyView({
               </span>
               <button
                 type="button"
-                className="p-2 rounded-xl bg-slate-800/80 group-hover:bg-pink-500/20 text-slate-400 group-hover:text-pink-300 transition-colors"
+                className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-slate-800/80 group-hover:bg-pink-500/20 text-slate-400 group-hover:text-pink-300 transition-colors"
                 aria-label="คัดลอกรหัสห้อง"
               >
                 {isCopiedCode ? (
@@ -289,7 +289,7 @@ export function LobbyView({
                 } catch {}
                 setQrModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 border border-slate-700/80 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-2xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 border border-slate-700/80 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] cursor-pointer"
             >
               <QrCode className="w-4 h-4 text-pink-400" />
               <span>QR Code ชวนเพื่อน</span>
@@ -303,7 +303,7 @@ export function LobbyView({
                   } catch {}
                   setSettingsModalOpen(true);
                 }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 border border-slate-700/80 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-2xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 border border-slate-700/80 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] cursor-pointer"
               >
                 <Settings className="w-4 h-4 text-purple-400" />
                 <span>ตั้งค่าห้อง (Host)</span>
@@ -354,7 +354,7 @@ export function LobbyView({
       </main>
 
       {/* 5. Bottom Action Bar */}
-      <footer className="w-full max-w-2xl mx-auto z-10 pt-4 pb-2">
+      <footer className="w-full max-w-2xl mx-auto z-10 pt-4 pb-2 pb-safe">
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col items-center gap-3">
           {isHost ? (
             // Host Controls
@@ -362,7 +362,7 @@ export function LobbyView({
               <button
                 onClick={handleStartGameClick}
                 disabled={!hasOtherPlayers || isStarting}
-                className="w-full py-4 px-8 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-bold text-lg shadow-xl shadow-pink-500/25 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full min-h-[44px] py-4 px-8 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-bold text-lg shadow-xl shadow-pink-500/25 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 {isStarting ? (
                   <>
@@ -401,7 +401,7 @@ export function LobbyView({
               <button
                 onClick={handleToggleReadyClick}
                 disabled={isTogglingReady}
-                className={`w-full py-4 px-8 rounded-2xl font-bold text-lg flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 ${
+                className={`w-full min-h-[44px] py-4 px-8 rounded-2xl font-bold text-lg flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 ${
                   myPlayer?.isReady
                     ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25"
                     : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Kanit, Prompt } from "next/font/google";
 import "./globals.css";
 
@@ -23,6 +23,14 @@ export const metadata: Metadata = {
   keywords: ["ทายเพลง", "เกมทายเพลง", "เพลงไรวะ", "เกมปาร์ตี้", "quiz", "music game"],
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#030712",
+  colorScheme: "dark",
+};
+
 import { AuthProvider } from "@/hooks/use-auth";
 
 export default function RootLayout({
@@ -32,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th" className={`${kanit.variable} ${prompt.variable} dark`}>
-      <body className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-pink-500 selection:text-white">
+      <body className="min-h-screen min-h-[100dvh] bg-slate-950 text-slate-100 font-sans antialiased selection:bg-pink-500 selection:text-white">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

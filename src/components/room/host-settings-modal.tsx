@@ -293,7 +293,7 @@ export function HostSettingsModal({
             onClick={onClose}
             disabled={isSaving || isTransferring}
             aria-label="ปิดหน้าต่าง"
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
@@ -388,7 +388,7 @@ export function HostSettingsModal({
                     key={opt.value}
                     type="button"
                     onClick={() => setDraft((prev) => ({ ...prev, sliceDurationSec: opt.value }))}
-                    className={`py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium ${
+                    className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
                       draft.sliceDurationSec === opt.value
                         ? "bg-purple-600/20 border-purple-500 text-purple-200 ring-1 ring-purple-500/30"
                         : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
@@ -411,7 +411,7 @@ export function HostSettingsModal({
                 <button
                   type="button"
                   onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "chorus" }))}
-                  className={`py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
+                  className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
                     draft.lyricsType === "chorus" || !draft.lyricsType
                       ? "bg-cyan-600/20 border-cyan-500 text-cyan-200 ring-1 ring-cyan-500/30"
                       : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
@@ -423,7 +423,7 @@ export function HostSettingsModal({
                 <button
                   type="button"
                   onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "intro" }))}
-                  className={`py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
+                  className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
                     draft.lyricsType === "intro"
                       ? "bg-cyan-600/20 border-cyan-500 text-cyan-200 ring-1 ring-cyan-500/30"
                       : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
@@ -520,7 +520,7 @@ export function HostSettingsModal({
                     }));
                   }}
                   disabled={isLoadingPlaylists}
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-purple-500 transition-colors min-h-[44px] cursor-pointer"
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-purple-500 transition-colors min-h-[44px] cursor-pointer"
                 >
                   <option value="">-- กรุณาเลือกเพลย์ลิสต์ --</option>
                   {playlists.map((pl) => {
@@ -582,7 +582,7 @@ export function HostSettingsModal({
                   key={opt.value}
                   type="button"
                   onClick={() => setDraft((prev) => ({ ...prev, totalRounds: opt.value }))}
-                  className={`py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium ${
+                  className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
                     draft.totalRounds === opt.value
                       ? "bg-purple-600/20 border-purple-500 text-purple-200 ring-1 ring-purple-500/30"
                       : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
@@ -605,7 +605,7 @@ export function HostSettingsModal({
                   key={opt.value}
                   type="button"
                   onClick={() => setDraft((prev) => ({ ...prev, roundTimeoutSec: opt.value }))}
-                  className={`py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium ${
+                  className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
                     draft.roundTimeoutSec === opt.value
                       ? "bg-purple-600/20 border-purple-500 text-purple-200 ring-1 ring-purple-500/30"
                       : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
@@ -685,7 +685,7 @@ export function HostSettingsModal({
                       setSelectedTransferTarget(e.target.value);
                       setShowTransferConfirm(false);
                     }}
-                    className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400"
+                    className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-amber-400 min-h-[44px]"
                   >
                     <option value="">-- เลือกผู้เล่นที่จะโอนสิทธิ์ให้ --</option>
                     {otherPlayers.map((player) => (
@@ -700,7 +700,7 @@ export function HostSettingsModal({
                       type="button"
                       disabled={!selectedTransferTarget || isTransferring}
                       onClick={() => setShowTransferConfirm(true)}
-                      className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      className="px-4 py-2 min-h-[44px] flex items-center justify-center rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     >
                       โอนสิทธิ์ Host
                     </button>
@@ -718,7 +718,7 @@ export function HostSettingsModal({
                       <button
                         type="button"
                         onClick={() => setShowTransferConfirm(false)}
-                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
+                        className="px-3 py-1.5 min-h-[44px] flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
                       >
                         ยกเลิก
                       </button>
@@ -726,7 +726,7 @@ export function HostSettingsModal({
                         type="button"
                         disabled={isTransferring}
                         onClick={handleExecuteTransfer}
-                        className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-50"
+                        className="px-3.5 py-1.5 min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-50"
                       >
                         {isTransferring ? (
                           <>
