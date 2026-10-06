@@ -72,8 +72,8 @@ function EditPlaylistContent({
   if (isAuthLoading || isLoadingPlaylist) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
-        <p className="text-sm text-slate-400">กำลังโหลดข้อมูลเพลย์ลิสต์...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <p className="text-sm text-stone-500 dark:text-stone-400">กำลังโหลดข้อมูลเพลย์ลิสต์...</p>
       </div>
     );
   }
@@ -82,18 +82,18 @@ function EditPlaylistContent({
   if (loadError || !playlistData) {
     return (
       <div className="max-w-md mx-auto py-16 px-6 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-stone-200/60 dark:bg-stone-800 border border-stone-300/60 dark:border-stone-700 flex items-center justify-center text-stone-500">
           <FileQuestion className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-white tracking-tight">
+        <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
           {loadError || "ไม่พบเพลย์ลิสต์"}
         </h2>
-        <p className="text-xs text-slate-400 mt-2">
+        <p className="text-xs text-stone-600 dark:text-stone-400 mt-2">
           เพลย์ลิสต์นี้อาจถูกลบไปแล้ว หรือคุณไม่มีสิทธิ์ในการเข้าถึง
         </p>
         <Link
           href="/playlists"
-          className="mt-6 inline-flex items-center gap-2 min-h-[44px] px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+          className="mt-6 inline-flex items-center gap-2 min-h-[44px] px-5 rounded-2xl bg-stone-200/70 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-colors border border-stone-300/60 dark:border-stone-700"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>กลับไปหน้ารวมเพลย์ลิสต์</span>
@@ -107,18 +107,18 @@ function EditPlaylistContent({
   if (!isOwner) {
     return (
       <div className="max-w-md mx-auto py-16 px-6 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
           <ShieldAlert className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-white tracking-tight">
+        <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
           ไม่มีสิทธิ์แก้ไขเพลย์ลิสต์นี้
         </h2>
-        <p className="text-xs text-slate-400 mt-2">
+        <p className="text-xs text-stone-600 dark:text-stone-400 mt-2">
           เฉพาะผู้สร้างเพลย์ลิสต์นี้เท่านั้นที่สามารถแก้ไขข้อมูลได้
         </p>
         <Link
           href="/playlists"
-          className="mt-6 inline-flex items-center gap-2 min-h-[44px] px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+          className="mt-6 inline-flex items-center gap-2 min-h-[44px] px-5 rounded-2xl bg-stone-200/70 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-colors border border-stone-300/60 dark:border-stone-700"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>กลับไปหน้ารวมเพลย์ลิสต์</span>
@@ -151,13 +151,13 @@ export default function EditPlaylistPage({
   const playlistId = resolvedParams?.id || "";
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)] flex flex-col pb-safe">
       <NavHeader />
       <Suspense
         fallback={
           <div className="flex-1 flex flex-col items-center justify-center gap-3 py-24">
-            <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
-            <p className="text-sm text-slate-400">กำลังโหลด...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+            <p className="text-sm text-stone-500 dark:text-stone-400">กำลังโหลด...</p>
           </div>
         }
       >

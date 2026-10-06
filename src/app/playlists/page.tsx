@@ -116,22 +116,22 @@ function PlaylistsPageContent(): React.JSX.Element {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen min-h-[100dvh] bg-[var(--background)] text-stone-900 dark:text-stone-100 flex flex-col font-sans bg-radial-glow overflow-x-hidden pt-safe pb-safe">
       <NavHeader />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Top Header Hero */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-stone-200 dark:border-stone-800/80">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-pink-500/20 to-violet-600/20 text-pink-400 border border-pink-500/30">
+              <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 <ListMusic className="w-6 h-6" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-black font-serif text-stone-900 dark:text-white tracking-tight">
                 คลังเพลย์ลิสต์เพลง
               </h1>
             </div>
-            <p className="mt-2 text-xs sm:text-sm text-slate-400 max-w-xl">
+            <p className="mt-2 text-xs sm:text-sm text-stone-600 dark:text-stone-400 max-w-xl">
               เลือกเพลย์ลิสต์เพลงที่เปิดให้เล่นสาธารณะ หรือจัดเพลงโปรดของคุณเองเพื่อนำไปทายกับเพื่อนในห้อง
             </p>
           </div>
@@ -140,7 +140,7 @@ function PlaylistsPageContent(): React.JSX.Element {
           <button
             type="button"
             onClick={handleCreateClick}
-            className="min-h-[44px] px-5 rounded-2xl bg-gradient-to-r from-pink-500 to-violet-600 hover:from-pink-400 hover:to-violet-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-pink-500/25 active:scale-95 transition-all cursor-pointer shrink-0"
+            className="min-h-[44px] px-5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>สร้างเพลย์ลิสต์ใหม่</span>
@@ -149,15 +149,15 @@ function PlaylistsPageContent(): React.JSX.Element {
 
         {/* Delete Error Banner */}
         {deleteError && (
-          <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs sm:text-sm">
+          <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs sm:text-sm">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
               <span>{deleteError}</span>
             </div>
             <button
               type="button"
               onClick={() => setDeleteError(null)}
-              className="text-xs text-rose-400 hover:text-white underline cursor-pointer shrink-0"
+              className="text-xs text-rose-600 dark:text-rose-400 hover:underline cursor-pointer shrink-0"
             >
               ปิด
             </button>
@@ -165,7 +165,7 @@ function PlaylistsPageContent(): React.JSX.Element {
         )}
 
         {/* Tab Controls */}
-        <div className="flex items-center bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 w-full sm:w-auto sm:inline-flex">
+        <div className="flex items-center bg-stone-100 dark:bg-stone-900/80 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-800 w-full sm:w-auto sm:inline-flex">
           <button
             type="button"
             onClick={() => {
@@ -176,14 +176,14 @@ function PlaylistsPageContent(): React.JSX.Element {
             }}
             className={`flex-1 sm:flex-initial min-h-[44px] px-5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === "public"
-                ? "bg-slate-800 text-white shadow-sm border border-slate-700/60"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white dark:bg-stone-800 text-stone-900 dark:text-white shadow-xs border border-stone-200 dark:border-stone-700/60"
+                : "text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
             }`}
           >
-            <Globe className="w-4 h-4 text-emerald-400" />
+            <Globe className="w-4 h-4 text-emerald-500" />
             <span>เพลย์ลิสต์สาธารณะ</span>
             {!isLoadingPublic && (
-              <span className="ml-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-950 text-slate-400">
+              <span className="ml-1 text-[11px] px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-950 text-stone-700 dark:text-stone-400">
                 {publicPlaylists.length}
               </span>
             )}
@@ -199,14 +199,14 @@ function PlaylistsPageContent(): React.JSX.Element {
             }}
             className={`flex-1 sm:flex-initial min-h-[44px] px-5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === "my"
-                ? "bg-slate-800 text-white shadow-sm border border-slate-700/60"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white dark:bg-stone-800 text-stone-900 dark:text-white shadow-xs border border-stone-200 dark:border-stone-700/60"
+                : "text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
             }`}
           >
-            <User className="w-4 h-4 text-pink-400" />
+            <User className="w-4 h-4 text-amber-500" />
             <span>เพลย์ลิสต์ของฉัน</span>
             {user && !isLoadingUser && (
-              <span className="ml-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-950 text-slate-400">
+              <span className="ml-1 text-[11px] px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-950 text-stone-700 dark:text-stone-400">
                 {userPlaylists.length}
               </span>
             )}
@@ -217,28 +217,28 @@ function PlaylistsPageContent(): React.JSX.Element {
         {activeTab === "public" && (
           <div>
             {isLoadingPublic ? (
-              <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+              <div className="py-20 flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
                 <p className="text-sm">กำลังโหลดเพลย์ลิสต์สาธารณะ...</p>
               </div>
             ) : errorPublic ? (
-              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400" />
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500" />
                 <span>{errorPublic}</span>
               </div>
             ) : publicPlaylists.length === 0 ? (
-              <div className="py-16 text-center rounded-3xl bg-slate-900/40 border border-dashed border-slate-800 p-8">
-                <Music2 className="w-12 h-12 mx-auto mb-3 text-slate-600 stroke-[1.5]" />
-                <h3 className="text-base font-bold text-slate-300">
+              <div className="py-16 text-center rounded-3xl bg-stone-50/50 dark:bg-stone-900/40 border border-dashed border-stone-300 dark:border-stone-800 p-8">
+                <Music2 className="w-12 h-12 mx-auto mb-3 text-stone-400 dark:text-stone-600 stroke-[1.5]" />
+                <h3 className="text-base font-bold text-stone-700 dark:text-stone-300">
                   ยังไม่มีเพลย์ลิสต์สาธารณะ
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
                   มาร่วมเป็นคนแรกที่สร้างเพลย์ลิสต์สาธารณะแบ่งปันให้ทุกคนได้เล่นกันเถอะ!
                 </p>
                 <button
                   type="button"
                   onClick={handleCreateClick}
-                  className="mt-4 min-h-[44px] px-4 rounded-xl bg-pink-500/10 hover:bg-pink-500 text-pink-400 hover:text-white border border-pink-500/30 text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="mt-4 min-h-[44px] px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-stone-950 border border-amber-500/30 text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>สร้างเพลย์ลิสต์แรกเลย</span>
@@ -264,14 +264,14 @@ function PlaylistsPageContent(): React.JSX.Element {
           <div>
             {!user || isGuest ? (
               /* Guest Prompt Card */
-              <div className="max-w-md mx-auto py-12 px-6 rounded-3xl bg-slate-900/90 border border-slate-800 text-center shadow-xl backdrop-blur-md">
-                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
+              <div className="max-w-md mx-auto py-12 px-6 rounded-3xl bg-white dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 text-center shadow-sm dark:shadow-xl backdrop-blur-md">
+                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
                   <LogIn className="w-7 h-7" />
                 </div>
-                <h3 className="text-lg font-bold text-white tracking-tight">
+                <h3 className="text-lg font-bold font-serif text-stone-900 dark:text-white tracking-tight">
                   เข้าสู่ระบบเพื่อจัดการเพลย์ลิสต์
                 </h3>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                <p className="text-xs text-stone-600 dark:text-stone-400 mt-2 leading-relaxed">
                   สร้างและปรับแต่งเพลย์ลิสต์เพลงเฉพาะตัว จัดลำดับเพลงเพื่อเล่นเดี่ยวหรือนำไปทายกับเพื่อนในห้องแข่งขัน
                 </p>
                 <button
@@ -282,35 +282,35 @@ function PlaylistsPageContent(): React.JSX.Element {
                     } catch {}
                     setIsAuthModalOpen(true);
                   }}
-                  className="mt-5 w-full min-h-[44px] px-4 rounded-2xl bg-gradient-to-r from-pink-500 to-violet-600 hover:from-pink-400 hover:to-violet-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-500/25 transition-all cursor-pointer"
+                  className="mt-5 w-full min-h-[44px] px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
                 >
                   <LogIn className="w-4 h-4" />
                   <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
                 </button>
               </div>
             ) : isLoadingUser ? (
-              <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+              <div className="py-20 flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
                 <p className="text-sm">กำลังโหลดเพลย์ลิสต์ของคุณ...</p>
               </div>
             ) : errorUser ? (
-              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400" />
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500" />
                 <span>{errorUser}</span>
               </div>
             ) : userPlaylists.length === 0 ? (
-              <div className="py-16 text-center rounded-3xl bg-slate-900/40 border border-dashed border-slate-800 p-8">
-                <Music2 className="w-12 h-12 mx-auto mb-3 text-slate-600 stroke-[1.5]" />
-                <h3 className="text-base font-bold text-slate-300">
+              <div className="py-16 text-center rounded-3xl bg-stone-50/50 dark:bg-stone-900/40 border border-dashed border-stone-300 dark:border-stone-800 p-8">
+                <Music2 className="w-12 h-12 mx-auto mb-3 text-stone-400 dark:text-stone-600 stroke-[1.5]" />
+                <h3 className="text-base font-bold text-stone-700 dark:text-stone-300">
                   คุณยังไม่มีเพลย์ลิสต์ส่วนตัว
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
                   เริ่มสร้างเพลย์ลิสต์แรกของคุณได้ง่ายๆ เลือกเพลงที่ชอบอย่างน้อย 5 เพลงเพื่อใช้เล่นเกม
                 </p>
                 <button
                   type="button"
                   onClick={handleCreateClick}
-                  className="mt-4 min-h-[44px] px-5 rounded-2xl bg-gradient-to-r from-pink-500 to-violet-600 text-white font-bold text-xs inline-flex items-center gap-2 shadow-lg shadow-pink-500/20 transition-all cursor-pointer"
+                  className="mt-4 min-h-[44px] px-5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs inline-flex items-center gap-2 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>สร้างเพลย์ลิสต์แรกของคุณ</span>
@@ -350,10 +350,10 @@ export default function PlaylistsPage(): React.JSX.Element {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+        <div className="min-h-screen bg-[var(--background)] text-stone-900 dark:text-stone-100 flex flex-col">
           <NavHeader />
           <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
           </div>
         </div>
       }

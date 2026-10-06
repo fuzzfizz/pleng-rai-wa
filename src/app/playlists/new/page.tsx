@@ -30,11 +30,11 @@ export default function NewPlaylistPage(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      <div className="min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)] flex flex-col">
         <NavHeader />
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
-          <p className="text-sm text-slate-400">กำลังตรวจสอบข้อมูลผู้ใช้...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+          <p className="text-sm text-stone-500 dark:text-stone-400">กำลังตรวจสอบข้อมูลผู้ใช้...</p>
         </div>
       </div>
     );
@@ -43,16 +43,16 @@ export default function NewPlaylistPage(): React.JSX.Element {
   // Guest or unauthenticated state
   if (!user || isGuest) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      <div className="min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)] flex flex-col pb-safe">
         <NavHeader />
         <main className="flex-1 max-w-lg w-full mx-auto px-4 py-16 flex flex-col items-center justify-center text-center">
-          <div className="w-16 h-16 rounded-3xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 mb-5 shadow-lg shadow-pink-500/10">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-5 shadow-sm">
             <ShieldAlert className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
             เข้าสู่ระบบเพื่อสร้างเพลย์ลิสต์
           </h1>
-          <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+          <p className="text-sm text-stone-600 dark:text-stone-400 mt-2 leading-relaxed">
             คุณจำเป็นต้องมีบัญชีเพื่อบันทึกและจัดการเพลย์ลิสต์เพลงที่คุณสร้างขึ้น
           </p>
 
@@ -60,14 +60,14 @@ export default function NewPlaylistPage(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setIsAuthModalOpen(true)}
-              className="w-full sm:flex-1 min-h-[44px] px-5 rounded-2xl bg-gradient-to-r from-pink-500 to-violet-600 hover:from-pink-400 hover:to-violet-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-500/25 transition-all cursor-pointer"
+              className="w-full sm:flex-1 min-h-[44px] px-5 rounded-2xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 text-stone-50 dark:text-stone-900 font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-stone-900/10 transition-all cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
             </button>
             <Link
               href="/playlists"
-              className="w-full sm:w-auto min-h-[44px] px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-slate-700"
+              className="w-full sm:w-auto min-h-[44px] px-5 rounded-2xl bg-stone-200/70 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-stone-300/60 dark:border-stone-700"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>กลับหน้าเพลย์ลิสต์</span>
@@ -84,7 +84,7 @@ export default function NewPlaylistPage(): React.JSX.Element {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)] flex flex-col pb-safe">
       <NavHeader />
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
         <PlaylistEditor

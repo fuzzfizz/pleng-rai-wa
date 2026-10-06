@@ -476,20 +476,20 @@ function SoloPlayContent() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col font-sans bg-radial-glow overflow-x-hidden pt-safe pb-safe">
+    <div className="min-h-screen min-h-[100dvh] bg-[var(--background)] text-stone-900 dark:text-stone-100 flex flex-col font-sans bg-radial-glow overflow-x-hidden pt-safe pb-safe">
       {/* Top Bar */}
-      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-4 sm:px-8 py-3 sticky top-0 z-30 flex items-center justify-between">
+      <header className="border-b border-stone-200 dark:border-stone-800/80 bg-stone-50/80 dark:bg-stone-900/60 backdrop-blur-md px-4 sm:px-8 py-3 sticky top-0 z-30 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] p-2.5 shrink-0 rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition-colors touch-manipulation"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] p-2.5 shrink-0 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors touch-manipulation cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-bold font-serif text-stone-900 dark:text-white flex items-center gap-2">
               <span>โหมดซ้อมมือเดี่ยว</span>
-              <span className="text-[10px] bg-pink-500/10 text-pink-400 border border-pink-500/20 px-2 py-0.5 rounded-full font-semibold">
+              <span className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
                 Solo Testbed
               </span>
             </h1>
@@ -498,14 +498,14 @@ function SoloPlayContent() {
 
         {/* Score & Controls */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold">
-            <Award className="w-4 h-4 text-amber-400" />
-            <span className="text-white">{score} คะแนน</span>
+          <div className="flex items-center gap-1.5 bg-white dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 px-3 py-1.5 rounded-xl text-xs font-semibold">
+            <Award className="w-4 h-4 text-amber-500" />
+            <span className="text-stone-900 dark:text-white">{score} คะแนน</span>
           </div>
 
           {streak > 1 && (
-            <div className="hidden sm:flex items-center gap-1 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-2.5 py-1.5 rounded-xl text-xs font-bold animate-bounce">
-              <Flame className="w-3.5 h-3.5 fill-rose-500" />
+            <div className="hidden sm:flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 px-2.5 py-1.5 rounded-xl text-xs font-bold animate-bounce">
+              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
               <span>{streak} คอมโบ!</span>
             </div>
           )}
@@ -516,8 +516,8 @@ function SoloPlayContent() {
             aria-label={isMuted ? "เปิดเสียง" : "ปิดเสียง"}
             className={`w-11 h-11 min-h-[44px] min-w-[44px] p-2.5 shrink-0 rounded-xl border flex items-center justify-center transition-colors cursor-pointer touch-manipulation ${
               isMuted
-                ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
-                : "border-slate-800 bg-slate-900 text-slate-400 hover:text-white"
+                ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                : "border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
             }`}
             title={isMuted ? "เปิดเสียง" : "ปิดเสียง"}
           >
@@ -529,16 +529,16 @@ function SoloPlayContent() {
       {/* Main Arena */}
       <main className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center gap-6">
         {/* Playlist Selector Setup Bar */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl backdrop-blur-xl space-y-3">
+        <div className="bg-white/80 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl backdrop-blur-xl space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                 <Music className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <label
                   htmlFor="solo-playlist-select"
-                  className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1"
+                  className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1"
                 >
                   🎵 เลือกชุดเพลงที่ต้องการซ้อม
                 </label>
@@ -547,7 +547,7 @@ function SoloPlayContent() {
                   value={selectedPlaylistId}
                   onChange={(e) => handleSelectPlaylist(e.target.value)}
                   disabled={isLoadingPlaylists || isLoadingSongs}
-                  className="w-full bg-slate-950 border border-slate-700/80 hover:border-slate-600 focus:border-purple-500 rounded-xl px-3 py-2 text-base sm:text-sm text-white focus:outline-none transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
+                  className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-700/80 hover:border-stone-400 dark:hover:border-stone-600 focus:border-amber-500 rounded-xl px-3 py-2 text-base sm:text-sm text-stone-900 dark:text-white focus:outline-none transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
                 >
                   <option value="all">
                     🌐 สุ่มเพลงทั้งหมด (All Library - {defaultLibrarySongsRef.current.length} เพลง)
@@ -567,18 +567,18 @@ function SoloPlayContent() {
 
             {/* Active Playlist Badge */}
             {activePlaylist ? (
-              <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-3.5 py-2 rounded-2xl text-xs text-purple-200 self-start sm:self-auto shrink-0 min-h-[44px]">
-                <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+              <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3.5 py-2 rounded-2xl text-xs text-amber-800 dark:text-amber-200 self-start sm:self-auto shrink-0 min-h-[44px]">
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
                 <span className="font-semibold truncate max-w-[180px]">
                   {activePlaylist.title}
                 </span>
-                <span className="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-full text-purple-300 font-mono">
+                <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full text-amber-800 dark:text-amber-300 font-mono">
                   {songsPool.length} เพลง
                 </span>
                 <button
                   type="button"
                   onClick={() => handleSelectPlaylist("all")}
-                  className="text-slate-400 hover:text-white ml-1 text-xs cursor-pointer p-1 min-h-[44px] min-w-[28px] flex items-center justify-center"
+                  className="text-stone-400 hover:text-stone-900 dark:hover:text-white ml-1 text-xs cursor-pointer p-1 min-h-[44px] min-w-[28px] flex items-center justify-center"
                   title="สลับกลับไปคลังทั้งหมด"
                   aria-label="สลับกลับไปคลังทั้งหมด"
                 >
@@ -586,8 +586,8 @@ function SoloPlayContent() {
                 </button>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-950/60 border border-slate-800/80 px-3.5 py-2 rounded-2xl shrink-0 min-h-[44px]">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800/80 px-3.5 py-2 rounded-2xl shrink-0 min-h-[44px]">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 <span>คลังเพลงมาตรฐาน ({songsPool.length} เพลง)</span>
               </div>
             )}
@@ -595,14 +595,14 @@ function SoloPlayContent() {
 
           {/* Loading or Notice Messages */}
           {isLoadingSongs && (
-            <div className="flex items-center gap-2 text-xs text-purple-300 animate-pulse pt-1">
+            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-300 animate-pulse pt-1">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               <span>กำลังโหลดเพลงจากเพลย์ลิสต์...</span>
             </div>
           )}
 
           {playlistNotice && (
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{playlistNotice}</span>
             </div>
@@ -610,15 +610,15 @@ function SoloPlayContent() {
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
+        <div className="grid grid-cols-3 gap-2 bg-stone-100 dark:bg-stone-900/80 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-800">
           <button
             onClick={() => {
               setGameMode("audio-slice");
               setIsBuzzed(false);
               setIsPlayingAudio(false);
             }}
-            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              gameMode === "audio-slice" ? "bg-pink-600 text-white shadow-lg shadow-pink-600/20" : "text-slate-400 hover:text-white"
+            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              gameMode === "audio-slice" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
             }`}
           >
             <Scissors className="w-3.5 h-3.5" />
@@ -630,8 +630,8 @@ function SoloPlayContent() {
               setGameMode("buzzer");
               setIsPlayingAudio(false);
             }}
-            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              gameMode === "buzzer" ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20" : "text-slate-400 hover:text-white"
+            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              gameMode === "buzzer" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
             }`}
           >
             <Bell className="w-3.5 h-3.5" />
@@ -644,8 +644,8 @@ function SoloPlayContent() {
               setIsPlayingAudio(false);
               setIsBuzzed(false);
             }}
-            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              gameMode === "ai-lyrics" ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/20" : "text-slate-400 hover:text-white"
+            className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              gameMode === "ai-lyrics" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -654,15 +654,15 @@ function SoloPlayContent() {
         </div>
 
         {/* Game Mode Interactive Play Area */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+        <div className="bg-white/80 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-8 shadow-sm dark:shadow-2xl backdrop-blur-xl relative overflow-hidden">
           {/* Track counter badge */}
           <div className="flex items-center justify-between mb-6">
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-xs font-medium text-stone-500 dark:text-stone-400">
               ข้อที่ {currentSongIndex + 1} จาก {songsPool.length} เพลง
             </span>
 
             {currentSong.era && (
-              <span className="text-xs bg-slate-800/80 text-purple-300 border border-purple-500/20 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs bg-stone-100 dark:bg-stone-800/80 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
                 เพลงยุค {currentSong.era}
               </span>
             )}
@@ -672,8 +672,8 @@ function SoloPlayContent() {
           {gameMode === "audio-slice" && (
             <div className="flex flex-col items-center text-center py-4 space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">ทายเสี้ยววินาที</h3>
-                <p className="text-xs text-slate-400">เลือกระยะเวลาที่ต้องการฟัง แล้วกดปุ่มเพื่อฟังเสียงสั้นๆ</p>
+                <h3 className="text-xl font-bold font-serif text-stone-900 dark:text-white mb-1">ทายเสี้ยววินาที</h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400">เลือกระยะเวลาที่ต้องการฟัง แล้วกดปุ่มเพื่อฟังเสียงสั้นๆ</p>
               </div>
 
               {/* Duration Pills */}
@@ -684,8 +684,8 @@ function SoloPlayContent() {
                     onClick={() => setSliceDuration(dur)}
                     className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
                       sliceDuration === dur
-                        ? "bg-pink-500 text-white shadow-lg shadow-pink-500/25"
-                        : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
+                        ? "bg-amber-500 text-stone-950 shadow-sm"
+                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
                     {dur.toFixed(1)} วินาที
@@ -701,18 +701,18 @@ function SoloPlayContent() {
                 aria-label="ฟังเสียงตัวอย่างเสี้ยววินาที"
                 className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
                   isPlayingAudio
-                    ? "bg-pink-500 text-white scale-105 shadow-2xl shadow-pink-500/50 animate-pulse"
-                    : "bg-gradient-to-tr from-pink-500 to-purple-600 hover:scale-105 text-white shadow-xl shadow-pink-500/30"
+                    ? "bg-amber-500 text-stone-950 scale-105 shadow-2xl shadow-amber-500/40 animate-pulse"
+                    : "bg-amber-500 hover:bg-amber-400 hover:scale-105 text-stone-950 shadow-lg shadow-amber-500/25"
                 }`}
               >
                 {isPlayingAudio ? (
                   <>
-                    <Volume2 className="w-8 h-8 animate-bounce" />
+                    <Volume2 className="w-8 h-8 animate-bounce text-stone-950" />
                     <span className="text-[11px] font-bold">กำลังเล่น...</span>
                   </>
                 ) : (
                   <>
-                    <Play className="w-8 h-8 ml-1" />
+                    <Play className="w-8 h-8 ml-1 text-stone-950" />
                     <span className="text-[11px] font-bold">ฟังเสี้ยววิ</span>
                   </>
                 )}
@@ -724,8 +724,8 @@ function SoloPlayContent() {
           {gameMode === "buzzer" && (
             <div className="flex flex-col items-center text-center py-4 space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">โหมดกดกริ่งแย่งตอบ</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="text-xl font-bold font-serif text-stone-900 dark:text-white mb-1">โหมดกดกริ่งแย่งตอบ</h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
                   {isPlayingAudio
                     ? "เพลงกำลังเล่นอยู่... เมื่อมั่นใจให้กดกริ่งหรือกด SPACEBAR ทันที!"
                     : isBuzzed
@@ -737,7 +737,7 @@ function SoloPlayContent() {
               {/* Buzzer Button */}
               <div className="relative">
                 {buzzerCountdown !== null && (
-                  <div className="text-3xl font-black text-amber-400 mb-2 font-mono animate-pulse">
+                  <div className="text-3xl font-black text-amber-500 dark:text-amber-400 mb-2 font-mono animate-pulse">
                     เหลือเวลา {buzzerCountdown} วิ
                   </div>
                 )}
@@ -748,27 +748,27 @@ function SoloPlayContent() {
                   aria-label={isBuzzed ? "กดกริ่งแล้ว" : isPlayingAudio ? "กดกริ่งแย่งตอบ" : "เริ่มเปิดเพลง"}
                   className={`w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
                     isBuzzed
-                      ? "bg-amber-500 text-slate-950 scale-105 shadow-2xl shadow-amber-500/50"
+                      ? "bg-amber-400 text-stone-950 scale-105 shadow-2xl shadow-amber-500/50 ring-4 ring-amber-300"
                       : isPlayingAudio
-                      ? "bg-red-600 hover:bg-red-500 text-white shadow-2xl shadow-red-600/50 animate-pulse active:scale-95"
-                      : "bg-purple-600 hover:bg-purple-500 text-white shadow-xl shadow-purple-600/30"
+                      ? "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-2xl shadow-amber-500/40 ring-4 ring-amber-400/50 animate-pulse active:scale-95"
+                      : "bg-stone-800 hover:bg-stone-700 text-amber-400 shadow-xl border-2 border-stone-700"
                   }`}
                 >
                   {isBuzzed ? (
                     <>
-                      <Bell className="w-10 h-10 sm:w-12 sm:h-12" />
+                      <Bell className="w-10 h-10 sm:w-12 sm:h-12 text-stone-950" />
                       <span className="text-xs sm:text-sm font-black">กดกริ่งแล้ว!</span>
                     </>
                   ) : isPlayingAudio ? (
                     <>
-                      <Bell className="w-12 h-12 sm:w-14 sm:h-14 animate-wiggle" />
+                      <Bell className="w-12 h-12 sm:w-14 sm:h-14 animate-wiggle text-stone-950" />
                       <span className="text-xs sm:text-sm font-black">กดกริ่งแย่งตอบ!</span>
                       <span className="text-[10px] opacity-80">(Spacebar)</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-10 h-10 sm:w-12 sm:h-12 ml-1" />
-                      <span className="text-xs sm:text-sm font-bold">เริ่มเปิดเพลง</span>
+                      <Play className="w-10 h-10 sm:w-12 sm:h-12 ml-1 text-amber-400" />
+                      <span className="text-xs sm:text-sm font-bold text-stone-100">เริ่มเปิดเพลง</span>
                     </>
                   )}
                 </button>
@@ -780,8 +780,8 @@ function SoloPlayContent() {
           {gameMode === "ai-lyrics" && (
             <div className="flex flex-col items-center text-center py-4 space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">โหมด AI อ่านเนื้อเพลง</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="text-xl font-bold font-serif text-stone-900 dark:text-white mb-1">โหมด AI อ่านเนื้อเพลง</h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
                   เสียงหุ่นยนต์จะอ่านเนื้อเพลงภาษาไทยแบบเรียบนิ่ง ไร้อารมณ์ ไร้เมโลดี้
                 </p>
               </div>
@@ -793,8 +793,8 @@ function SoloPlayContent() {
                   onClick={() => setLyricsType("chorus")}
                   className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
                     lyricsType === "chorus"
-                      ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/25"
-                      : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   🎵 ท่อนฮุก (Chorus)
@@ -804,8 +804,8 @@ function SoloPlayContent() {
                   onClick={() => setLyricsType("intro")}
                   className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
                     lyricsType === "intro"
-                      ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/25"
-                      : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   🚀 ท่อนเปิด (Intro)
@@ -820,18 +820,18 @@ function SoloPlayContent() {
                   aria-label={isAITalking ? "หยุดพูด" : "ให้ AI อ่านเนื้อเพลง"}
                   className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
                     isAITalking
-                      ? "bg-cyan-500 text-white shadow-2xl shadow-cyan-500/50 scale-105 animate-pulse"
-                      : "bg-gradient-to-tr from-cyan-500 to-blue-600 hover:scale-105 text-white shadow-xl shadow-cyan-500/30"
+                      ? "bg-amber-500 text-stone-950 shadow-2xl shadow-amber-500/50 scale-105 animate-pulse"
+                      : "bg-amber-500 hover:bg-amber-400 hover:scale-105 text-stone-950 shadow-lg shadow-amber-500/25"
                   }`}
                 >
                   {isAITalking ? (
                     <>
-                      <Square className="w-8 h-8 fill-white" />
+                      <Square className="w-8 h-8 fill-stone-950 text-stone-950" />
                       <span className="text-[11px] font-bold">หยุดพูด</span>
                     </>
                   ) : (
                     <>
-                      <Bot className="w-8 h-8" />
+                      <Bot className="w-8 h-8 text-stone-950" />
                       <span className="text-[11px] font-bold">ให้ AI อ่าน</span>
                     </>
                   )}
@@ -845,14 +845,14 @@ function SoloPlayContent() {
             <div
               className={`mt-4 p-4 rounded-2xl flex items-center gap-3 border ${
                 feedback.isCorrect
-                  ? "bg-emerald-950/60 border-emerald-700 text-emerald-200"
-                  : "bg-rose-950/60 border-rose-800 text-rose-200"
+                  ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200"
+                  : "bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200"
               }`}
             >
               {feedback.isCorrect ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               ) : (
-                <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
               )}
               <p className="text-sm font-medium">{feedback.message}</p>
             </div>
@@ -860,18 +860,18 @@ function SoloPlayContent() {
 
           {/* Answer Revealed Card */}
           {isRevealed && (
-            <div className="mt-4 p-4 rounded-2xl bg-purple-950/30 border border-purple-800/60 flex items-center justify-between">
+            <div className="mt-4 p-4 rounded-2xl bg-stone-50 dark:bg-stone-950/80 border border-amber-500/30 flex items-center justify-between">
               <div>
-                <div className="text-[11px] text-purple-300 font-semibold mb-0.5">เฉลยเพลงนี้:</div>
-                <h4 className="text-base font-bold text-white">{currentSong.title}</h4>
-                <p className="text-xs text-slate-400">
+                <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold mb-0.5">เฉลยเพลงนี้:</div>
+                <h4 className="text-base font-bold font-serif text-stone-900 dark:text-white">{currentSong.title}</h4>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
                   {currentSong.artist} • ปี {currentSong.releaseYear || "ไม่ระบุ"}
                 </p>
               </div>
 
               <button
                 onClick={handleNextSong}
-                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs px-4 py-2.5 min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-lg shadow-purple-600/25"
+                className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs px-4 py-2.5 min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-amber-500/20"
               >
                 <span>เพลงถัดไป</span>
                 <ArrowRight className="w-4 h-4" />
@@ -882,15 +882,15 @@ function SoloPlayContent() {
 
         {/* Answer Input Section */}
         {!isRevealed && (
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+          <div className="bg-white/80 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-sm dark:shadow-xl space-y-4">
             {/* Input Mode Toggle */}
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-300">ตอบคำถาม (ชื่อเพลง):</label>
-              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
+              <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">ตอบคำถาม (ชื่อเพลง):</label>
+              <div className="flex bg-stone-100 dark:bg-stone-950 p-1 rounded-xl border border-stone-200 dark:border-stone-800 text-[11px]">
                 <button
                   onClick={() => setInputMode("autocomplete")}
                   className={`px-3 py-2 min-h-[44px] rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                    inputMode === "autocomplete" ? "bg-slate-800 text-white font-medium" : "text-slate-500"
+                    inputMode === "autocomplete" ? "bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-medium shadow-xs" : "text-stone-500 dark:text-stone-400"
                   }`}
                 >
                   Autocomplete (มีตัวช่วย)
@@ -898,7 +898,7 @@ function SoloPlayContent() {
                 <button
                   onClick={() => setInputMode("free-text")}
                   className={`px-3 py-2 min-h-[44px] rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                    inputMode === "free-text" ? "bg-slate-800 text-white font-medium" : "text-slate-500"
+                    inputMode === "free-text" ? "bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-medium shadow-xs" : "text-stone-500 dark:text-stone-400"
                   }`}
                 >
                   พิมพ์เอง (ท้าทาย)
@@ -915,12 +915,12 @@ function SoloPlayContent() {
                   value={userGuess}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmitAnswer()}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors"
                 />
                 <button
                   onClick={() => handleSubmitAnswer()}
                   disabled={!userGuess.trim()}
-                  className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold px-6 min-h-[44px] rounded-2xl text-base sm:text-sm transition-colors cursor-pointer shadow-lg shadow-purple-600/20 flex items-center justify-center"
+                  className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-stone-950 font-bold px-6 min-h-[44px] rounded-2xl text-base sm:text-sm transition-colors cursor-pointer shadow-md shadow-amber-500/20 flex items-center justify-center"
                 >
                   ตอบ
                 </button>
@@ -928,7 +928,7 @@ function SoloPlayContent() {
 
               {/* Autocomplete Dropdown List */}
               {inputMode === "autocomplete" && autocompleteSuggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900 border border-slate-800 rounded-2xl p-1.5 shadow-2xl z-20 space-y-1">
+                <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 shadow-2xl z-20 space-y-1">
                   {autocompleteSuggestions.map((song) => (
                     <button
                       key={song.id}
@@ -937,10 +937,10 @@ function SoloPlayContent() {
                         setAutocompleteSuggestions([]);
                         handleSubmitAnswer(song.title);
                       }}
-                      className="w-full text-left px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs hover:bg-slate-800 transition-colors flex items-center justify-between text-slate-200 cursor-pointer"
+                      className="w-full text-left px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center justify-between text-stone-800 dark:text-stone-200 cursor-pointer"
                     >
-                      <span className="font-semibold text-white">{song.title}</span>
-                      <span className="text-slate-500 text-[11px]">{song.artist}</span>
+                      <span className="font-semibold text-stone-900 dark:text-white">{song.title}</span>
+                      <span className="text-stone-500 text-[11px]">{song.artist}</span>
                     </button>
                   ))}
                 </div>
@@ -958,7 +958,7 @@ function SoloPlayContent() {
                     message: `เฉลย: เพลง "${currentSong.title}" โดย ${currentSong.artist}`,
                   });
                 }}
-                className="text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 cursor-pointer min-h-[44px] py-2 px-1"
+                className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-300 transition-colors flex items-center gap-1 cursor-pointer min-h-[44px] py-2 px-1"
               >
                 <HelpCircle className="w-3.5 h-3.5" />
                 <span>ยอมแพ้ / ดูเฉลย</span>
@@ -966,7 +966,7 @@ function SoloPlayContent() {
 
               <button
                 onClick={handleNextSong}
-                className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer min-h-[44px] py-2 px-1"
+                className="text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center gap-1 cursor-pointer min-h-[44px] py-2 px-1"
               >
                 <span>ข้ามไปเพลงถัดไป</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -983,8 +983,8 @@ export default function SoloPlayPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center font-sans">
-          <div className="flex items-center gap-3 text-purple-400">
+        <div className="min-h-screen bg-[var(--background)] text-stone-900 dark:text-stone-100 flex items-center justify-center font-sans">
+          <div className="flex items-center gap-3 text-amber-500">
             <Loader2 className="w-6 h-6 animate-spin" />
             <span className="text-sm font-medium">กำลังโหลดโหมดซ้อมเดี่ยว...</span>
           </div>
