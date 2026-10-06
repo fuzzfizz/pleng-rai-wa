@@ -715,7 +715,7 @@ export async function extractSongMetadata(
     return heuristicExtractSongMetadata(queryOrUrl);
   }
 
-  const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
   // 2. If query is a YouTube URL, fetch oEmbed title to provide rich context to Gemini
   let oembedTitle: string | null = null;
