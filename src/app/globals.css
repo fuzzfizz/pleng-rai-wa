@@ -1,9 +1,16 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --font-sans: var(--font-kanit), var(--font-prompt), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --background: #030712;
-  --foreground: #f8fafc;
+  --background: #FAF7F2;
+  --foreground: #1c1917;
+}
+
+.dark {
+  --background: #0c0a09;
+  --foreground: #f5f5f4;
 }
 
 body {
@@ -13,12 +20,25 @@ body {
   overflow-x: hidden;
 }
 
-/* Custom animated gradient for cheerful music game party vibe */
+/* Warm Lo-Fi vinyl cafe ambient glow */
 .bg-radial-glow {
-  background: radial-gradient(circle at 50% 20%, rgba(236, 72, 153, 0.15) 0%, rgba(139, 92, 246, 0.12) 35%, transparent 70%);
+  background: radial-gradient(circle at 50% 15%, rgba(217, 119, 6, 0.08) 0%, rgba(234, 88, 12, 0.04) 40%, transparent 75%);
 }
 
+.dark .bg-radial-glow {
+  background: radial-gradient(circle at 50% 15%, rgba(245, 158, 11, 0.12) 0%, rgba(194, 65, 12, 0.07) 40%, transparent 75%);
+}
+
+/* Warm honey cream text gradient */
 .text-gradient {
+  background: linear-gradient(135deg, #b45309 0%, #c2410c 50%, #78350f 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark .text-gradient {
+  background: linear-gradient(135deg, #fef08a 0%, #f59e0b 50%, #fb923c 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -34,4 +54,3 @@ body {
     padding-top: max(1rem, env(safe-area-inset-top));
   }
 }
-
