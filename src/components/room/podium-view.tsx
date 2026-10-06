@@ -324,7 +324,7 @@ export function PodiumView({
             )}
             {/* Pedestal Box 1 (Tallest Gold) */}
             <div className="w-full h-60 sm:h-72 md:h-80 mt-4 rounded-t-3xl bg-gradient-to-t from-amber-950/80 via-amber-900/60 to-amber-500/40 border-t-4 border-x-2 border-amber-400 shadow-[0_0_45px_rgba(245,158,11,0.4)] flex flex-col items-center justify-start pt-6 sm:pt-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-200 to-transparent animate-pulse" />
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-200 to-transparent animate-pulse pointer-events-none" />
               <div className="flex items-center gap-1.5">
                 <Crown className="w-6 h-6 sm:w-8 sm:h-8 text-amber-300 fill-amber-300" />
                 <span className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-300 tracking-wider drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
@@ -426,7 +426,7 @@ export function PodiumView({
             type="button"
             onClick={handlePlayAgain}
             disabled={isProcessingAction}
-            className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:from-amber-400 hover:via-pink-400 hover:to-purple-500 text-white font-extrabold text-base shadow-lg shadow-pink-500/25 transition transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:from-amber-400 hover:via-pink-400 hover:to-purple-500 text-white font-extrabold text-base shadow-lg shadow-pink-500/25 transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
           >
             <RotateCcw className="w-5 h-5" />
             <span>เริ่มเกมใหม่ (Play Again)</span>
@@ -439,7 +439,7 @@ export function PodiumView({
             type="button"
             onClick={handleBackToLobby}
             disabled={isProcessingAction}
-            className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 border border-slate-700 font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 border border-slate-700 font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
           >
             <Home className="w-5 h-5 text-slate-400" />
             <span>กลับสู่ Lobby</span>
@@ -452,7 +452,7 @@ export function PodiumView({
             type="button"
             onClick={onLeaveRoom}
             disabled={isProcessingAction}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
           >
             <LogOut className="w-4 h-4" />
             <span>ออกจากห้อง</span>

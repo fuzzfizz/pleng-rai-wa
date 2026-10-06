@@ -208,7 +208,8 @@ export function RoundRevealCard({
               <button
                 type="button"
                 onClick={handleToggleAudio}
-                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition shadow-md active:scale-95 ${
+                aria-label={isPlayingAudio ? "หยุดเสียงท่อนฮุก" : "ฟังท่อนฮุกเต็ม"}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl text-xs sm:text-sm font-bold transition shadow-md active:scale-95 touch-manipulation cursor-pointer ${
                   isPlayingAudio
                     ? "bg-rose-500 text-white shadow-rose-500/40"
                     : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
@@ -216,12 +217,12 @@ export function RoundRevealCard({
               >
                 {isPlayingAudio ? (
                   <>
-                    <Pause className="w-3.5 h-3.5" />
+                    <Pause className="w-4 h-4" />
                     <span>หยุดเสียง</span>
                   </>
                 ) : (
                   <>
-                    <Play className="w-3.5 h-3.5 text-pink-400" />
+                    <Play className="w-4 h-4 text-pink-400" />
                     <span>ฟังท่อนฮุกเต็ม</span>
                   </>
                 )}
@@ -238,7 +239,7 @@ export function RoundRevealCard({
             type="button"
             onClick={onNextRound}
             disabled={isLoadingNext}
-            className={`w-full py-4 px-6 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-xl ${
+            className={`w-full min-h-[48px] py-4 px-6 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-xl touch-manipulation ${
               isLoadingNext
                 ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
                 : "bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white shadow-pink-500/30 cursor-pointer"
