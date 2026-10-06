@@ -23,7 +23,7 @@
 | **Game Audio & SFX** | **Web Audio API / Howler.js** | เล่นเสียงประกอบ (เสียงกริ่ง, เสียงจับเวลา, เสียงถูก/ผิด) |
 | **Answer Matching** | **Fuzzy String Matching + `fuse.js`** | โหมดพิมพ์เอง (ตรวจคำสะกดผิด) และโหมด Autocomplete |
 | **Local Admin Tool** | Route `/admin` ในโปรเจค (Local Only) | หน้าเว็บให้แอดมินใส่ลิงก์ YouTube/ชื่อเพลง ดึง MP3 เข้าคลัง |
-| **AI Integration** | **Google Gemini Flash (Free) / Jev AI** | แกะชื่อเพลง, ศิลปิน, ปี, แนวเพลง และตำแหน่งท่อนฮุก (Chorus) |
+| **AI Integration** | **Google Gemini Flash (Free Tier)** | แกะชื่อเพลง, ศิลปิน, ปี, แนวเพลง และตำแหน่งท่อนฮุก (Chorus) ผ่าน @google/genai SDK |
 | **Hosting & Deploy** | **Vercel Hobby Tier** (Frontend) | โฮสต์เว็บและ API Routes สาธารณะฟรี 100% |
 
 ---
