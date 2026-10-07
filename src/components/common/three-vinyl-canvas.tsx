@@ -124,19 +124,19 @@ function createCenterLabelTexture(): THREE.CanvasTexture {
 
   // Typography - Curved top or header
   ctx.fillStyle = "#78350f";
-  ctx.font = "bold 22px Kanit, Prompt, sans-serif";
+  ctx.font = "bold 22px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("★ VINTAGE HI-FI STEREO ★", cx, 110);
 
   // Main Title: เพลงไรวะ?
   ctx.fillStyle = "#451a03";
-  ctx.font = "900 48px Kanit, Prompt, sans-serif";
+  ctx.font = "900 48px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("เพลงไรวะ?", cx, 175);
 
   // Subtitle
   ctx.fillStyle = "#78350f";
-  ctx.font = "600 16px Kanit, Prompt, sans-serif";
+  ctx.font = "600 16px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("PLENG-RAI-WA CAFE", cx, 215);
 
   // Spindle hole border circle
@@ -152,13 +152,14 @@ function createCenterLabelTexture(): THREE.CanvasTexture {
   ctx.fillText("♫", cx + 75, cy);
 
   // Bottom specs: 33 1/3 RPM & SIDE A
-  ctx.font = "bold 18px Kanit, Prompt, sans-serif";
+  ctx.font = "bold 18px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("SIDE A", cx, 305);
 
-  ctx.font = "500 14px Kanit, Prompt, sans-serif";
+  // Sub specs
+  ctx.font = "500 14px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("33 ⅓ RPM • EXTENDED PLAY", cx, 340);
 
-  ctx.font = "italic 12px Kanit, Prompt, sans-serif";
+  ctx.font = "italic 12px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("ALL RIGHTS RESERVED • 2026", cx, 385);
 
   const texture = new THREE.CanvasTexture(canvas);
