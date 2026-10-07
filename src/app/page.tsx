@@ -32,6 +32,7 @@ import { validateNickname } from "@/app/room/[code]/page";
 import { getDeterministicAvatar } from "@/components/room/player-card";
 import { NavHeader } from "@/components/common/nav-header";
 import { useAuth } from "@/hooks/use-auth";
+import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
 
 export default function HomePage() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function HomePage() {
   // Create Room Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [hostNickname, setHostNickname] = useState("");
+  const [hostAvatar, setHostAvatar] = useState(PRESET_AVATARS[0].emoji);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -57,12 +59,15 @@ export default function HomePage() {
     }
   }, []);
 
-  // Pre-fill host nickname if authenticated
+  // Pre-fill host nickname and avatar if authenticated
   useEffect(() => {
     if (profile?.displayName && !hostNickname) {
       setHostNickname(profile.displayName);
     }
-  }, [profile?.displayName, hostNickname]);
+    if (profile?.avatar) {
+      setHostAvatar(profile.avatar);
+    }
+  }, [profile?.displayName, profile?.avatar, hostNickname]);
 
   // Handle Joining an existing room
   const handleJoinRoom = (e?: React.FormEvent) => {
@@ -102,6 +107,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           hostDisplayName: hostNickname.trim(),
+          hostAvatar,
         }),
       });
 
@@ -112,13 +118,21 @@ export default function HomePage() {
         return;
       }
 
-      // Persist host player session in localStorage
+      // Persist host player session in localStorage & sessionStorage
       savePlayerSession(data.roomCode, {
         playerId: data.playerId,
         sessionToken: data.sessionToken,
         displayName: hostNickname.trim(),
+        avatar: hostAvatar,
         isHost: true,
       });
+
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem("pleng_host_avatar", hostAvatar);
+          window.sessionStorage.setItem("pleng_avatar", hostAvatar);
+        } catch {}
+      }
 
       setIsCreateModalOpen(false);
       router.push(`/room/${data.roomCode}`);
@@ -130,6 +144,7 @@ export default function HomePage() {
   };
 
   const hostAvatarPreview =
+    hostAvatar ||
     profile?.avatar ||
     getDeterministicAvatar({
       displayName: hostNickname || "หัวหน้าห้อง",
@@ -316,11 +331,23 @@ export default function HomePage() {
             </div>
 
             {/* Live Host Avatar Preview */}
-            <div className="flex flex-col items-center justify-center mb-5">
+            <div className="flex flex-col items-center justify-center mb-4">
               <div className="w-16 h-16 rounded-2xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center text-3xl shadow-inner select-none transition-transform hover:scale-105">
                 <span>{hostAvatarPreview}</span>
               </div>
               <span className="text-xs text-stone-500 mt-1">อวาตาร์ประจำตัวคุณ</span>
+            </div>
+
+            {/* Curated 10 Avatars Picker */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+                เลือกรูปตัวแทน (Preset Avatar)
+              </label>
+              <AvatarPicker
+                value={hostAvatar}
+                onChange={(avatar) => setHostAvatar(avatar)}
+                disabled={isCreating}
+              />
             </div>
 
             <form onSubmit={handleCreateRoom} className="space-y-4">

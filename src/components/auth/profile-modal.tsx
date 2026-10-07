@@ -20,16 +20,14 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { soundEffects } from "@/lib/sound-effects";
+import { AvatarPicker, PRESET_AVATARS as CURATED_AVATARS } from "@/components/common/avatar-picker";
 
 export interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const PRESET_AVATARS: string[] = [
-  "🦊", "🎸", "🐱", "🎧", "🐼", "🐯", "🐰", "🐸", "🦄", "🤖",
-  "🦁", "🐻", "👾", "🎯", "🚀", "🌟", "🍕", "🍦", "⚡", "🔥",
-];
+export const PRESET_AVATARS: string[] = CURATED_AVATARS.map((a) => a.emoji);
 
 export function ProfileModal({
   isOpen,
@@ -239,36 +237,16 @@ export function ProfileModal({
               </div>
             </div>
 
-            {/* Avatar Picker (20 Preset Emojis) */}
+            {/* Avatar Picker (10 Curated Avatars) */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-2">
                 เลือกรูปตัวแทน (Preset Avatar)
               </label>
-              <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 p-3 bg-slate-950 rounded-2xl border border-slate-800">
-                {PRESET_AVATARS.map((emoji) => {
-                  const isSelected = selectedAvatar === emoji;
-                  return (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => {
-                        setSelectedAvatar(emoji);
-                        try {
-                          soundEffects.click();
-                        } catch {}
-                      }}
-                      className={`h-11 rounded-xl flex items-center justify-center text-xl transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-pink-500/20 border-2 border-pink-500 scale-105 shadow-md shadow-pink-500/20"
-                          : "bg-slate-900 border border-slate-800/80 hover:bg-slate-800 hover:scale-105"
-                      }`}
-                      title={emoji}
-                    >
-                      {emoji}
-                    </button>
-                  );
-                })}
-              </div>
+              <AvatarPicker
+                value={selectedAvatar}
+                onChange={(emoji) => setSelectedAvatar(emoji)}
+                disabled={isSaving}
+              />
             </div>
           </form>
 

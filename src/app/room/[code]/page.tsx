@@ -31,6 +31,8 @@ import { GameView } from "@/components/room/game-view";
 import { TVView } from "@/components/room/tv-view";
 import { PodiumView } from "@/components/room/podium-view";
 import { getDeterministicAvatar } from "@/components/room/player-card";
+import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
+import { useAuth } from "@/hooks/use-auth";
 import type { Player, RoomSettings } from "@/types";
 
 /**
@@ -39,6 +41,8 @@ import type { Player, RoomSettings } from "@/types";
 export const DEFAULT_CLIENT_ROOM_SETTINGS: RoomSettings = {
   gameMode: "buzzer",
   answerInputMode: "autocomplete",
+  lyricsType: "intro",
+  voiceGender: "female",
   sliceDurationSec: 2.0,
   roundTimeoutSec: 15,
   totalRounds: 10,
@@ -149,10 +153,27 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   const [isHydrated, setIsHydrated] = useState(false);
   const [storedSession, setStoredSession] = useState<PlayerSession | null>(null);
 
+  const { profile } = useAuth();
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(PRESET_AVATARS[0].emoji);
+
   // Guest Nickname Entry State
   const [nickname, setNickname] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  // Sync avatar from sessionStorage or user profile
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedAvatar = window.sessionStorage.getItem("pleng_avatar");
+      if (savedAvatar) {
+        setSelectedAvatar(savedAvatar);
+        return;
+      }
+    }
+    if (profile?.avatar) {
+      setSelectedAvatar(profile.avatar);
+    }
+  }, [profile?.avatar]);
 
   // Initialize and check localStorage session on mount
   useEffect(() => {
@@ -175,6 +196,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
       displayName: storedSession.displayName,
       isHost: Boolean(storedSession.isHost),
       sessionToken: storedSession.sessionToken,
+      avatarUrl: storedSession.avatar,
     };
   }, [storedSession]);
 
@@ -207,6 +229,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
         body: JSON.stringify({
           roomCode: cleanCode,
           displayName: nickname.trim(),
+          avatar: selectedAvatar,
         }),
       });
 
@@ -222,11 +245,17 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
         playerId: data.playerId,
         sessionToken: data.sessionToken,
         displayName: nickname.trim(),
+        avatar: selectedAvatar,
         isHost: Boolean(data.isHost),
         savedAt: new Date().toISOString(),
       };
 
       savePlayerSession(cleanCode, newSession);
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem("pleng_avatar", selectedAvatar);
+        } catch {}
+      }
       setStoredSession(newSession);
     } catch (err: any) {
       setJoinError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง");
@@ -252,7 +281,9 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
 
   // 4. Guest Nickname Entry Modal/Card (if no session exists for player mode)
   if (!storedSession && !roomRealtime.myPlayer) {
-    const previewAvatar = getDeterministicAvatar({ displayName: nickname || "ผู้เล่น" });
+    const previewAvatar =
+      selectedAvatar ||
+      getDeterministicAvatar({ displayName: nickname || "ผู้เล่น" });
 
     return (
       <main className="min-h-screen w-full bg-[#FAF7F2] dark:bg-[#0c0a09] bg-radial-glow flex flex-col items-center justify-center p-4 relative overflow-hidden text-stone-900 dark:text-stone-100">
@@ -285,11 +316,23 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
           </div>
 
           {/* Live Cheerful Avatar Preview */}
-          <div className="flex flex-col items-center justify-center mb-5">
+          <div className="flex flex-col items-center justify-center mb-4">
             <div className="w-20 h-20 rounded-3xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center text-4xl shadow-inner select-none transition-transform hover:scale-105">
               <span>{previewAvatar}</span>
             </div>
-            <span className="text-xs text-stone-500 dark:text-stone-400 mt-1.5">อวาตาร์ประจำชื่อของคุณ</span>
+            <span className="text-xs text-stone-500 dark:text-stone-400 mt-1.5">อวาตาร์ประจำตัวคุณ</span>
+          </div>
+
+          {/* Curated 10 Avatars Picker */}
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+              เลือกรูปตัวแทน (Preset Avatar)
+            </label>
+            <AvatarPicker
+              value={selectedAvatar}
+              onChange={(avatar) => setSelectedAvatar(avatar)}
+              disabled={isJoining}
+            />
           </div>
 
           <form onSubmit={handleGuestJoin} className="space-y-4">

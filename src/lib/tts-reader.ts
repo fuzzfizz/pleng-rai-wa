@@ -2,10 +2,13 @@
  * Client-side Web Speech API (window.speechSynthesis) integration for "โหมด AI อ่านเนื้อเพลง"
  *
  * 100% Free, Unlimited, Native on iOS Safari, Android Chrome, Windows Edge/Chrome.
- * Reads Thai lyrics in deadpan robotic style for guessing games.
+ * Reads Thai lyrics in deadpan robotic style for guessing games with male/female voice switching.
  */
 
+export type AIVoiceGender = "male" | "female" | "random";
+
 export interface SpeakLyricsOptions {
+  gender?: AIVoiceGender;
   rate?: number;
   pitch?: number;
   volume?: number;
@@ -40,9 +43,9 @@ export function isSpeechSupported(): boolean {
 
 /**
  * Returns available voices filtered for Thai (th-TH).
- * If no specific Thai voice is installed on the operating system, returns fallback default voices.
+ * Optionally prioritizes male or female voice if available on the system.
  */
-export function getThaiVoices(): SpeechSynthesisVoice[] {
+export function getThaiVoices(gender?: "male" | "female"): SpeechSynthesisVoice[] {
   if (!isSpeechSupported()) return [];
 
   const rawVoices = window.speechSynthesis.getVoices();
@@ -56,6 +59,35 @@ export function getThaiVoices(): SpeechSynthesisVoice[] {
   });
 
   if (thaiVoices.length > 0) {
+    if (gender === "male") {
+      const maleVoice = thaiVoices.find((v) => {
+        const name = (v.name || "").toLowerCase();
+        return (
+          name.includes("niwat") ||
+          name.includes("pattara") ||
+          name.includes("male") ||
+          name.includes("man")
+        );
+      });
+      if (maleVoice) {
+        return [maleVoice, ...thaiVoices.filter((v) => v !== maleVoice)];
+      }
+    } else if (gender === "female") {
+      const femaleVoice = thaiVoices.find((v) => {
+        const name = (v.name || "").toLowerCase();
+        return (
+          name.includes("premwadee") ||
+          name.includes("kanya") ||
+          name.includes("achara") ||
+          name.includes("narisa") ||
+          name.includes("female") ||
+          name.includes("woman")
+        );
+      });
+      if (femaleVoice) {
+        return [femaleVoice, ...thaiVoices.filter((v) => v !== femaleVoice)];
+      }
+    }
     return thaiVoices;
   }
 
@@ -86,11 +118,14 @@ export function stopSpeaking(): void {
 }
 
 /**
- * Speaks Thai lyrics in a deadpan, robotic, comical cadence.
- * Handles canceling ongoing speech cleanly before starting new speech.
+ * Speaks Thai lyrics in a deadpan, robotic cadence.
+ * Supports male, female, or random voice gender switching (100% free via Web Speech API).
+ *
+ * - For "male": pitch = 0.75, rate = 0.88.
+ * - For "female": pitch = 1.25, rate = 0.95.
  *
  * @param text The song lyrics to be spoken.
- * @param options Optional configuration (rate, pitch, callbacks).
+ * @param options Optional configuration (gender, rate, pitch, callbacks).
  */
 export function speakLyrics(
   text: string,
@@ -117,13 +152,25 @@ export function speakLyrics(
 
   const utterance = new SpeechSynthesisUtterance(cleanText);
 
-  // Robotic deadpan defaults: slightly slower pace (0.9), neutral monotone pitch (1.0)
-  utterance.rate = options?.rate ?? 0.9;
-  utterance.pitch = options?.pitch ?? 1.0;
+  // Resolve target voice gender: if "random", randomly pick "male" or "female"
+  const rawGender = options?.gender;
+  const resolvedGender: "male" | "female" =
+    rawGender === "random"
+      ? (Math.random() < 0.5 ? "male" : "female")
+      : (rawGender ?? "female");
+
+  // Voice acoustic defaults:
+  // Male: lower pitch (0.75), slightly slower robotic rate (0.88)
+  // Female: higher pitch (1.25), slightly faster comedic rate (0.95)
+  const defaultPitch = resolvedGender === "male" ? 0.75 : 1.25;
+  const defaultRate = resolvedGender === "male" ? 0.88 : 0.95;
+
+  utterance.pitch = options?.pitch ?? defaultPitch;
+  utterance.rate = options?.rate ?? defaultRate;
   utterance.volume = options?.volume ?? 1.0;
 
-  // Select voice: user-provided voice -> first Thai voice -> fallback
-  const thaiVoices = getThaiVoices();
+  // Look up available Thai voices from Web Speech API
+  const thaiVoices = getThaiVoices(resolvedGender);
   const selectedVoice = options?.voice || (thaiVoices.length > 0 ? thaiVoices[0] : null);
 
   if (selectedVoice) {

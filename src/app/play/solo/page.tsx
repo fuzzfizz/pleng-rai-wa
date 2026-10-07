@@ -33,7 +33,7 @@ import {
   isMuted as isSfxMuted,
   setMuted as setSfxMuted,
 } from "@/lib/sound-effects";
-import { ttsReader } from "@/lib/tts-reader";
+import { ttsReader, type AIVoiceGender } from "@/lib/tts-reader";
 import { checkAnswer, searchSongAutocomplete } from "@/lib/answer-checker";
 import { PlaylistService } from "@/lib/services/playlist-service";
 import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
@@ -105,7 +105,8 @@ function SoloPlayContent() {
   const [gameMode, setGameMode] = useState<GameMode>("audio-slice");
   const [inputMode, setInputMode] = useState<AnswerInputMode>("autocomplete");
   const [sliceDuration, setSliceDuration] = useState<number>(1.0);
-  const [lyricsType, setLyricsType] = useState<"chorus" | "intro">("chorus");
+  const [lyricsType, setLyricsType] = useState<"intro" | "chorus">("intro");
+  const [voiceGender, setVoiceGender] = useState<AIVoiceGender>("female");
 
   // Gameplay State
   const [score, setScore] = useState(0);
@@ -393,13 +394,13 @@ function SoloPlayContent() {
   const handleSpeakLyrics = () => {
     playClickSound();
     const lyrics =
-      lyricsType === "chorus"
-        ? currentSong.lyricsChorus || "ไม่มีเนื้อเพลงท่อนฮุก"
-        : currentSong.lyricsIntro || "ไม่มีเนื้อเพลงท่อนเปิด";
+      lyricsType === "intro"
+        ? currentSong.lyricsIntro || "ไม่มีเนื้อเพลงท่อนเปิด"
+        : currentSong.lyricsChorus || "ไม่มีเนื้อเพลงท่อนฮุก";
 
     setIsAITalking(true);
     ttsReader.speakLyrics(lyrics, {
-      rate: 0.9,
+      gender: voiceGender,
       onEnd: () => setIsAITalking(false),
       onError: () => setIsAITalking(false),
     });
@@ -592,21 +593,41 @@ function SoloPlayContent() {
                 <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400">เลือกระยะเวลาที่ต้องการฟัง แล้วกดปุ่มเพื่อฟังเสียงสั้นๆ</p>
               </div>
 
-              {/* Duration Pills */}
-              <div className="flex items-center gap-2">
-                {[1.0, 2.0, 5.0].map((dur) => (
-                  <button
-                    key={dur}
-                    onClick={() => setSliceDuration(dur)}
-                    className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                      sliceDuration === dur
-                        ? "bg-amber-500 text-stone-950 shadow-sm"
-                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                    }`}
-                  >
-                    {dur.toFixed(1)} วินาที
-                  </button>
-                ))}
+              {/* Duration Pills & Slider (Up to 20.0s) */}
+              <div className="w-full max-w-md flex flex-col items-center gap-3">
+                <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+                  {[1.0, 2.0, 5.0, 10.0, 15.0, 20.0].map((dur) => (
+                    <button
+                      key={dur}
+                      type="button"
+                      onClick={() => setSliceDuration(dur)}
+                      className={`min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                        sliceDuration === dur
+                          ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                          : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                      }`}
+                    >
+                      {dur.toFixed(0)} วินาที
+                    </button>
+                  ))}
+                </div>
+
+                {/* Slider for custom duration up to 20s */}
+                <div className="w-full flex items-center gap-3 px-2">
+                  <span className="text-[11px] font-mono text-stone-500">0.5s</span>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="20.0"
+                    step="0.5"
+                    value={sliceDuration}
+                    onChange={(e) => setSliceDuration(parseFloat(e.target.value))}
+                    className="flex-1 accent-amber-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 w-12 text-right">
+                    {sliceDuration.toFixed(1)}s
+                  </span>
+                </div>
               </div>
 
               {/* Big Play Button */}
@@ -702,19 +723,8 @@ function SoloPlayContent() {
                 </p>
               </div>
 
-              {/* Lyrics Type Switch */}
+              {/* Lyrics Type Switch: Intro first, then Chorus */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLyricsType("chorus")}
-                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "chorus"
-                      ? "bg-amber-500 text-stone-950 shadow-sm"
-                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                  }`}
-                >
-                  🎵 ท่อนฮุก (Chorus)
-                </button>
                 <button
                   type="button"
                   onClick={() => setLyricsType("intro")}
@@ -726,6 +736,59 @@ function SoloPlayContent() {
                 >
                   🚀 ท่อนเปิด (Intro)
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setLyricsType("chorus")}
+                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
+                    lyricsType === "chorus"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  🎵 ท่อนฮุก (Chorus)
+                </button>
+              </div>
+
+              {/* Voice Gender Switcher */}
+              <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
+                <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  โทนเสียง AI (ฟรี)
+                </span>
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setVoiceGender("female")}
+                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                      voiceGender === "female"
+                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    👩 เสียงหญิง
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceGender("male")}
+                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                      voiceGender === "male"
+                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    👨 เสียงชาย
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceGender("random")}
+                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                      voiceGender === "random"
+                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    🎲 สุ่มเสียงอัตโนมัติ
+                  </button>
+                </div>
               </div>
 
               {/* Speak Button */}

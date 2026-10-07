@@ -16,6 +16,8 @@ export interface CreateRoomResult {
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   gameMode: "buzzer",
   answerInputMode: "autocomplete",
+  lyricsType: "intro",
+  voiceGender: "female",
   sliceDurationSec: 2.0,
   roundTimeoutSec: 15,
   totalRounds: 10,

@@ -83,10 +83,13 @@ export interface Player {
   lastSeenAt: string;
 }
 
+export type AIVoiceGender = "male" | "female" | "random";
+
 export interface RoomSettings {
   gameMode: GameMode;
   answerInputMode: AnswerInputMode;
   lyricsType?: LyricsType;
+  voiceGender?: AIVoiceGender;
   sliceDurationSec: number; // e.g. 1.0, 2.0, 5.0
   roundTimeoutSec: number; // 0 for unlimited, or e.g. 15, 30
   totalRounds: number; // 0 for unlimited, or e.g. 5, 10, 20

@@ -126,7 +126,9 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   useEffect(() => {
     if (gameMode === "ai-lyrics") {
       if (status === "question_active" && activeQuestion?.lyrics && !isMuted) {
-        ttsReader.speakLyrics(activeQuestion.lyrics);
+        ttsReader.speakLyrics(activeQuestion.lyrics, {
+          gender: roomRealtime.room?.settings?.voiceGender,
+        });
       } else {
         ttsReader.stopSpeaking();
       }

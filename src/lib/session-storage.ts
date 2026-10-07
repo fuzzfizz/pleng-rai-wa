@@ -8,6 +8,7 @@ export interface PlayerSession {
   playerId: string;
   sessionToken: string;
   displayName: string;
+  avatar?: string;
   isHost?: boolean;
   savedAt: string;
 }
@@ -88,6 +89,7 @@ export function loadPlayerSession(roomCode: string): PlayerSession | null {
         playerId: parsed.playerId,
         sessionToken: parsed.sessionToken,
         displayName: parsed.displayName,
+        avatar: typeof parsed.avatar === "string" ? parsed.avatar : undefined,
         isHost: Boolean(parsed.isHost),
         savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : new Date().toISOString(),
       };
