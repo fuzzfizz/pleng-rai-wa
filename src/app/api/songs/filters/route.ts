@@ -6,6 +6,8 @@
 import { NextResponse } from "next/server";
 import { SongService } from "@/lib/services/song-service";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const filters = await SongService.getSongFilterOptions();

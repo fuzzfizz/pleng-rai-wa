@@ -3,29 +3,21 @@
 // ==========================================
 // เพลงไรวะ (Pleng-Rai-Wa) - Song Source & Filter Modal
 // Warm Lo-Fi & Vinyl Cafe Aesthetic
-// Allows filtering songs by: Random All, Era/Year, Genre, Artist/Band, Playlist
+// Allows filtering songs by: Random All, Era/Year, Genre, Artist/Band
 // ==========================================
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
-  Music,
   Check,
   Search,
   Sparkles,
-  Calendar,
   Mic2,
   Disc3,
-  ListMusic,
   Loader2,
-  AlertCircle,
-  HelpCircle,
 } from "lucide-react";
 import type { SongFilterConfig, SongFilterType, Genre, Playlist } from "@/types";
 import { soundEffects } from "@/lib/sound-effects";
-import { PlaylistService } from "@/lib/services/playlist-service";
-import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
-import { useAuth } from "@/hooks/use-auth";
 
 export const MIN_SONGS_TO_PLAY = 5;
 
@@ -100,11 +92,8 @@ export function SongSourceModal({
   onClose,
   currentFilter,
   onSelectFilter,
-  playlists: propPlaylists,
 }: SongSourceModalProps): React.JSX.Element | null {
-  const { user } = useAuth();
-
-  // Active Tab
+  // Active Tab: all | era | genre | artist
   const [activeTab, setActiveTab] = useState<SongFilterType>("all");
 
   // Draft Filter state
@@ -112,23 +101,35 @@ export function SongSourceModal({
 
   // Loaded metadata from API
   const [genres, setGenres] = useState<Genre[]>(FALLBACK_GENRES);
+  const [eraCounts, setEraCounts] = useState<Record<string, number>>({});
   const [artists, setArtists] = useState<string[]>([]);
   const [totalSongsCount, setTotalSongsCount] = useState<number>(0);
   const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(false);
 
-  // Playlists
-  const [playlists, setPlaylists] = useState<Playlist[]>(propPlaylists || []);
-  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
-
   // Artist search input
   const [artistSearch, setArtistSearch] = useState<string>("");
+
+  // Filter out non-musical / era categories from genres
+  const displayGenres = useMemo(() => {
+    return genres.filter(
+      (g) =>
+        g.slug !== "90s" &&
+        g.slug !== "2000s" &&
+        !g.nameTh.includes("ยุค")
+    );
+  }, [genres]);
 
   // Sync draft when modal opens
   useEffect(() => {
     if (isOpen) {
       const initial = currentFilter || { type: "all" };
-      setDraft(initial);
-      setActiveTab(initial.type || "all");
+      if (initial.type === "playlist") {
+        setDraft({ type: "all" });
+        setActiveTab("all");
+      } else {
+        setDraft(initial);
+        setActiveTab(initial.type || "all");
+      }
       setArtistSearch("");
     }
   }, [isOpen, currentFilter]);
@@ -147,6 +148,15 @@ export function SongSourceModal({
         if (isMounted && data.success && data.filters) {
           if (data.filters.genres && data.filters.genres.length > 0) {
             setGenres(data.filters.genres);
+          }
+          if (data.filters.eras && data.filters.eras.length > 0) {
+            const counts: Record<string, number> = {};
+            for (const era of data.filters.eras) {
+              if (typeof era.songCount === "number") {
+                counts[era.id] = era.songCount;
+              }
+            }
+            setEraCounts(counts);
           }
           if (data.filters.artists) {
             setArtists(data.filters.artists);
@@ -169,52 +179,6 @@ export function SongSourceModal({
     };
   }, [isOpen]);
 
-  // Load Playlists if not provided in props
-  useEffect(() => {
-    if (!isOpen) return;
-    if (propPlaylists && propPlaylists.length > 0) {
-      setPlaylists(propPlaylists);
-      return;
-    }
-
-    let isMounted = true;
-    setIsLoadingPlaylists(true);
-
-    async function fetchPlaylists() {
-      try {
-        const publicPromise = PlaylistService.getPublicPlaylists();
-        const userPromise = user?.id
-          ? PlaylistService.getUserPlaylists(user.id)
-          : Promise.resolve([]);
-
-        const [publicList, userList] = await Promise.all([
-          publicPromise.catch(() => []),
-          userPromise.catch(() => []),
-        ]);
-
-        const map = new Map<string, Playlist>();
-        for (const p of userList) map.set(p.id, p);
-        for (const p of publicList) {
-          if (!map.has(p.id)) map.set(p.id, p);
-        }
-
-        if (isMounted) {
-          setPlaylists(Array.from(map.values()));
-        }
-      } catch (err) {
-        console.warn("Could not load playlists in modal:", err);
-      } finally {
-        if (isMounted) setIsLoadingPlaylists(false);
-      }
-    }
-
-    fetchPlaylists();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, user?.id, propPlaylists]);
-
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -234,15 +198,10 @@ export function SongSourceModal({
     return artists.filter((a) => a.toLowerCase().includes(q));
   }, [artists, artistSearch]);
 
-  const selectedPlaylist = useMemo(() => {
-    if (draft.type !== "playlist" || !draft.playlistId) return null;
-    return playlists.find((p) => p.id === draft.playlistId);
-  }, [draft, playlists]);
-
   // Current pill label
   const activePillLabel = useMemo(() => {
-    return getSongFilterLabel(draft, selectedPlaylist?.title);
-  }, [draft, selectedPlaylist]);
+    return getSongFilterLabel(draft);
+  }, [draft]);
 
   // Validation
   const isDraftValid = useMemo(() => {
@@ -250,13 +209,8 @@ export function SongSourceModal({
     if (draft.type === "era") return Boolean(draft.era);
     if (draft.type === "genre") return Boolean(draft.genreId);
     if (draft.type === "artist") return Boolean(draft.artist && draft.artist.trim().length > 0);
-    if (draft.type === "playlist") {
-      if (!draft.playlistId) return false;
-      const target = playlists.find((p) => p.id === draft.playlistId);
-      return Boolean(target && isPlaylistPlayable(target.songCount || 0));
-    }
     return true;
-  }, [draft, playlists]);
+  }, [draft]);
 
   const handleConfirm = () => {
     try {
@@ -330,7 +284,7 @@ export function SongSourceModal({
         </div>
 
         {/* Filter Mode Navigation Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-950/70 border border-stone-200/80 dark:border-stone-800/80 shrink-0 text-xs font-semibold">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-950/70 border border-stone-200/80 dark:border-stone-800/80 shrink-0 text-xs font-semibold">
           {/* Tab 1: All */}
           <button
             type="button"
@@ -378,7 +332,7 @@ export function SongSourceModal({
             onClick={() => {
               setActiveTab("genre");
               if (draft.type !== "genre" || !draft.genreId) {
-                const first = genres[0];
+                const first = displayGenres[0] || genres[0];
                 if (first) {
                   setDraft({
                     type: "genre",
@@ -419,31 +373,6 @@ export function SongSourceModal({
           >
             <span>🎤</span>
             <span>ศิลปิน / วง</span>
-          </button>
-
-          {/* Tab 5: Playlist */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("playlist");
-              if (draft.type !== "playlist" || !draft.playlistId) {
-                const playable = playlists.find((p) => isPlaylistPlayable(p.songCount || 0));
-                if (playable) {
-                  setDraft({
-                    type: "playlist",
-                    playlistId: playable.id,
-                  });
-                }
-              }
-            }}
-            className={`col-span-2 sm:col-span-1 py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px] ${
-              activeTab === "playlist"
-                ? "bg-white dark:bg-stone-800 text-amber-800 dark:text-amber-300 shadow-sm font-bold"
-                : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
-            }`}
-          >
-            <span>🎶</span>
-            <span>เพลย์ลิสต์</span>
           </button>
         </div>
 
@@ -500,6 +429,7 @@ export function SongSourceModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {ERA_OPTIONS.map((era) => {
                   const isSelected = draft.type === "era" && draft.era === era.id;
+                  const count = eraCounts[era.id] ?? 0;
                   return (
                     <div
                       key={era.id}
@@ -521,8 +451,11 @@ export function SongSourceModal({
                         <div className="flex items-center gap-2.5">
                           <span className="text-2xl">{era.icon}</span>
                           <div>
-                            <div className="font-bold text-sm text-stone-900 dark:text-white">
-                              {era.label}
+                            <div className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
+                              <span>{era.label}</span>
+                              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                                {count} เพลง
+                              </span>
                             </div>
                             <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
                               {era.subtitle}
@@ -555,7 +488,7 @@ export function SongSourceModal({
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {genres.map((g) => {
+                {displayGenres.map((g) => {
                   const isSelected = draft.type === "genre" && draft.genreId === g.id;
                   return (
                     <div
@@ -577,7 +510,7 @@ export function SongSourceModal({
                         <span className="text-2xl">{g.icon || "🎵"}</span>
                         {isSelected && (
                           <div className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center">
-                            <Check className="w-3 h-3 stroke-[3]" />
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </div>
                         )}
                       </div>
@@ -585,8 +518,11 @@ export function SongSourceModal({
                         <div className="font-bold text-sm text-stone-900 dark:text-white">
                           {g.nameTh}
                         </div>
-                        <div className="text-[10px] text-stone-500 dark:text-stone-400">
-                          {g.nameEn}
+                        <div className="text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between mt-0.5">
+                          <span>{g.nameEn}</span>
+                          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
+                            {g.songCount || 0} เพลง
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -611,12 +547,12 @@ export function SongSourceModal({
                 />
               </div>
 
-              {/* Popular Artist Chips */}
+              {/* Verified Artist Chips from Database */}
               <div>
                 <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 mb-2 uppercase tracking-wider">
-                  ศิลปินยอดนิยมในฐานข้อมูล:
+                  ศิลปินในฐานข้อมูล:
                 </label>
-                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto pr-1">
                   {filteredArtists.length > 0 ? (
                     filteredArtists.map((artistName) => {
                       const isSelected =
@@ -651,118 +587,6 @@ export function SongSourceModal({
                   )}
                 </div>
               </div>
-
-              {/* Custom Freeform Artist Input */}
-              <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-950/40 border border-stone-200 dark:border-stone-800/80 space-y-2">
-                <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">
-                  หรือพิมพ์ชื่อศิลปินที่ต้องการระบุเจาะจง:
-                </span>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="เช่น Palmy, Loso, Carabao"
-                    value={draft.type === "artist" ? draft.artist || "" : ""}
-                    onChange={(e) => {
-                      setDraft({
-                        type: "artist",
-                        artist: e.target.value,
-                      });
-                    }}
-                    className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (artistSearch.trim()) {
-                        setDraft({
-                          type: "artist",
-                          artist: artistSearch.trim(),
-                        });
-                      }
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium transition-colors cursor-pointer"
-                  >
-                    ใช้ชื่อนี้
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: PLAYLIST */}
-          {activeTab === "playlist" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs font-semibold text-stone-600 dark:text-stone-300">
-                <span>เลือกเพลย์ลิสต์ (ต้องการเพลงขั้นต่ำ {MIN_SONGS_TO_PLAY} เพลง):</span>
-                {isLoadingPlaylists && (
-                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px]">
-                    <Loader2 className="w-3 h-3 animate-spin" /> โหลดเพลย์ลิสต์...
-                  </span>
-                )}
-              </div>
-
-              {playlists.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2.5 max-h-60 overflow-y-auto pr-1">
-                  {playlists.map((pl) => {
-                    const isPlayable = isPlaylistPlayable(pl.songCount || 0);
-                    const isSelected = draft.type === "playlist" && draft.playlistId === pl.id;
-
-                    return (
-                      <div
-                        key={pl.id}
-                        onClick={() => {
-                          if (!isPlayable) return;
-                          setDraft({
-                            type: "playlist",
-                            playlistId: pl.id,
-                          });
-                        }}
-                        className={`p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 ${
-                          !isPlayable
-                            ? "opacity-50 cursor-not-allowed bg-stone-50 dark:bg-stone-950/40 border-stone-200 dark:border-stone-800"
-                            : isSelected
-                            ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white cursor-pointer shadow-sm"
-                            : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 cursor-pointer"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
-                            <ListMusic className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-bold text-sm text-stone-900 dark:text-white truncate">
-                              {pl.title}
-                            </div>
-                            <div className="text-[11px] text-stone-500 dark:text-stone-400 flex items-center gap-2">
-                              <span>{pl.songCount || 0} เพลง</span>
-                              {pl.authorName && <span>• โดย {pl.authorName}</span>}
-                              {!isPlayable && (
-                                <span className="text-rose-500 dark:text-rose-400 font-semibold">
-                                  (ยังไม่ครบ {MIN_SONGS_TO_PLAY} เพลง)
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-6 text-center text-xs text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-950/40 rounded-3xl border border-stone-200 dark:border-stone-800 space-y-2">
-                  <ListMusic className="w-8 h-8 mx-auto text-stone-400 stroke-1" />
-                  <p>ยังไม่มีเพลย์ลิสต์ในระบบ หรือเพลย์ลิสต์ยังไม่มีเพลง</p>
-                  <p className="text-[11px] text-stone-400">
-                    คุณสามารถสร้างเพลย์ลิสต์ได้ที่เมนู <strong>คลังเพลย์ลิสต์</strong>
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>

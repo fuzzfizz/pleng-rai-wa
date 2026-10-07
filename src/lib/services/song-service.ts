@@ -310,6 +310,7 @@ export interface GetRandomSongsOptions {
 export interface EraFilterOption {
   id: string;
   label: string;
+  songCount?: number;
 }
 
 export interface SongFilterOptionsResponse {
@@ -329,14 +330,21 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
     getGenres().catch(() => []),
     client
       .from("songs")
-      .select("artist")
+      .select("artist, genre_id, era, release_year")
       .order("artist", { ascending: true }),
     client
       .from("songs")
       .select("*", { count: "exact", head: true }),
   ]);
 
-  const rawArtists = ((songsRes?.data as Array<{ artist?: string }>) || [])
+  const songRows = (songsRes?.data as Array<{
+    artist?: string | null;
+    genre_id?: string | null;
+    era?: string | null;
+    release_year?: number | null;
+  }>) || [];
+
+  const rawArtists = songRows
     .map((r) => r.artist?.trim())
     .filter((a): a is string => Boolean(a && a.length > 0));
 
@@ -344,18 +352,76 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
     a.localeCompare(b, "th")
   );
 
+  // Map to identify era genres (e.g. legacy '90s' or '2000s' genres)
+  const eraGenreIds: Record<string, string> = {};
+  for (const g of genresRes) {
+    if (g.slug === "90s") eraGenreIds[g.id] = "90s";
+    if (g.slug === "2000s") eraGenreIds[g.id] = "2000s";
+  }
+
+  // Calculate song counts per genre and per era
+  const genreCountMap: Record<string, number> = {};
+  const eraCountMap: Record<string, number> = {
+    "90s": 0,
+    "2000s": 0,
+    "2010s": 0,
+    "2020s": 0,
+  };
+
+  for (const song of songRows) {
+    if (song.genre_id) {
+      genreCountMap[song.genre_id] = (genreCountMap[song.genre_id] || 0) + 1;
+    }
+
+    // Determine era
+    let era = song.era?.trim();
+    if (!era && song.genre_id && eraGenreIds[song.genre_id]) {
+      era = eraGenreIds[song.genre_id];
+    }
+    if (!era && song.release_year) {
+      if (song.release_year < 1990) era = "80s";
+      else if (song.release_year < 2000) era = "90s";
+      else if (song.release_year < 2010) era = "2000s";
+      else if (song.release_year < 2020) era = "2010s";
+      else era = "2020s";
+    }
+
+    if (era) {
+      if (era.includes("90")) era = "90s";
+      else if (era.includes("2000")) era = "2000s";
+      else if (era.includes("2010")) era = "2010s";
+      else if (era.includes("2020")) era = "2020s";
+
+      if (era in eraCountMap) {
+        eraCountMap[era] = (eraCountMap[era] || 0) + 1;
+      }
+    }
+  }
+
+  // Filter out any genres where slug === '90s' || slug === '2000s' or nameTh.includes('ยุค')
+  const filteredGenres: Genre[] = genresRes
+    .filter((g) => {
+      if (g.slug === "90s" || g.slug === "2000s") return false;
+      if (g.nameTh && g.nameTh.includes("ยุค")) return false;
+      return true;
+    })
+    .map((g) => ({
+      ...g,
+      songCount: genreCountMap[g.id] || 0,
+    }));
+
   const eras: EraFilterOption[] = [
-    { id: "90s", label: "ยุค 90s (เทปคาสเซ็ท)" },
-    { id: "2000s", label: "ยุค 2000s (มิลเลนเนียม)" },
-    { id: "2010s", label: "ยุค 2010s (สตรีมมิ่ง & อินดี้)" },
-    { id: "2020s", label: "ยุค 2020s (ฮิตติดกระแส)" },
+    { id: "90s", label: "ยุค 90s (เทปคาสเซ็ท)", songCount: eraCountMap["90s"] || 0 },
+    { id: "2000s", label: "ยุค 2000s (มิลเลนเนียม)", songCount: eraCountMap["2000s"] || 0 },
+    { id: "2010s", label: "ยุค 2010s (สตรีมมิ่ง & อินดี้)", songCount: eraCountMap["2010s"] || 0 },
+    { id: "2020s", label: "ยุค 2020s (ฮิตติดกระแส)", songCount: eraCountMap["2020s"] || 0 },
   ];
 
   return {
-    genres: genresRes,
+    genres: filteredGenres,
     eras,
     artists: uniqueArtists,
-    totalSongs: countRes?.count ?? uniqueArtists.length,
+    totalSongs: countRes?.count ?? songRows.length,
   };
 }
 
