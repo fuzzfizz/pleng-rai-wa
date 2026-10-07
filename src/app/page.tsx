@@ -9,6 +9,19 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+
+const ThreeVinylCanvas = dynamic(
+  () => import("@/components/common/three-vinyl-canvas"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center">
+        <div className="w-40 h-40 rounded-full border-2 border-dashed border-amber-500/20 animate-spin" />
+      </div>
+    ),
+  }
+);
 import {
   Users,
   Play,
@@ -51,6 +64,9 @@ export default function HomePage() {
 
   // Recent visited room shortcut
   const [lastRoomCode, setLastRoomCode] = useState<string | null>(null);
+
+  // 3D Vinyl Interactive state
+  const [isVinylPlaying, setIsVinylPlaying] = useState(false);
 
   useEffect(() => {
     const last = getLastRoomCode();
@@ -161,10 +177,19 @@ export default function HomePage() {
       <NavHeader className="max-w-5xl z-10 py-2" />
 
       {/* Hero Section */}
-      <section className="w-full max-w-3xl lg:max-w-5xl flex flex-col items-center text-center my-auto py-12 z-10">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium mb-6 shadow-sm">
+      <section className="w-full max-w-3xl lg:max-w-5xl flex flex-col items-center text-center my-auto py-8 lg:py-12 z-10">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium mb-3 shadow-sm">
           <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
           <span>ประลองความเซียนเพลงไทย</span>
+        </div>
+
+        {/* 3D Interactive Three.js Vinyl */}
+        <div className="my-1 mb-5 flex flex-col items-center">
+          <ThreeVinylCanvas
+            isPlaying={isVinylPlaying}
+            onTogglePlay={() => setIsVinylPlaying((prev) => !prev)}
+            className="w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 drop-shadow-2xl"
+          />
         </div>
 
         <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight">
