@@ -91,7 +91,7 @@ export function NavHeader({
   return (
     <>
       <header
-        className={`w-full flex items-center justify-between z-20 transition-colors duration-200 ${className}`}
+        className={`w-full flex items-center justify-between z-20 transition-colors duration-200 lg:py-3.5 lg:px-4 ${className}`}
       >
         {/* Brand Logo */}
         <Link
@@ -103,16 +103,16 @@ export function NavHeader({
             } catch {}
           }}
         >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
-            <Disc3 className="w-5 h-5 text-stone-950 animate-[spin_8s_linear_infinite]" />
+          <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+            <Disc3 className="w-5 h-5 lg:w-6 lg:h-6 text-stone-950 animate-[spin_8s_linear_infinite]" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100 font-sans group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+              <span className="text-xl lg:text-2xl font-black tracking-tight text-stone-900 dark:text-stone-100 font-sans group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 เพลงไรวะ?
               </span>
             </div>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 font-sans tracking-wide">
+            <p className="text-[11px] lg:text-xs text-stone-500 dark:text-stone-400 font-sans tracking-wide">
               Vinyl & Music Quiz
             </p>
           </div>
@@ -128,7 +128,7 @@ export function NavHeader({
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 text-xs lg:text-sm font-medium px-3 py-1.5 lg:px-4 lg:py-2 rounded-full transition-all cursor-pointer ${
                     isActive
                       ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold"
                       : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50"
@@ -154,7 +154,7 @@ export function NavHeader({
 
           {isLoading ? (
             // Loading Skeleton
-            <div className="h-9 w-28 bg-stone-200 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700/40 rounded-full animate-pulse" />
+            <div className="h-9 lg:h-10 w-28 lg:w-36 bg-stone-200 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700/40 rounded-full animate-pulse" />
           ) : user && profile ? (
             // Authenticated User Pill
             <div className="relative" ref={menuRef}>
@@ -166,17 +166,17 @@ export function NavHeader({
                   } catch {}
                   setIsUserMenuOpen((prev) => !prev);
                 }}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-stone-100 dark:bg-stone-900/80 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                className="flex items-center gap-2 py-1.5 lg:py-2 px-3 lg:px-4 text-xs lg:text-sm rounded-full bg-stone-100 dark:bg-stone-900/80 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
                 aria-expanded={isUserMenuOpen}
               >
-                <span className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm">
+                <span className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm lg:text-base">
                   {profile.avatar || "🦊"}
                 </span>
-                <span className="text-xs font-semibold text-stone-800 dark:text-stone-200 max-w-[110px] truncate">
+                <span className="font-semibold text-stone-800 dark:text-stone-200 max-w-[110px] lg:max-w-[140px] truncate">
                   {profile.displayName || "นักฟังเพลง"}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-stone-500 dark:text-stone-400 transition-transform ${
+                  className={`w-3.5 h-3.5 lg:w-4 lg:h-4 text-stone-500 dark:text-stone-400 transition-transform ${
                     isUserMenuOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -224,9 +224,9 @@ export function NavHeader({
             <button
               type="button"
               onClick={() => handleOpenAuth("signin")}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 text-xs font-semibold transition-all shadow-sm cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-3.5 py-1.5 lg:px-5 lg:py-2.5 text-xs lg:text-sm font-semibold rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm cursor-pointer active:scale-95"
             >
-              <LogIn className="w-3.5 h-3.5 text-amber-500" />
+              <LogIn className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-500" />
               <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
             </button>
           )}

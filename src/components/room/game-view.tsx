@@ -59,6 +59,7 @@ export function GameView({
     currentRound,
     totalRounds,
     gameMode,
+    room,
     activeQuestion,
     buzzedPlayer,
     isMyBuzz,
@@ -395,7 +396,7 @@ export function GameView({
         inputMode={answerInputMode}
         songLibrary={songLibrary}
         isSubmitting={isSubmittingAnswer}
-        timeRemainingSec={10}
+        timeRemainingSec={room?.settings?.roundTimeoutSec ?? 15}
       />
 
       {/* ==================================================== */}

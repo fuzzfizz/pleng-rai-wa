@@ -15,7 +15,7 @@ export interface AnswerModalProps {
   isOpen: boolean;
   onClose?: () => void;
   onSubmitAnswer: (answerText: string) => Promise<void>;
-  timeRemainingSec?: number; // default 10 seconds
+  timeRemainingSec?: number; // default 15 seconds (0 = unlimited)
   inputMode?: AnswerInputMode;
   songLibrary?: Song[];
   isSubmitting?: boolean;
@@ -34,12 +34,13 @@ export function AnswerModal({
   isOpen,
   onClose,
   onSubmitAnswer,
-  timeRemainingSec = 10,
+  timeRemainingSec = 15,
   inputMode = "autocomplete",
   songLibrary = [],
   isSubmitting = false,
 }: AnswerModalProps): React.JSX.Element | null {
   const [inputValue, setInputValue] = useState("");
+  const isUnlimited = timeRemainingSec <= 0;
   const [secondsLeft, setSecondsLeft] = useState(timeRemainingSec);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
@@ -63,9 +64,9 @@ export function AnswerModal({
     }
   }, [isOpen, timeRemainingSec]);
 
-  // Countdown timer interval (ticks down every 100ms)
+  // Countdown timer interval (ticks down every 100ms) - only if not unlimited
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isUnlimited) return;
 
     const interval = setInterval(() => {
       setSecondsLeft((prev) => {
@@ -79,7 +80,7 @@ export function AnswerModal({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isOpen]);
+  }, [isOpen, isUnlimited]);
 
   // Autocomplete search suggestions
   const suggestions = useMemo(() => {
@@ -160,7 +161,9 @@ export function AnswerModal({
               <h2 id="answer-modal-title" className="text-xl lg:text-2xl font-bold font-serif text-stone-900 dark:text-amber-300 tracking-wide">
                 สิทธิ์ตอบเป็นของคุณ!
               </h2>
-              <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400">ตอบด่วนก่อนเวลาจะหมด</p>
+              <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400">
+                {isUnlimited ? "ไม่จำกัดเวลา ตอบเมื่อคุณมั่นใจ" : "ตอบด่วนก่อนเวลาจะหมด"}
+              </p>
             </div>
           </div>
 
@@ -177,29 +180,41 @@ export function AnswerModal({
           )}
         </div>
 
-        {/* Animated Countdown Progress Bar */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs lg:text-sm font-semibold">
-            <span className="flex items-center gap-1 text-stone-600 dark:text-stone-300">
-              <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              เวลาที่เหลือ:
+        {/* Animated Countdown Progress Bar or Unlimited Badge */}
+        {isUnlimited ? (
+          <div className="flex items-center justify-between py-2.5 px-4 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs lg:text-sm font-semibold shadow-sm">
+            <span className="flex items-center gap-2">
+              <span className="text-base">⏳</span>
+              <span className="font-bold">ไม่จำกัดเวลา (Unlimited)</span>
             </span>
-            <span
-              className={`font-mono text-sm lg:text-base font-bold ${
-                secondsLeft <= 3 ? "text-rose-500 dark:text-rose-400 animate-pulse" : "text-amber-600 dark:text-amber-300"
-              }`}
-            >
-              {secondsLeft.toFixed(1)} วินาที
+            <span className="text-[11px] lg:text-xs font-medium text-emerald-700/80 dark:text-emerald-400/80">
+              ไม่มีเวลานับถอยหลัง
             </span>
           </div>
+        ) : (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs lg:text-sm font-semibold">
+              <span className="flex items-center gap-1 text-stone-600 dark:text-stone-300">
+                <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                เวลาที่เหลือ:
+              </span>
+              <span
+                className={`font-mono text-sm lg:text-base font-bold ${
+                  secondsLeft <= 3 ? "text-rose-500 dark:text-rose-400 animate-pulse" : "text-amber-600 dark:text-amber-300"
+                }`}
+              >
+                {secondsLeft.toFixed(1)} วินาที
+              </span>
+            </div>
 
-          <div className="w-full h-3 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden p-0.5 border border-stone-300 dark:border-stone-700/60 shadow-inner">
-            <div
-              className={`h-full rounded-full transition-all duration-100 shadow-md ${timerColorClass}`}
-              style={{ width: `${(ratio * 100).toFixed(1)}%` }}
-            />
+            <div className="w-full h-3 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden p-0.5 border border-stone-300 dark:border-stone-700/60 shadow-inner">
+              <div
+                className={`h-full rounded-full transition-all duration-100 shadow-md ${timerColorClass}`}
+                style={{ width: `${(ratio * 100).toFixed(1)}%` }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Input Form */}
         <form onSubmit={onFormSubmit} className="space-y-3">

@@ -370,8 +370,8 @@ function SoloPlayContent() {
       navigator.vibrate?.([45]);
     }
 
-    // Start 10-second answer countdown
-    setBuzzerCountdown(10);
+    // Start 15-second answer countdown
+    setBuzzerCountdown(15);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
 
     countdownIntervalRef.current = setInterval(() => {

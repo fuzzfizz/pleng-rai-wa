@@ -25,7 +25,6 @@ const ThreeVinylCanvas = dynamic(
 import {
   Users,
   Play,
-  Sparkles,
   Volume2,
   Bell,
   Bot,
@@ -178,11 +177,6 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <section className="w-full max-w-3xl lg:max-w-5xl flex flex-col items-center text-center my-auto py-8 lg:py-12 z-10">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium mb-3 shadow-sm">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-          <span>ประลองความเซียนเพลงไทย</span>
-        </div>
-
         {/* 3D Interactive Three.js Vinyl */}
         <div className="my-1 mb-5 flex flex-col items-center">
           <ThreeVinylCanvas
@@ -200,7 +194,7 @@ export default function HomePage() {
         </h2>
 
         <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-400 max-w-xl lg:max-w-2xl mb-8 lg:mb-10 leading-relaxed">
-          ประลองความเซียนเพลงไทย ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
+          ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
         </p>
 
         {/* Action Box */}

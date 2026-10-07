@@ -57,6 +57,7 @@ export const ROUND_TIMEOUT_OPTIONS: { value: number; label: string }[] = [
   { value: 10, label: "10 วินาที (ไฟลุก)" },
   { value: 15, label: "15 วินาที (มาตรฐาน)" },
   { value: 30, label: "30 วินาที (ชิวๆ)" },
+  { value: 0, label: "ไม่จำกัด (Unlimited)" },
 ];
 
 /**
@@ -90,7 +91,7 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
 
   if (result.roundTimeoutSec !== undefined) {
     const val = Number(result.roundTimeoutSec);
-    result.roundTimeoutSec = isNaN(val) || val <= 0 ? 15 : val;
+    result.roundTimeoutSec = isNaN(val) || val < 0 ? 15 : val;
   }
 
   if (result.playlistId !== undefined) {
@@ -677,7 +678,7 @@ export function HostSettingsModal({
             <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               ⏳ เวลาตอบต่อข้อ (Round Timeout)
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {ROUND_TIMEOUT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
