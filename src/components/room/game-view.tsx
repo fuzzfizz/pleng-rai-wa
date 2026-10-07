@@ -17,10 +17,14 @@ import {
   Zap,
   Radio,
   Crown,
+  Search,
+  Send,
+  Loader2,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
 import type { Song, GameMode } from "@/types";
 import { ttsReader } from "@/lib/tts-reader";
+import { searchSongAutocomplete } from "@/lib/answer-checker";
 import { BuzzerButton, resolveBuzzerStatus } from "./buzzer-button";
 import { AnswerModal } from "./answer-modal";
 import { WrongGuessBanner } from "./wrong-guess-banner";
@@ -119,16 +123,16 @@ export function GameView({
     };
   }, []);
 
-  // Handle buzzer press with in-flight guard
+  // Handle buzzer press with in-flight guard (disabled in AI lyrics mode)
   const handleBuzzPress = useCallback(async () => {
-    if (isBuzzing) return;
+    if (gameMode === "ai-lyrics" || isBuzzing) return;
     setIsBuzzing(true);
     try {
       await buzz();
     } finally {
       setIsBuzzing(false);
     }
-  }, [buzz, isBuzzing]);
+  }, [buzz, isBuzzing, gameMode]);
 
   // Handle answer submission
   const handleSubmitAnswer = useCallback(
@@ -141,6 +145,88 @@ export function GameView({
       }
     },
     [submitAnswer]
+  );
+
+  const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
+
+  // Direct answer state for AI Lyrics mode
+  const [directAnswer, setDirectAnswer] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const directInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Clear direct answer input on round or status change
+  useEffect(() => {
+    setDirectAnswer("");
+    setHighlightedIndex(-1);
+    setShowSuggestions(false);
+  }, [currentRound, status]);
+
+  // Autocomplete suggestions for direct answer mode
+  const directSuggestions = useMemo(() => {
+    if (answerInputMode !== "autocomplete" || !songLibrary || songLibrary.length === 0) {
+      return [];
+    }
+    const query = directAnswer.trim();
+    if (!query) {
+      return [];
+    }
+    return searchSongAutocomplete(query, songLibrary, 5);
+  }, [answerInputMode, directAnswer, songLibrary]);
+
+  const handleSelectSuggestion = useCallback(
+    (title: string) => {
+      setDirectAnswer(title);
+      setShowSuggestions(false);
+      setHighlightedIndex(-1);
+      handleSubmitAnswer(title);
+    },
+    [handleSubmitAnswer]
+  );
+
+  const handleDirectAnswerSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (highlightedIndex >= 0 && directSuggestions[highlightedIndex]) {
+        const selectedTitle = directSuggestions[highlightedIndex].title;
+        setDirectAnswer(selectedTitle);
+        setShowSuggestions(false);
+        setHighlightedIndex(-1);
+        handleSubmitAnswer(selectedTitle);
+      } else {
+        const trimmed = directAnswer.trim();
+        if (!trimmed || isSubmittingAnswer || isExcludedFromBuzz || status !== "question_active") return;
+        setShowSuggestions(false);
+        setHighlightedIndex(-1);
+        handleSubmitAnswer(trimmed);
+      }
+    },
+    [directAnswer, directSuggestions, highlightedIndex, handleSubmitAnswer, isSubmittingAnswer, isExcludedFromBuzz, status]
+  );
+
+  const handleDirectInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (answerInputMode === "autocomplete" && directSuggestions.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setShowSuggestions(true);
+          setHighlightedIndex((prev) => (prev + 1) % directSuggestions.length);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setShowSuggestions(true);
+          setHighlightedIndex((prev) => (prev - 1 + directSuggestions.length) % directSuggestions.length);
+          return;
+        }
+        if (e.key === "Escape") {
+          setShowSuggestions(false);
+          setHighlightedIndex(-1);
+          return;
+        }
+      }
+    },
+    [answerInputMode, directSuggestions.length]
   );
 
   // Handle next round trigger
@@ -166,7 +252,6 @@ export function GameView({
     return [...players].sort((a, b) => b.score - a.score);
   }, [players]);
 
-  const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
   const modeLabel = getGameModeLabel(gameMode);
   const roundText = totalRounds > 0 ? `ข้อที่ ${currentRound}/${totalRounds}` : `ข้อที่ ${currentRound}`;
 
@@ -321,13 +406,137 @@ export function GameView({
               )}
             </div>
 
-            {/* Giant Circular Buzzer Button */}
-            <BuzzerButton
-              status={buzzerButtonStatus}
-              buzzedPlayerName={buzzedPlayer?.displayName}
-              onBuzz={handleBuzzPress}
-              disabled={status !== "question_active" || isExcludedFromBuzz || isBuzzing}
-            />
+            {gameMode === "ai-lyrics" ? (
+              <div className="w-full max-w-lg lg:max-w-2xl bg-white/95 dark:bg-stone-900/95 border-2 border-amber-500/50 rounded-3xl p-5 sm:p-6 lg:p-7 shadow-xl flex flex-col gap-3.5 animate-in fade-in zoom-in-95 duration-200">
+                {/* Instructions cue */}
+                <p className="text-xs lg:text-sm font-semibold text-amber-700 dark:text-amber-300/90 text-center flex items-center justify-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
+                  <span>พิมพ์ชื่อเพลงและส่งคำตอบได้ทันที ใครตอบถูกคนแรกชนะ!</span>
+                </p>
+
+                {/* Excluded feedback banner */}
+                {isExcludedFromBuzz && (
+                  <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-700 dark:text-rose-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm">
+                    <span>❌ คุณตอบผิดในข้อนี้แล้ว (รอข้อถัดไป)</span>
+                  </div>
+                )}
+
+                {/* Input form */}
+                <form onSubmit={handleDirectAnswerSubmit} className="relative space-y-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 lg:pl-4 flex items-center pointer-events-none text-stone-400">
+                      {answerInputMode === "autocomplete" ? (
+                        <Search className="w-5 h-5 lg:w-6 lg:h-6" />
+                      ) : (
+                        <Music className="w-5 h-5 lg:w-6 lg:h-6" />
+                      )}
+                    </div>
+
+                    <input
+                      ref={directInputRef}
+                      type="text"
+                      value={directAnswer}
+                      onChange={(e) => {
+                        setDirectAnswer(e.target.value);
+                        setHighlightedIndex(-1);
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      onKeyDown={handleDirectInputKeyDown}
+                      disabled={isExcludedFromBuzz || isSubmittingAnswer || status !== "question_active"}
+                      placeholder={
+                        isExcludedFromBuzz
+                          ? "คุณหมดสิทธิ์ตอบในข้อนี้แล้ว"
+                          : answerInputMode === "autocomplete"
+                          ? "พิมพ์ชื่อเพลง ศิลปิน หรือคำร้อง..."
+                          : "พิมพ์ชื่อเพลงที่คิดว่าใช่..."
+                      }
+                      autoComplete="off"
+                      className="w-full min-h-[48px] lg:min-h-[54px] pl-11 lg:pl-12 pr-4 py-3 bg-stone-50 dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base lg:text-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
+                    />
+                  </div>
+
+                  {/* Autocomplete Dropdown List */}
+                  {answerInputMode === "autocomplete" && showSuggestions && directSuggestions.length > 0 && !isExcludedFromBuzz && (
+                    <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
+                      {directSuggestions.map((song, idx) => {
+                        const isHighlighted = idx === highlightedIndex;
+                        return (
+                          <button
+                            key={song.id || idx}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectSuggestion(song.title);
+                            }}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between text-sm lg:text-base transition cursor-pointer ${
+                              isHighlighted
+                                ? "bg-amber-500 text-stone-950 font-bold"
+                                : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
+                            }`}
+                          >
+                            <div className="truncate pr-2">
+                              <div className="font-semibold truncate">{song.title}</div>
+                              <div
+                                className={`text-xs truncate ${
+                                  isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
+                                }`}
+                              >
+                                {song.artist}
+                              </div>
+                            </div>
+                            <span
+                              className={`text-[11px] px-2 py-0.5 rounded-full uppercase font-medium shrink-0 ${
+                                isHighlighted
+                                  ? "bg-stone-950/20 text-stone-950"
+                                  : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+                              }`}
+                            >
+                              เลือก
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={
+                      !directAnswer.trim() ||
+                      isExcludedFromBuzz ||
+                      isSubmittingAnswer ||
+                      status !== "question_active"
+                    }
+                    className="w-full min-h-[46px] lg:min-h-[52px] py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-stone-950 font-bold text-base lg:text-lg shadow-md shadow-amber-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500 touch-manipulation"
+                  >
+                    {isSubmittingAnswer ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>กำลังตรวจสอบ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        <span>ส่งคำตอบ</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              /* Giant Circular Buzzer Button */
+              <BuzzerButton
+                status={buzzerButtonStatus}
+                buzzedPlayerName={buzzedPlayer?.displayName}
+                onBuzz={handleBuzzPress}
+                disabled={status !== "question_active" || isExcludedFromBuzz || isBuzzing}
+              />
+            )}
           </div>
         )}
 
@@ -391,7 +600,7 @@ export function GameView({
       {/* ANSWER MODAL: Opened when current player buzzes      */}
       {/* ==================================================== */}
       <AnswerModal
-        isOpen={Boolean(isMyBuzz && status === "buzzed")}
+        isOpen={Boolean(gameMode !== "ai-lyrics" && isMyBuzz && status === "buzzed")}
         onSubmitAnswer={handleSubmitAnswer}
         inputMode={answerInputMode}
         songLibrary={songLibrary}
@@ -406,7 +615,9 @@ export function GameView({
         <p>
           ห้อง: <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{roomCode}</span> •{" "}
           {status === "question_active"
-            ? "แตะกริ่งหรือกด Spacebar เพื่อแย่งตอบ"
+            ? gameMode === "ai-lyrics"
+              ? "พิมพ์ชื่อเพลงและส่งคำตอบได้ทันที ใครตอบถูกคนแรกชนะ!"
+              : "แตะกริ่งหรือกด Spacebar เพื่อแย่งตอบ"
             : status === "buzzed"
             ? "กำลังตอบคำถาม..."
             : status === "revealing"

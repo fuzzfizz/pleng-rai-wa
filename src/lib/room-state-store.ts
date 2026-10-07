@@ -3,7 +3,7 @@
 // Authoritative active round manager, FCFS buzzer arbitration & scoring
 // ==========================================
 
-import type { Song, RoomSettings } from "@/types";
+import type { Song, RoomSettings, GameMode } from "@/types";
 import { checkAnswer } from "@/lib/answer-checker";
 
 export type RoundStatus =
@@ -25,6 +25,8 @@ export interface RoomRoundState {
   currentRound: number;
   totalRounds?: number;
   roundStatus: RoundStatus;
+  gameMode?: GameMode;
+  settings?: RoomSettings;
   currentSong?: Song; // Secret full metadata kept ONLY on server
   sliceUrl?: string;
   sliceStartSec?: number;
@@ -38,6 +40,7 @@ export interface RoomRoundState {
   wrongGuesses: WrongGuess[];
   scores: Record<string, number>; // Running scores by playerId, minimum score clamped to 0
   winnerPlayerId?: string | null;
+  roundWinnerPlayerId?: string | null;
   startedAt?: string;
 }
 
@@ -116,6 +119,8 @@ export class RoomStateStore {
       currentRound: roundNumber,
       totalRounds: extra?.totalRounds ?? settings.totalRounds ?? 0,
       roundStatus: "question_active",
+      gameMode: settings.gameMode,
+      settings,
       currentSong: song,
       sliceUrl: extra?.sliceUrl,
       sliceStartSec: extra?.sliceStartSec ?? song.hookStartSec ?? 0,
@@ -129,6 +134,7 @@ export class RoomStateStore {
       wrongGuesses: [],
       scores,
       winnerPlayerId: null,
+      roundWinnerPlayerId: null,
       startedAt: new Date().toISOString(),
     };
 
@@ -193,16 +199,23 @@ export class RoomStateStore {
   }
 
   /**
-   * Validates buzzer holder's answer with Thai fuzzy checker.
+   * Validates buzzer holder's or direct answering player's answer with Thai fuzzy checker.
    * Multi-chance rules:
    * - Correct: +100 points, roundStatus -> 'revealing', winner declared.
-   * - Wrong: -20 points (clamped to 0), excluded from re-buzzing this round, buzzer unlocked, roundStatus -> 'question_active'.
+   * - Wrong: -20 points (clamped to 0), excluded from re-guessing this round.
+   *   In buzzer mode: buzzer unlocked, roundStatus -> 'question_active'.
+   *   In ai-lyrics direct mode: roundStatus remains 'question_active' unless ALL players are excluded, then roundStatus -> 'revealing'.
    */
   static submitAnswer(
     code: string,
     playerId: string,
     displayName: string,
-    answerText: string
+    answerText: string,
+    options?: {
+      gameMode?: GameMode;
+      roomSettings?: RoomSettings;
+      totalPlayers?: number;
+    }
   ): SubmitAnswerResult {
     const cleanCode = code.trim().toUpperCase();
     const state = roomRoundStates.get(cleanCode);
@@ -210,7 +223,31 @@ export class RoomStateStore {
     const defaultScore = state?.scores[playerId] ?? 0;
     const scoresSnapshot = state?.scores ? { ...state.scores } : {};
 
-    if (!state || state.roundStatus !== "buzzed" || state.buzzedPlayerId !== playerId) {
+    if (!state) {
+      return {
+        success: false,
+        isCorrect: false,
+        matchedAs: "",
+        similarity: 0,
+        scoreDelta: 0,
+        newScore: defaultScore,
+        scores: scoresSnapshot,
+        reason: "round_not_active",
+      };
+    }
+
+    const gameMode =
+      options?.gameMode ||
+      options?.roomSettings?.gameMode ||
+      state.gameMode ||
+      state.settings?.gameMode;
+
+    const isStandardBuzzer =
+      state.roundStatus === "buzzed" && state.buzzedPlayerId === playerId;
+    const isDirectAnswer =
+      gameMode === "ai-lyrics" && state.roundStatus === "question_active";
+
+    if (!isStandardBuzzer && !isDirectAnswer) {
       return {
         success: false,
         isCorrect: false,
@@ -223,8 +260,22 @@ export class RoomStateStore {
       };
     }
 
-    // Check if buzzer deadline expired before answering
-    if (state.buzzDeadline && Date.now() > new Date(state.buzzDeadline).getTime()) {
+    // Direct answering mode: verify player is not in excludedPlayerIds
+    if (isDirectAnswer && state.excludedPlayerIds.includes(playerId)) {
+      return {
+        success: false,
+        isCorrect: false,
+        matchedAs: "",
+        similarity: 0,
+        scoreDelta: 0,
+        newScore: defaultScore,
+        scores: scoresSnapshot,
+        reason: "already_guessed_wrong",
+      };
+    }
+
+    // Standard buzzer mode: check if buzzer deadline expired before answering
+    if (isStandardBuzzer && state.buzzDeadline && Date.now() > new Date(state.buzzDeadline).getTime()) {
       this.timeoutBuzzer(cleanCode, playerId);
       return {
         success: false,
@@ -263,6 +314,14 @@ export class RoomStateStore {
       state.scores[playerId] = newScore;
       state.roundStatus = "revealing";
       state.winnerPlayerId = playerId;
+      state.roundWinnerPlayerId = playerId;
+
+      if (isStandardBuzzer) {
+        state.buzzedPlayerId = null;
+        state.buzzedPlayerName = null;
+        state.buzzedAt = null;
+        state.buzzDeadline = null;
+      }
 
       return {
         success: true,
@@ -276,12 +335,12 @@ export class RoomStateStore {
         fullSong: state.currentSong,
       };
     } else {
-      // -20 points on wrong guess (clamped to 0)
+      // Wrong guess: -20 points (clamped to 0)
       const currentScore = state.scores[playerId] || 0;
       const newScore = Math.max(0, currentScore - 20);
       state.scores[playerId] = newScore;
 
-      // Exclude player from re-buzzing this song
+      // Exclude player from re-guessing this song
       if (!state.excludedPlayerIds.includes(playerId)) {
         state.excludedPlayerIds.push(playerId);
       }
@@ -294,12 +353,34 @@ export class RoomStateStore {
         timestamp: new Date().toISOString(),
       });
 
-      // Release buzzer lock and allow other players to buzz
-      state.buzzedPlayerId = null;
-      state.buzzedPlayerName = null;
-      state.buzzedAt = null;
-      state.buzzDeadline = null;
-      state.roundStatus = "question_active";
+      if (isStandardBuzzer) {
+        // Release buzzer lock and allow other players to buzz
+        state.buzzedPlayerId = null;
+        state.buzzedPlayerName = null;
+        state.buzzedAt = null;
+        state.buzzDeadline = null;
+
+        const totalPlayers = options?.totalPlayers;
+        if (totalPlayers !== undefined && totalPlayers > 0 && state.excludedPlayerIds.length >= totalPlayers) {
+          state.roundStatus = "revealing";
+          state.winnerPlayerId = null;
+          state.roundWinnerPlayerId = null;
+        } else {
+          state.roundStatus = "question_active";
+        }
+      } else {
+        // Direct answering mode:
+        // Do NOT change roundStatus (remains "question_active" so other players can still guess!)
+        // If ALL players in the room are in excludedPlayerIds: change state.roundStatus = "revealing" with no winner.
+        const totalPlayers = options?.totalPlayers;
+        if (totalPlayers !== undefined && totalPlayers > 0 && state.excludedPlayerIds.length >= totalPlayers) {
+          state.roundStatus = "revealing";
+          state.winnerPlayerId = null;
+          state.roundWinnerPlayerId = null;
+        } else {
+          state.roundStatus = "question_active";
+        }
+      }
 
       return {
         success: true,
@@ -310,6 +391,7 @@ export class RoomStateStore {
         newScore,
         scores: { ...state.scores },
         roundState: state,
+        fullSong: state.roundStatus === "revealing" ? state.currentSong : undefined,
       };
     }
   }

@@ -79,19 +79,33 @@ export async function POST(
       );
     }
 
-    // Verify that the caller is the current active buzzer holder
+    // Verify that the caller is the current active buzzer holder OR direct answering in ai-lyrics mode
     const currentRoundState = RoomStateStore.getRoomRoundState(cleanCode);
-    if (
-      !currentRoundState ||
-      currentRoundState.roundStatus !== "buzzed" ||
-      currentRoundState.buzzedPlayerId !== cleanPlayerId
-    ) {
+    const isBuzzerHolder =
+      currentRoundState?.roundStatus === "buzzed" &&
+      currentRoundState?.buzzedPlayerId === cleanPlayerId;
+    const isDirectAnswerAllowed =
+      room.settings.gameMode === "ai-lyrics" &&
+      currentRoundState?.roundStatus === "question_active";
+
+    if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed)) {
       return NextResponse.json(
         {
           success: false,
-          error: "ไม่มีสิทธิ์ตอบคำถาม (ไม่ใช่ผู้กดกริ่งคนแรก)",
+          error: "ไม่มีสิทธิ์ตอบคำถาม (ไม่ใช่ผู้กดกริ่งคนแรก หรือไม่อยู่ในช่วงเวลาที่ตอบได้)",
         },
         { status: 403 }
+      );
+    }
+
+    if (isDirectAnswerAllowed && currentRoundState.excludedPlayerIds.includes(cleanPlayerId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "คุณตอบผิดในข้อนี้แล้ว ไม่สามารถตอบซ้ำได้",
+          reason: "already_guessed_wrong",
+        },
+        { status: 400 }
       );
     }
 
@@ -100,10 +114,26 @@ export async function POST(
       cleanCode,
       cleanPlayerId,
       cleanDisplayName,
-      cleanAnswerText
+      cleanAnswerText,
+      {
+        roomSettings: room.settings,
+        gameMode: room.settings.gameMode,
+        totalPlayers: room.players?.length,
+      }
     );
 
     if (!result.success) {
+      if (result.reason === "already_guessed_wrong") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "คุณตอบผิดในข้อนี้แล้ว ไม่สามารถตอบซ้ำได้",
+            reason: "already_guessed_wrong",
+          },
+          { status: 400 }
+        );
+      }
+
       if (result.reason === "buzzer_timeout") {
         const timeoutPayload = {
           playerId: cleanPlayerId,
@@ -182,7 +212,40 @@ export async function POST(
         song: result.fullSong,
       });
     } else {
-      // 2. Wrong Answer: party rules penalty (-20), unlock buzzer, resume audio
+      // 2. Wrong Answer
+      // Check if all players answered wrong -> roundStatus transitioned to 'revealing' with no winner
+      if (result.roundState?.roundStatus === "revealing") {
+        await RoomService.updateRoomStatus(cleanCode, "revealing");
+
+        const revealPayload = {
+          winnerPlayerId: null,
+          winnerDisplayName: null,
+          answerText: cleanAnswerText,
+          matchedAs: result.matchedAs,
+          similarity: result.similarity,
+          scoreDelta: result.scoreDelta,
+          scores: result.scores,
+          song: result.fullSong || currentRoundState.currentSong,
+        };
+
+        await RealtimeBroadcastService.broadcast(
+          cleanCode,
+          "round_reveal",
+          revealPayload
+        );
+
+        return NextResponse.json({
+          success: true,
+          isCorrect: false,
+          scoreDelta: result.scoreDelta,
+          newScore: result.newScore,
+          scores: result.scores,
+          wrongGuesses: result.roundState?.wrongGuesses || [],
+          song: result.fullSong || currentRoundState.currentSong,
+        });
+      }
+
+      // Still in active question -> broadcast wrong_guess
       const wrongPayload = {
         playerId: cleanPlayerId,
         displayName:
