@@ -126,6 +126,9 @@ export interface SongFilter {
   genreId?: string;
   limit?: number;
   era?: string;
+  artist?: string;
+  yearStart?: number;
+  yearEnd?: number;
   searchQuery?: string;
 }
 
@@ -163,6 +166,18 @@ export async function getSongs(filter?: SongFilter): Promise<Song[]> {
 
   if (filter?.era) {
     query = query.eq("era", filter.era);
+  }
+
+  if (filter?.artist) {
+    query = query.ilike("artist", `%${filter.artist}%`);
+  }
+
+  if (filter?.yearStart !== undefined) {
+    query = query.gte("release_year", filter.yearStart);
+  }
+
+  if (filter?.yearEnd !== undefined) {
+    query = query.lte("release_year", filter.yearEnd);
   }
 
   if (filter?.searchQuery) {
@@ -283,14 +298,70 @@ export async function deleteSong(id: string): Promise<boolean> {
 
 export interface GetRandomSongsOptions {
   genreId?: string;
+  era?: string;
+  artist?: string;
+  yearStart?: number;
+  yearEnd?: number;
   playlistId?: string | null;
   excludeIds?: string[];
   fallbackOnEmpty?: boolean;
 }
 
+export interface EraFilterOption {
+  id: string;
+  label: string;
+}
+
+export interface SongFilterOptionsResponse {
+  genres: Genre[];
+  eras: EraFilterOption[];
+  artists: string[];
+  totalSongs: number;
+}
+
+/**
+ * Fetches available filter options (genres, eras, distinct artists, and total songs).
+ */
+export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse> {
+  const client = getDbClient();
+
+  const [genresRes, songsRes, countRes] = await Promise.all([
+    getGenres().catch(() => []),
+    client
+      .from("songs")
+      .select("artist")
+      .order("artist", { ascending: true }),
+    client
+      .from("songs")
+      .select("*", { count: "exact", head: true }),
+  ]);
+
+  const rawArtists = ((songsRes?.data as Array<{ artist?: string }>) || [])
+    .map((r) => r.artist?.trim())
+    .filter((a): a is string => Boolean(a && a.length > 0));
+
+  const uniqueArtists = Array.from(new Set(rawArtists)).sort((a, b) =>
+    a.localeCompare(b, "th")
+  );
+
+  const eras: EraFilterOption[] = [
+    { id: "90s", label: "ยุค 90s (เทปคาสเซ็ท)" },
+    { id: "2000s", label: "ยุค 2000s (มิลเลนเนียม)" },
+    { id: "2010s", label: "ยุค 2010s (สตรีมมิ่ง & อินดี้)" },
+    { id: "2020s", label: "ยุค 2020s (ฮิตติดกระแส)" },
+  ];
+
+  return {
+    genres: genresRes,
+    eras,
+    artists: uniqueArtists,
+    totalSongs: countRes?.count ?? uniqueArtists.length,
+  };
+}
+
 /**
  * Fetches a random selection of songs for game rounds.
- * Supports filtering by genre or playlist, and exclusion of already played songs.
+ * Supports filtering by genre, era, artist, year range, or playlist, and exclusion of already played songs.
  */
 export async function getRandomSongs(
   count: number,
@@ -330,6 +401,10 @@ export async function getRandomSongs(
       // Fall back to general song pool
       return getRandomSongs(count, {
         genreId: options.genreId,
+        era: options.era,
+        artist: options.artist,
+        yearStart: options.yearStart,
+        yearEnd: options.yearEnd,
         excludeIds: options.excludeIds,
       });
     }
@@ -366,6 +441,22 @@ export async function getRandomSongs(
     query = query.eq("genre_id", options.genreId);
   }
 
+  if (options?.era) {
+    query = query.eq("era", options.era);
+  }
+
+  if (options?.artist) {
+    query = query.ilike("artist", `%${options.artist}%`);
+  }
+
+  if (options?.yearStart !== undefined) {
+    query = query.gte("release_year", options.yearStart);
+  }
+
+  if (options?.yearEnd !== undefined) {
+    query = query.lte("release_year", options.yearEnd);
+  }
+
   const { data, error } = await query;
   if (error) {
     console.error("Error fetching random songs:", error.message);
@@ -376,9 +467,31 @@ export async function getRandomSongs(
     mapSongFromRow(row)
   );
 
+  const hasFilters = Boolean(
+    options?.genreId ||
+    options?.era ||
+    options?.artist ||
+    options?.yearStart !== undefined ||
+    options?.yearEnd !== undefined
+  );
+
+  // If filtered query returns 0 songs, gracefully fall back to full pool if fallbackOnEmpty !== false
+  if (songs.length === 0 && hasFilters && options?.fallbackOnEmpty !== false) {
+    return getRandomSongs(count, {
+      excludeIds: options?.excludeIds,
+      fallbackOnEmpty: false,
+    });
+  }
+
   if (options?.excludeIds && options.excludeIds.length > 0) {
     const excludeSet = new Set(options.excludeIds);
-    songs = songs.filter((s) => !excludeSet.has(s.id));
+    const unplayed = songs.filter((s) => !excludeSet.has(s.id));
+
+    if (unplayed.length === 0) {
+      // If all songs matching the filter are excluded, recycle all songs
+    } else {
+      songs = unplayed;
+    }
   }
 
   // Shuffle array using Fisher-Yates
@@ -399,6 +512,7 @@ export class SongService {
   static updateSong = updateSong;
   static deleteSong = deleteSong;
   static getGenres = getGenres;
+  static getSongFilterOptions = getSongFilterOptions;
   static setDbClient = setDbClient;
   static resetDbClient = resetDbClient;
 }

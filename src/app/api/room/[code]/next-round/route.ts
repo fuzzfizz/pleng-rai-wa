@@ -102,10 +102,40 @@ export async function POST(
 
     const nextRound = completedRounds + 1;
 
+    // Extract filter options from settings.songFilter (or fallback to legacy genreId / playlistId)
+    const songFilter = settings.songFilter;
+    let filterGenreId: string | undefined = undefined;
+    let filterEra: string | undefined = undefined;
+    let filterArtist: string | undefined = undefined;
+    let filterYearStart: number | undefined = undefined;
+    let filterYearEnd: number | undefined = undefined;
+    let filterPlaylistId: string | null | undefined = undefined;
+
+    if (songFilter) {
+      if (songFilter.type === "genre") {
+        filterGenreId = songFilter.genreId;
+      } else if (songFilter.type === "era") {
+        filterEra = songFilter.era;
+      } else if (songFilter.type === "artist") {
+        filterArtist = songFilter.artist;
+      } else if (songFilter.type === "playlist") {
+        filterPlaylistId = songFilter.playlistId;
+      }
+      filterYearStart = songFilter.yearStart;
+      filterYearEnd = songFilter.yearEnd;
+    } else {
+      filterGenreId = settings.genreId;
+      filterPlaylistId = settings.playlistId;
+    }
+
     // Fetch random unplayed song
     const songs = await SongService.getRandomSongs(1, {
-      genreId: settings.genreId,
-      playlistId: settings.playlistId,
+      genreId: filterGenreId,
+      era: filterEra,
+      artist: filterArtist,
+      yearStart: filterYearStart,
+      yearEnd: filterYearEnd,
+      playlistId: filterPlaylistId,
       excludeIds: playedSongIds,
     });
 

@@ -85,6 +85,19 @@ export interface Player {
 
 export type AIVoiceGender = "male" | "female" | "random";
 
+export type SongFilterType = "all" | "era" | "genre" | "artist" | "playlist";
+
+export interface SongFilterConfig {
+  type: SongFilterType;
+  genreId?: string;
+  genreName?: string;
+  era?: string;
+  artist?: string;
+  yearStart?: number;
+  yearEnd?: number;
+  playlistId?: string;
+}
+
 export interface RoomSettings {
   gameMode: GameMode;
   answerInputMode: AnswerInputMode;
@@ -96,6 +109,7 @@ export interface RoomSettings {
   targetScore: number; // 0 for disabled, or e.g. 10
   genreId?: string; // all or specific genre
   playlistId?: string | null; // custom playlist
+  songFilter?: SongFilterConfig;
 }
 
 export interface RoomState {

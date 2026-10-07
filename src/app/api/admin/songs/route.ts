@@ -8,9 +8,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const genreId = searchParams.get("genreId") || undefined;
+    const era = searchParams.get("era") || undefined;
+    const artist = searchParams.get("artist") || undefined;
     const searchQuery = searchParams.get("q") || undefined;
 
-    const songs = await getSongs({ genreId, searchQuery, limit: 100 });
+    const songs = await getSongs({ genreId, era, artist, searchQuery, limit: 100 });
     return NextResponse.json({ success: true, songs });
   } catch (error) {
     console.error("Fetch songs error:", error);

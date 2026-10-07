@@ -21,9 +21,11 @@ import {
   Award,
   Square,
   Loader2,
+  Disc3,
+  Filter,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { Song, GameMode, AnswerInputMode, Playlist } from "@/types";
+import { Song, GameMode, AnswerInputMode, Playlist, SongFilterConfig } from "@/types";
 import {
   playBuzzerSound,
   playCorrectSound,
@@ -38,6 +40,7 @@ import { checkAnswer, searchSongAutocomplete } from "@/lib/answer-checker";
 import { PlaylistService } from "@/lib/services/playlist-service";
 import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
 import { useAuth } from "@/hooks/use-auth";
+import { SongSourceModal, getSongFilterLabel } from "@/components/common/song-source-modal";
 
 // Built-in seed songs for immediate offline play
 const DEMO_SONGS: Song[] = [
@@ -94,6 +97,8 @@ function SoloPlayContent() {
   const [availablePlaylists, setAvailablePlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("all");
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<SongFilterConfig>({ type: "all" });
+  const [isSongSourceModalOpen, setIsSongSourceModalOpen] = useState<boolean>(false);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(true);
   const [isLoadingSongs, setIsLoadingSongs] = useState<boolean>(false);
   const [playlistNotice, setPlaylistNotice] = useState<string | null>(null);
@@ -196,6 +201,7 @@ function SoloPlayContent() {
       if (targetPlaylistId) {
         if (isMounted) {
           setSelectedPlaylistId(targetPlaylistId);
+          setSelectedFilter({ type: "playlist", playlistId: targetPlaylistId });
           setIsLoadingSongs(true);
         }
         try {
@@ -239,50 +245,98 @@ function SoloPlayContent() {
     };
   }, [user?.id, queryPlaylistId]);
 
-  // Handler for user switching playlist in dropdown
-  const handleSelectPlaylist = async (playlistId: string) => {
+  // Handler for user applying filters from SongSourceModal
+  const handleApplyFilter = async (filter: SongFilterConfig) => {
     resetRoundState();
+    setSelectedFilter(filter);
+    setIsLoadingSongs(true);
     setPlaylistNotice(null);
 
-    if (playlistId === "all" || !playlistId) {
-      setSelectedPlaylistId("all");
-      setActivePlaylist(null);
+    try {
+      if (filter.type === "playlist" && filter.playlistId) {
+        setSelectedPlaylistId(filter.playlistId);
+        const result = await PlaylistService.getPlaylistById(filter.playlistId);
+        if (result && result.songs && result.songs.length > 0) {
+          setSongsPool(result.songs);
+          setActivePlaylist(result.playlist);
+          if (!isPlaylistPlayable(result.songs.length)) {
+            setPlaylistNotice(
+              `เพลย์ลิสต์นี้มี ${result.songs.length} เพลง (ต่ำกว่า 5 เพลง)`
+            );
+          }
+        } else {
+          setSongsPool(
+            defaultLibrarySongsRef.current.length > 0
+              ? defaultLibrarySongsRef.current
+              : DEMO_SONGS
+          );
+          setPlaylistNotice("ไม่พบเพลงในเพลย์ลิสต์ กำลังใช้คลังเพลงหลักแทน");
+        }
+      } else {
+        setSelectedPlaylistId("all");
+        setActivePlaylist(null);
+
+        const queryParams = new URLSearchParams();
+        if (filter.type === "genre" && filter.genreId) {
+          queryParams.set("genreId", filter.genreId);
+        }
+        if (filter.type === "era" && filter.era) {
+          queryParams.set("era", filter.era);
+        }
+        if (filter.type === "artist" && filter.artist) {
+          queryParams.set("artist", filter.artist);
+        }
+
+        const queryString = queryParams.toString();
+        const url = queryString ? `/api/admin/songs?${queryString}` : "/api/admin/songs";
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.songs) && data.songs.length > 0) {
+          setSongsPool(data.songs);
+        } else {
+          // Client-side fallback if offline / demo songs
+          let pool =
+            defaultLibrarySongsRef.current.length > 0
+              ? [...defaultLibrarySongsRef.current]
+              : [...DEMO_SONGS];
+          if (filter.type === "era" && filter.era) {
+            const eraFiltered = pool.filter((s) => s.era === filter.era);
+            if (eraFiltered.length > 0) pool = eraFiltered;
+          } else if (filter.type === "genre" && filter.genreId) {
+            const genreFiltered = pool.filter((s) => s.genreId === filter.genreId);
+            if (genreFiltered.length > 0) pool = genreFiltered;
+          } else if (filter.type === "artist" && filter.artist) {
+            const artistFiltered = pool.filter((s) =>
+              s.artist?.toLowerCase().includes(filter.artist!.toLowerCase())
+            );
+            if (artistFiltered.length > 0) pool = artistFiltered;
+          }
+          setSongsPool(pool);
+        }
+      }
+    } catch (err) {
+      console.warn("Error filtering songs in solo mode:", err);
       setSongsPool(
         defaultLibrarySongsRef.current.length > 0
           ? defaultLibrarySongsRef.current
           : DEMO_SONGS
       );
-      setCurrentSongIndex(0);
-      setScore(0);
-      setStreak(0);
-      return;
-    }
-
-    setSelectedPlaylistId(playlistId);
-    setIsLoadingSongs(true);
-
-    try {
-      const result = await PlaylistService.getPlaylistById(playlistId);
-      if (!result || !result.songs || result.songs.length === 0) {
-        setPlaylistNotice("เพลย์ลิสต์นี้ยังไม่มีเพลง กำลังใช้คลังเพลงเดิม");
-        return;
-      }
-
-      setSongsPool(result.songs);
-      setActivePlaylist(result.playlist);
-      setCurrentSongIndex(0);
-      setScore(0);
-      setStreak(0);
-
-      if (!isPlaylistPlayable(result.songs.length)) {
-        setPlaylistNotice(
-          `เพลย์ลิสต์นี้มี ${result.songs.length} เพลง (ต่ำกว่า 5 เพลง)`
-        );
-      }
-    } catch (err: any) {
-      setPlaylistNotice(err?.message || "เกิดข้อผิดพลาดในการโหลดเพลย์ลิสต์");
     } finally {
+      setCurrentSongIndex(0);
+      setScore(0);
+      setStreak(0);
       setIsLoadingSongs(false);
+    }
+  };
+
+  // Handler for user switching playlist in dropdown (legacy backward compatibility)
+  const handleSelectPlaylist = async (playlistId: string) => {
+    if (playlistId === "all" || !playlistId) {
+      await handleApplyFilter({ type: "all" });
+    } else {
+      await handleApplyFilter({ type: "playlist", playlistId });
     }
   };
 
@@ -526,6 +580,47 @@ function SoloPlayContent() {
 
       {/* Main Arena */}
       <main className="flex-1 max-w-3xl lg:max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-center gap-6 lg:gap-8">
+        {/* Song Source Filter Card */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:px-4 sm:py-3 bg-white/70 dark:bg-stone-900/70 border border-stone-200 dark:border-stone-800 rounded-2xl backdrop-blur-md shadow-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shrink-0">
+              <Disc3 className="w-4 h-4 animate-[spin_8s_linear_infinite]" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                แหล่งเพลงสำหรับซ้อมมือ
+              </div>
+              <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white truncate">
+                {getSongFilterLabel(selectedFilter, activePlaylist?.title)}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {isLoadingSongs && (
+              <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>กำลังโหลด...</span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsSongSourceModalOpen(true)}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer min-h-[38px]"
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>เลือกแหล่งเพลง / กรองเพลง</span>
+            </button>
+          </div>
+        </div>
+
+        {playlistNotice && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
+            <HelpCircle className="w-4 h-4 shrink-0" />
+            <span>{playlistNotice}</span>
+          </div>
+        )}
+
         {/* Mode Selector Tabs */}
         <div className="grid grid-cols-3 gap-2 bg-stone-100 dark:bg-stone-900/80 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-800">
           <button
@@ -954,6 +1049,15 @@ function SoloPlayContent() {
           </div>
         )}
       </main>
+
+      {/* Song Source & Multi-filtering Modal */}
+      <SongSourceModal
+        isOpen={isSongSourceModalOpen}
+        onClose={() => setIsSongSourceModalOpen(false)}
+        currentFilter={selectedFilter}
+        playlists={availablePlaylists}
+        onSelectFilter={handleApplyFilter}
+      />
     </div>
   );
 }
