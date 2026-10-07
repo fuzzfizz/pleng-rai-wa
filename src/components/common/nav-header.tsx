@@ -10,10 +10,6 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Music,
-  ListMusic,
-  Play,
-  Shield,
   LogIn,
   User,
   LogOut,
@@ -60,11 +56,9 @@ export function NavHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isUserMenuOpen]);
 
-  const navLinks = [
+  const navLinks: { label: string; href: string; icon?: React.ElementType }[] = [
     { label: "หน้าแรก", href: "/" },
-    { label: "เพลย์ลิสต์", href: "/playlists" },
     { label: "ซ้อมเดี่ยว", href: "/play/solo" },
-    { label: "Admin", href: "/admin", icon: Shield },
   ];
 
   const handleOpenAuth = (tab: "signin" | "signup" = "signin") => {
@@ -210,15 +204,6 @@ export function NavHeader({
                       <User className="w-4 h-4 text-amber-500" />
                       <span>จัดการโปรไฟล์</span>
                     </button>
-
-                    <Link
-                      href="/playlists?tab=my"
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/70 rounded-xl transition-colors cursor-pointer text-left"
-                    >
-                      <ListMusic className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <span>เพลย์ลิสต์ของฉัน</span>
-                    </Link>
                   </div>
 
                   <div className="pt-1 border-t border-stone-200 dark:border-stone-800/80">

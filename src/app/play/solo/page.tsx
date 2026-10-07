@@ -12,7 +12,6 @@ import {
   Bell,
   Bot,
   Scissors,
-  Sparkles,
   HelpCircle,
   RotateCcw,
   CheckCircle2,
@@ -20,10 +19,8 @@ import {
   ArrowRight,
   Flame,
   Award,
-  Music,
   Square,
   Loader2,
-  AlertTriangle,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { Song, GameMode, AnswerInputMode, Playlist } from "@/types";
@@ -528,87 +525,6 @@ function SoloPlayContent() {
 
       {/* Main Arena */}
       <main className="flex-1 max-w-3xl lg:max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-center gap-6 lg:gap-8">
-        {/* Playlist Selector Setup Bar */}
-        <div className="bg-white/80 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-4 sm:p-5 lg:p-6 shadow-sm dark:shadow-xl backdrop-blur-xl space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <Music className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <label
-                  htmlFor="solo-playlist-select"
-                  className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1"
-                >
-                  🎵 เลือกชุดเพลงที่ต้องการซ้อม
-                </label>
-                <select
-                  id="solo-playlist-select"
-                  value={selectedPlaylistId}
-                  onChange={(e) => handleSelectPlaylist(e.target.value)}
-                  disabled={isLoadingPlaylists || isLoadingSongs}
-                  className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-700/80 hover:border-stone-400 dark:hover:border-stone-600 focus:border-amber-500 rounded-xl px-3 lg:px-4 py-2 lg:py-2.5 text-base sm:text-sm lg:text-base text-stone-900 dark:text-white focus:outline-none transition-colors min-h-[44px] lg:min-h-[50px] cursor-pointer disabled:opacity-50"
-                >
-                  <option value="all">
-                    🌐 สุ่มเพลงทั้งหมด (All Library - {defaultLibrarySongsRef.current.length} เพลง)
-                  </option>
-                  {availablePlaylists.map((pl) => {
-                    const playable = isPlaylistPlayable(pl.songCount || 0);
-                    return (
-                      <option key={pl.id} value={pl.id}>
-                        {playable ? "🎶" : "⚠️"} {pl.title} ({pl.songCount || 0} เพลง)
-                        {!playable ? " - มีไม่ถึง 5 เพลง" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            </div>
-
-            {/* Active Playlist Badge */}
-            {activePlaylist ? (
-              <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3.5 py-2 rounded-2xl text-xs text-amber-800 dark:text-amber-200 self-start sm:self-auto shrink-0 min-h-[44px]">
-                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                <span className="font-semibold truncate max-w-[180px]">
-                  {activePlaylist.title}
-                </span>
-                <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full text-amber-800 dark:text-amber-300 font-mono">
-                  {songsPool.length} เพลง
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleSelectPlaylist("all")}
-                  className="text-stone-400 hover:text-stone-900 dark:hover:text-white ml-1 text-xs cursor-pointer p-1 min-h-[44px] min-w-[28px] flex items-center justify-center"
-                  title="สลับกลับไปคลังทั้งหมด"
-                  aria-label="สลับกลับไปคลังทั้งหมด"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800/80 px-3.5 py-2 rounded-2xl shrink-0 min-h-[44px]">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>คลังเพลงมาตรฐาน ({songsPool.length} เพลง)</span>
-              </div>
-            )}
-          </div>
-
-          {/* Loading or Notice Messages */}
-          {isLoadingSongs && (
-            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-300 animate-pulse pt-1">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>กำลังโหลดเพลงจากเพลย์ลิสต์...</span>
-            </div>
-          )}
-
-          {playlistNotice && (
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{playlistNotice}</span>
-            </div>
-          )}
-        </div>
-
         {/* Mode Selector Tabs */}
         <div className="grid grid-cols-3 gap-2 bg-stone-100 dark:bg-stone-900/80 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-800">
           <button

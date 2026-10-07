@@ -149,7 +149,7 @@ export default function HomePage() {
       <section className="w-full max-w-3xl lg:max-w-5xl flex flex-col items-center text-center my-auto py-12 z-10">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium mb-6 shadow-sm">
           <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-          <span>เว็บเกมทายเพลงออนไลน์ บรรยากาศชิวๆ เล่นฟรีกับเพื่อน</span>
+          <span>ประลองความเซียนเพลงไทย</span>
         </div>
 
         <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight">
@@ -280,12 +280,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="w-full max-w-5xl flex items-center justify-between text-xs text-stone-500 py-4 border-t border-stone-200 dark:border-stone-900 z-10">
-        <p>© 2026 เพลงไรวะ? (Pleng-Rai-Wa) • 100% Free Public Music Game</p>
-        <div className="flex gap-4">
-          <Link href="/admin" className="hover:text-stone-900 dark:hover:text-stone-300 transition-colors">
-            เครื่องมือเพิ่มเพลง
-          </Link>
-        </div>
+        <p>© 2026 เพลงไรวะ? (Pleng-Rai-Wa)</p>
       </footer>
 
       {/* ======================================================== */}
