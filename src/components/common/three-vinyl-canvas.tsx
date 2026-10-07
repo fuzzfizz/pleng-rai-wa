@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { soundEffects } from "@/lib/sound-effects";
 
 export interface ThreeVinylCanvasProps {
   isPlaying?: boolean;
@@ -9,6 +10,153 @@ export interface ThreeVinylCanvasProps {
   size?: number;
   interactive?: boolean;
   onTogglePlay?: () => void;
+}
+
+/**
+ * Procedurally generates a warm dark walnut wood grain texture for the turntable plinth.
+ */
+function createPlinthWoodTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 1024;
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+
+  // Deep warm espresso walnut base
+  ctx.fillStyle = "#1e130d";
+  ctx.fillRect(0, 0, 1024, 1024);
+
+  // Subtle natural wood grain fibers
+  const numLines = 750;
+  for (let i = 0; i < numLines; i++) {
+    const y = Math.random() * 1024;
+    const h = 1 + Math.random() * 2.8;
+    const tone = Math.random();
+    const color =
+      tone > 0.65
+        ? "rgba(45, 29, 20, 0.45)"
+        : tone > 0.3
+        ? "rgba(15, 10, 7, 0.5)"
+        : "rgba(62, 40, 27, 0.35)";
+    ctx.fillStyle = color;
+
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    const midY = y + (Math.random() - 0.5) * 16;
+    const endY = y + (Math.random() - 0.5) * 16;
+    ctx.bezierCurveTo(340, midY, 680, midY, 1024, endY);
+    ctx.lineTo(1024, endY + h);
+    ctx.bezierCurveTo(680, midY + h, 340, midY + h, 0, y + h);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Soft satin highlight gradient
+  const grad = ctx.createLinearGradient(0, 0, 1024, 1024);
+  grad.addColorStop(0, "rgba(245, 158, 11, 0.05)");
+  grad.addColorStop(0.5, "rgba(255, 255, 255, 0.03)");
+  grad.addColorStop(1, "rgba(120, 53, 15, 0.06)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1024, 1024);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/**
+ * Procedurally generates a brushed aluminum radial platter texture with lathe micro-grooves.
+ */
+function createBrushedPlatterTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+
+  const cx = 256;
+  const cy = 256;
+
+  // Base metallic silver
+  ctx.fillStyle = "#cbd5e1";
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Concentric lathe circles
+  const ringCount = 130;
+  for (let i = 0; i < ringCount; i++) {
+    const r = (i / ringCount) * 252;
+    const alpha = 0.03 + Math.random() * 0.07;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle =
+      i % 2 === 0
+        ? `rgba(255, 255, 255, ${alpha})`
+        : `rgba(71, 85, 105, ${alpha * 1.6})`;
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+  }
+
+  // Anisotropic radial shine cones
+  if (typeof ctx.createConicGradient === "function") {
+    const grad = ctx.createConicGradient(0, cx, cy);
+    grad.addColorStop(0, "rgba(255, 255, 255, 0.16)");
+    grad.addColorStop(0.25, "rgba(100, 116, 139, 0.12)");
+    grad.addColorStop(0.5, "rgba(255, 255, 255, 0.16)");
+    grad.addColorStop(0.75, "rgba(100, 116, 139, 0.12)");
+    grad.addColorStop(1, "rgba(255, 255, 255, 0.16)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/**
+ * Procedurally generates a vintage brass audio equipment nameplate badge.
+ */
+function createTurntableBadgeTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 80;
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+
+  // Brushed gold badge background
+  const bg = ctx.createLinearGradient(0, 0, 256, 80);
+  bg.addColorStop(0, "#b45309");
+  bg.addColorStop(0.3, "#f59e0b");
+  bg.addColorStop(0.7, "#d97706");
+  bg.addColorStop(1, "#92400e");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 256, 80);
+
+  // Double border
+  ctx.strokeStyle = "#451a03";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(4, 4, 248, 72);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(8, 8, 240, 64);
+
+  // Vintage Typography
+  ctx.fillStyle = "#451a03";
+  ctx.font = "bold 15px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("PLENG-RAI-WA", 128, 30);
+
+  ctx.font = "600 11px sans-serif";
+  ctx.fillText("HI-FI STEREO • 33 ⅓ RPM", 128, 52);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
 }
 
 /**
@@ -37,20 +185,22 @@ function createVinylGrooveTexture(): THREE.CanvasTexture {
   ctx.lineWidth = 14;
   ctx.stroke();
 
-  // Dense concentric sound grooves
+  // Concentric sound grooves
   const innerR = 190;
   const outerR = 490;
   const grooveCount = 180;
 
   for (let i = 0; i < grooveCount; i++) {
     const r = innerR + (outerR - innerR) * (i / grooveCount);
-    // Introduce subtle rhythmic band variations like real song tracks
     const trackBand = Math.sin(i * 0.18) * 0.5 + 0.5;
     const alpha = 0.03 + trackBand * 0.08;
 
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = i % 2 === 0 ? `rgba(255, 255, 255, ${alpha})` : `rgba(0, 0, 0, ${alpha * 1.5})`;
+    ctx.strokeStyle =
+      i % 2 === 0
+        ? `rgba(255, 255, 255, ${alpha})`
+        : `rgba(0, 0, 0, ${alpha * 1.5})`;
     ctx.lineWidth = 1.2;
     ctx.stroke();
   }
@@ -65,7 +215,7 @@ function createVinylGrooveTexture(): THREE.CanvasTexture {
     ctx.stroke();
   });
 
-  // Subtle cross sheen/specular bloom
+  // Cross sheen / specular bloom
   const gradient = ctx.createRadialGradient(cx, cy, 180, cx, cy, 500);
   gradient.addColorStop(0, "rgba(245, 158, 11, 0.02)");
   gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.04)");
@@ -97,7 +247,7 @@ function createCenterLabelTexture(): THREE.CanvasTexture {
   const cx = 256;
   const cy = 256;
 
-  // Background warm amber/honey gradient
+  // Background warm amber gradient
   const bgGrad = ctx.createRadialGradient(cx, cy, 20, cx, cy, 256);
   bgGrad.addColorStop(0, "#fbbf24");
   bgGrad.addColorStop(0.4, "#f59e0b");
@@ -122,7 +272,7 @@ function createCenterLabelTexture(): THREE.CanvasTexture {
   ctx.arc(cx, cy, 228, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Typography - Curved top or header
+  // Typography
   ctx.fillStyle = "#78350f";
   ctx.font = "bold 22px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.textAlign = "center";
@@ -134,7 +284,6 @@ function createCenterLabelTexture(): THREE.CanvasTexture {
   ctx.font = "900 48px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("เพลงไรวะ?", cx, 175);
 
-  // Subtitle
   ctx.fillStyle = "#78350f";
   ctx.font = "600 16px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("PLENG-RAI-WA CAFE", cx, 215);
@@ -146,16 +295,14 @@ function createCenterLabelTexture(): THREE.CanvasTexture {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  // Music notes around center
+  // Music notes
   ctx.font = "24px sans-serif";
   ctx.fillText("♪", cx - 75, cy);
   ctx.fillText("♫", cx + 75, cy);
 
-  // Bottom specs: 33 1/3 RPM & SIDE A
   ctx.font = "bold 18px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("SIDE A", cx, 305);
 
-  // Sub specs
   ctx.font = "500 14px 'Playpen Sans Thai', Kanit, Prompt, sans-serif";
   ctx.fillText("33 ⅓ RPM • EXTENDED PLAY", cx, 340);
 
@@ -194,6 +341,28 @@ function createParticleTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+/**
+ * Helper to construct a rounded rectangle shape for the extruded turntable plinth.
+ */
+function createRoundedRectShape(width: number, height: number, radius: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  const hw = width / 2;
+  const hh = height / 2;
+  const r = Math.min(radius, hw, hh);
+
+  shape.moveTo(-hw + r, -hh);
+  shape.lineTo(hw - r, -hh);
+  shape.quadraticCurveTo(hw, -hh, hw, -hh + r);
+  shape.lineTo(hw, hh - r);
+  shape.quadraticCurveTo(hw, hh, hw - r, hh);
+  shape.lineTo(-hw + r, hh);
+  shape.quadraticCurveTo(-hw, hh, -hw, hh - r);
+  shape.lineTo(-hw, -hh + r);
+  shape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+
+  return shape;
+}
+
 export function ThreeVinylCanvas({
   isPlaying = false,
   className = "",
@@ -202,28 +371,58 @@ export function ThreeVinylCanvas({
   onTogglePlay,
 }: ThreeVinylCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isPlayingRef = useRef(isPlaying);
+  const [internalPlaying, setInternalPlaying] = useState(isPlaying);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Keep isPlayingRef in sync with prop
+  // Track button press transient offset for tactile physical click
+  const buttonPressYRef = useRef(0);
+
+  // Sync internal playing when prop changes
   useEffect(() => {
-    isPlayingRef.current = isPlaying;
+    setInternalPlaying(isPlaying);
   }, [isPlaying]);
+
+  const isControlled = onTogglePlay !== undefined;
+  const activePlaying = isControlled ? isPlaying : internalPlaying;
+  const isPlayingRef = useRef(activePlaying);
+
+  useEffect(() => {
+    isPlayingRef.current = activePlaying;
+  }, [activePlaying]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Track width & height
-    const width = container.clientWidth || size || 320;
-    const height = container.clientHeight || size || 320;
+    const width = container.clientWidth || size || 340;
+    const height = container.clientHeight || size || 300;
+
+    // Track disposables for 100% leak-free WebGL cleanup
+    const disposables = {
+      geometries: [] as THREE.BufferGeometry[],
+      materials: [] as THREE.Material[],
+      textures: [] as THREE.Texture[],
+    };
+
+    function regGeo<T extends THREE.BufferGeometry>(geo: T): T {
+      disposables.geometries.push(geo);
+      return geo;
+    }
+    function regMat<T extends THREE.Material>(mat: T): T {
+      disposables.materials.push(mat);
+      return mat;
+    }
+    function regTex<T extends THREE.Texture>(tex: T): T {
+      disposables.textures.push(tex);
+      return tex;
+    }
 
     // 1. Scene setup
     const scene = new THREE.Scene();
 
-    // 2. Camera setup
-    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
-    camera.position.set(0, 0, 9.5);
+    // 2. Camera setup - isometric turntable perspective
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+    camera.position.set(0, 0.35, 11.2);
 
     // 3. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -236,126 +435,521 @@ export function ThreeVinylCanvas({
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.25;
 
-    // Remove any previous canvas children
     while (container.firstChild) {
       container.removeChild(container.firstChild);
     }
     container.appendChild(renderer.domElement);
 
-    // 4. Lights
+    // 4. Studio Lighting Rig
     const ambientLight = new THREE.AmbientLight(0xfff7ed, 1.4);
     scene.add(ambientLight);
 
-    // Directional Key Light (Warm top-right shine)
-    const keyLight = new THREE.DirectionalLight(0xffedd5, 3.2);
-    keyLight.position.set(4, 7, 5);
+    // Key directional light (warm high studio angle)
+    const keyLight = new THREE.DirectionalLight(0xffedd5, 3.0);
+    keyLight.position.set(4.5, 7.5, 5.0);
     scene.add(keyLight);
 
-    // Amber Rim / Fill Light
-    const amberFillLight = new THREE.PointLight(0xf59e0b, 2.5, 20);
-    amberFillLight.position.set(-4, -2, 4);
+    // Amber fill light
+    const amberFillLight = new THREE.PointLight(0xf59e0b, 2.4, 22);
+    amberFillLight.position.set(-4.5, -2, 4.5);
     scene.add(amberFillLight);
 
-    // Soft lo-fi cyan/cool bounce light from below
-    const coolBounceLight = new THREE.DirectionalLight(0x38bdf8, 0.6);
-    coolBounceLight.position.set(-3, -5, -2);
-    scene.add(coolBounceLight);
+    // Cool rim light for metallic edge highlights
+    const coolRimLight = new THREE.DirectionalLight(0x38bdf8, 0.65);
+    coolRimLight.position.set(-3.5, -4, -3);
+    scene.add(coolRimLight);
 
-    // 5. Build Vinyl Record Hierarchy
-    const vinylRig = new THREE.Group();
-    scene.add(vinylRig);
+    // 5. Turntable Root Rig
+    const turntableRig = new THREE.Group();
+    scene.add(turntableRig);
 
-    // Base tilt so record face is visible with pleasant 3D angle
-    const baseTiltX = 0.78; // ~45 deg
-    const baseTiltZ = -0.12;
-    vinylRig.rotation.x = baseTiltX;
-    vinylRig.rotation.z = baseTiltZ;
+    // Base isometric 3D tilt
+    const baseTiltX = 0.74; // ~42.4 deg
+    const baseTiltZ = -0.09;
+    turntableRig.rotation.x = baseTiltX;
+    turntableRig.rotation.z = baseTiltZ;
 
-    // Inner turntable spin group
-    const spinGroup = new THREE.Group();
-    vinylRig.add(spinGroup);
+    // Procedural Textures
+    const plinthTexture = regTex(createPlinthWoodTexture());
+    const platterTexture = regTex(createBrushedPlatterTexture());
+    const badgeTexture = regTex(createTurntableBadgeTexture());
+    const grooveTexture = regTex(createVinylGrooveTexture());
+    const labelTexture = regTex(createCenterLabelTexture());
+    const particleTexture = regTex(createParticleTexture());
 
-    // Textures
-    const grooveTexture = createVinylGrooveTexture();
-    const labelTexture = createCenterLabelTexture();
-    const particleTexture = createParticleTexture();
+    // ----------------------------------------------------
+    // 6. Turntable Plinth (Base Body)
+    // ----------------------------------------------------
+    const plinthW = 8.6;
+    const plinthD = 7.6;
+    const plinthH = 0.44;
+    const plinthShape = createRoundedRectShape(plinthW, plinthD, 0.45);
+    const plinthGeo = regGeo(
+      new THREE.ExtrudeGeometry(plinthShape, {
+        depth: plinthH,
+        bevelEnabled: true,
+        bevelSegments: 4,
+        steps: 1,
+        bevelSize: 0.05,
+        bevelThickness: 0.05,
+      })
+    );
+    const plinthMat = regMat(
+      new THREE.MeshStandardMaterial({
+        map: plinthTexture,
+        roughness: 0.32,
+        metalness: 0.12,
+      })
+    );
+    const plinthMesh = new THREE.Mesh(plinthGeo, plinthMat);
+    // Extrusion is in local +Z; rotate so top faces +Y
+    plinthMesh.rotation.x = -Math.PI / 2;
+    plinthMesh.position.y = -(plinthH + 0.05);
+    turntableRig.add(plinthMesh);
 
-    // Disc Body Geometry (Cylinder with beveled look)
-    const discRadius = 3.2;
-    const discThickness = 0.08;
-    const discGeometry = new THREE.CylinderGeometry(discRadius, discRadius, discThickness, 64);
+    // 4 Corner Isolation Feet
+    const footChromeMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        metalness: 0.95,
+        roughness: 0.15,
+      })
+    );
+    const footRubberMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x18181b,
+        roughness: 0.85,
+        metalness: 0.1,
+      })
+    );
 
-    // Disc Material (Glossy dark vinyl with slight roughness)
-    const discMaterial = new THREE.MeshStandardMaterial({
-      color: 0x111113,
-      metalness: 0.85,
-      roughness: 0.22,
+    const footRingGeo = regGeo(new THREE.CylinderGeometry(0.42, 0.46, 0.14, 24));
+    const footRubberGeo = regGeo(new THREE.CylinderGeometry(0.35, 0.38, 0.08, 24));
+
+    const footCoords = [
+      [-3.65, 3.15],
+      [3.65, 3.15],
+      [-3.65, -3.15],
+      [3.65, -3.15],
+    ];
+
+    footCoords.forEach(([fx, fz]) => {
+      const ringMesh = new THREE.Mesh(footRingGeo, footChromeMat);
+      ringMesh.position.set(fx, -(plinthH + 0.12), fz);
+      turntableRig.add(ringMesh);
+
+      const rubberMesh = new THREE.Mesh(footRubberGeo, footRubberMat);
+      rubberMesh.position.set(fx, -(plinthH + 0.22), fz);
+      turntableRig.add(rubberMesh);
     });
-    const discMesh = new THREE.Mesh(discGeometry, discMaterial);
-    spinGroup.add(discMesh);
 
-    // Top Groove Ring Face (Slightly above top cap to display anisotropic micro-grooves)
-    const grooveRingGeo = new THREE.RingGeometry(1.22, discRadius - 0.04, 64);
-    const grooveRingMat = new THREE.MeshStandardMaterial({
-      map: grooveTexture,
-      roughness: 0.35,
-      metalness: 0.6,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.96,
-    });
-    const grooveRingMesh = new THREE.Mesh(grooveRingGeo, grooveRingMat);
-    grooveRingMesh.rotation.x = -Math.PI / 2;
-    grooveRingMesh.position.y = discThickness / 2 + 0.002;
-    spinGroup.add(grooveRingMesh);
-
-    // Center Amber Label (Top)
-    const labelGeo = new THREE.CircleGeometry(1.22, 64);
-    const labelMat = new THREE.MeshStandardMaterial({
-      map: labelTexture,
-      roughness: 0.45,
-      metalness: 0.1,
-      side: THREE.DoubleSide,
-    });
-    const labelMesh = new THREE.Mesh(labelGeo, labelMat);
-    labelMesh.rotation.x = -Math.PI / 2;
-    labelMesh.position.y = discThickness / 2 + 0.004;
-    spinGroup.add(labelMesh);
-
-    // Spindle Hole (Inner brass/chrome metallic ring)
-    const spindleGeo = new THREE.RingGeometry(0.12, 0.19, 32);
-    const spindleMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      metalness: 0.95,
-      roughness: 0.1,
-      side: THREE.DoubleSide,
-    });
-    const spindleMesh = new THREE.Mesh(spindleGeo, spindleMat);
-    spindleMesh.rotation.x = -Math.PI / 2;
-    spindleMesh.position.y = discThickness / 2 + 0.006;
-    spinGroup.add(spindleMesh);
-
-    // Dark Spindle Core
-    const spindleCoreGeo = new THREE.CylinderGeometry(0.12, 0.12, discThickness + 0.04, 32);
-    const spindleCoreMat = new THREE.MeshBasicMaterial({ color: 0x09090b });
-    const spindleCoreMesh = new THREE.Mesh(spindleCoreGeo, spindleCoreMat);
-    spinGroup.add(spindleCoreMesh);
-
-    // Ambient Warm Shadow Plane beneath vinyl
-    const shadowGeo = new THREE.PlaneGeometry(7.2, 7.2);
-    const shadowMat = new THREE.MeshBasicMaterial({
-      color: 0xf59e0b,
-      transparent: true,
-      opacity: 0.12,
-      depthWrite: false,
-    });
+    // Soft Ambient Drop Shadow Plane beneath plinth
+    const shadowGeo = regGeo(new THREE.PlaneGeometry(10.2, 9.2));
+    const shadowMat = regMat(
+      new THREE.MeshBasicMaterial({
+        color: 0x09090b,
+        transparent: true,
+        opacity: 0.32,
+        depthWrite: false,
+      })
+    );
     const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
     shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.y = -0.35;
-    vinylRig.add(shadowMesh);
+    shadowMesh.position.y = -(plinthH + 0.26);
+    turntableRig.add(shadowMesh);
 
-    // 6. Floating Warm Golden Particles (60-80 points)
-    const particleCount = 70;
+    // Amber bloom floor shadow
+    const amberFloorGeo = regGeo(new THREE.PlaneGeometry(12.5, 11.5));
+    const amberFloorMat = regMat(
+      new THREE.MeshBasicMaterial({
+        color: 0xf59e0b,
+        transparent: true,
+        opacity: 0.1,
+        depthWrite: false,
+      })
+    );
+    const amberFloorMesh = new THREE.Mesh(amberFloorGeo, amberFloorMat);
+    amberFloorMesh.rotation.x = -Math.PI / 2;
+    amberFloorMesh.position.y = -(plinthH + 0.27);
+    turntableRig.add(amberFloorMesh);
+
+    // ----------------------------------------------------
+    // 7. Recessed Platter Well & Spinning Platter Assembly
+    // ----------------------------------------------------
+    const platterCenterX = -0.9;
+    const platterCenterZ = 0.05;
+
+    // Recessed platter well on plinth top
+    const wellRingGeo = regGeo(new THREE.RingGeometry(3.12, 3.38, 64));
+    const wellRingMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x18181b,
+        metalness: 0.75,
+        roughness: 0.45,
+        side: THREE.DoubleSide,
+      })
+    );
+    const wellRingMesh = new THREE.Mesh(wellRingGeo, wellRingMat);
+    wellRingMesh.rotation.x = -Math.PI / 2;
+    wellRingMesh.position.set(platterCenterX, 0.003, platterCenterZ);
+    turntableRig.add(wellRingMesh);
+
+    // Platter Rig (Spins smoothly around Y)
+    const platterRig = new THREE.Group();
+    platterRig.position.set(platterCenterX, 0, platterCenterZ);
+    turntableRig.add(platterRig);
+
+    // Aluminum Platter Disc (Radius 3.25, height 0.14)
+    const platterGeo = regGeo(new THREE.CylinderGeometry(3.25, 3.25, 0.14, 64));
+    const platterMat = regMat(
+      new THREE.MeshStandardMaterial({
+        map: platterTexture,
+        color: 0xd4d4d8,
+        metalness: 0.9,
+        roughness: 0.25,
+      })
+    );
+    const platterMesh = new THREE.Mesh(platterGeo, platterMat);
+    platterMesh.position.y = 0.07;
+    platterRig.add(platterMesh);
+
+    // Vinyl Record Disc (Radius 3.08, thickness 0.07)
+    const discGeo = regGeo(new THREE.CylinderGeometry(3.08, 3.08, 0.07, 64));
+    const discMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x111113,
+        metalness: 0.85,
+        roughness: 0.22,
+      })
+    );
+    const discMesh = new THREE.Mesh(discGeo, discMat);
+    discMesh.position.y = 0.175;
+    platterRig.add(discMesh);
+
+    // Top Groove Ring Face
+    const grooveRingGeo = regGeo(new THREE.RingGeometry(1.22, 3.06, 64));
+    const grooveRingMat = regMat(
+      new THREE.MeshStandardMaterial({
+        map: grooveTexture,
+        roughness: 0.35,
+        metalness: 0.6,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.96,
+      })
+    );
+    const grooveRingMesh = new THREE.Mesh(grooveRingGeo, grooveRingMat);
+    grooveRingMesh.rotation.x = -Math.PI / 2;
+    grooveRingMesh.position.y = 0.211;
+    platterRig.add(grooveRingMesh);
+
+    // Center Amber Typography Label
+    const labelGeo = regGeo(new THREE.CircleGeometry(1.22, 64));
+    const labelMat = regMat(
+      new THREE.MeshStandardMaterial({
+        map: labelTexture,
+        roughness: 0.45,
+        metalness: 0.1,
+        side: THREE.DoubleSide,
+      })
+    );
+    const labelMesh = new THREE.Mesh(labelGeo, labelMat);
+    labelMesh.rotation.x = -Math.PI / 2;
+    labelMesh.position.y = 0.213;
+    platterRig.add(labelMesh);
+
+    // Center Spindle Hole Rim
+    const spindleRingGeo = regGeo(new THREE.RingGeometry(0.12, 0.2, 32));
+    const spindleRingMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        metalness: 0.95,
+        roughness: 0.1,
+        side: THREE.DoubleSide,
+      })
+    );
+    const spindleRingMesh = new THREE.Mesh(spindleRingGeo, spindleRingMat);
+    spindleRingMesh.rotation.x = -Math.PI / 2;
+    spindleRingMesh.position.y = 0.215;
+    platterRig.add(spindleRingMesh);
+
+    // Center Chrome Spindle Pin extending up through vinyl hole
+    const spindlePinGeo = regGeo(new THREE.CylinderGeometry(0.1, 0.1, 0.44, 32));
+    const spindlePinMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        metalness: 0.98,
+        roughness: 0.08,
+      })
+    );
+    const spindlePinMesh = new THREE.Mesh(spindlePinGeo, spindlePinMat);
+    spindlePinMesh.position.y = 0.26;
+    platterRig.add(spindlePinMesh);
+
+    // ----------------------------------------------------
+    // 8. Tonearm Assembly & Stylus Needle
+    // ----------------------------------------------------
+    const pivotX = 2.85;
+    const pivotZ = -2.15;
+
+    // Fixed Base Pillar Tower on the plinth
+    const armBaseRingGeo = regGeo(new THREE.CylinderGeometry(0.52, 0.58, 0.08, 32));
+    const armBaseMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        metalness: 0.9,
+        roughness: 0.2,
+      })
+    );
+    const armBaseRing = new THREE.Mesh(armBaseRingGeo, armBaseMat);
+    armBaseRing.position.set(pivotX, 0.04, pivotZ);
+    turntableRig.add(armBaseRing);
+
+    const armPillarGeo = regGeo(new THREE.CylinderGeometry(0.36, 0.4, 0.3, 32));
+    const armPillar = new THREE.Mesh(armPillarGeo, armBaseMat);
+    armPillar.position.set(pivotX, 0.19, pivotZ);
+    turntableRig.add(armPillar);
+
+    const gimbalCollarGeo = regGeo(new THREE.CylinderGeometry(0.28, 0.34, 0.1, 32));
+    const gimbalCollar = new THREE.Mesh(gimbalCollarGeo, armBaseMat);
+    gimbalCollar.position.set(pivotX, 0.35, pivotZ);
+    turntableRig.add(gimbalCollar);
+
+    // Arm Rest Post & Cradle Hook
+    const restPostX = 2.8;
+    const restPostZ = 1.2;
+    const restPostGeo = regGeo(new THREE.CylinderGeometry(0.05, 0.06, 0.32, 16));
+    const restPostMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        metalness: 0.85,
+        roughness: 0.3,
+      })
+    );
+    const restPostMesh = new THREE.Mesh(restPostGeo, restPostMat);
+    restPostMesh.position.set(restPostX, 0.16, restPostZ);
+    turntableRig.add(restPostMesh);
+
+    const restCradleGeo = regGeo(new THREE.TorusGeometry(0.09, 0.025, 8, 16, Math.PI));
+    const restCradleMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        metalness: 0.7,
+        roughness: 0.4,
+      })
+    );
+    const restCradleMesh = new THREE.Mesh(restCradleGeo, restCradleMat);
+    restCradleMesh.rotation.x = Math.PI / 2;
+    restCradleMesh.position.set(restPostX, 0.32, restPostZ);
+    turntableRig.add(restCradleMesh);
+
+    // Arm Pivot Group (Pivots about Y & lifts slightly about X)
+    const armPivotGroup = new THREE.Group();
+    armPivotGroup.position.set(pivotX, 0.38, pivotZ);
+    turntableRig.add(armPivotGroup);
+
+    // Gimbal Dome
+    const gimbalDomeGeo = regGeo(new THREE.SphereGeometry(0.18, 16, 16));
+    const gimbalDomeMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        metalness: 0.95,
+        roughness: 0.15,
+      })
+    );
+    const gimbalDome = new THREE.Mesh(gimbalDomeGeo, gimbalDomeMat);
+    armPivotGroup.add(gimbalDome);
+
+    // Counterweight Shaft (Extends backward along -Z)
+    const cwShaftGeo = regGeo(new THREE.CylinderGeometry(0.045, 0.045, 0.9, 16));
+    const cwShaft = new THREE.Mesh(cwShaftGeo, gimbalDomeMat);
+    cwShaft.rotation.x = Math.PI / 2;
+    cwShaft.position.set(0, 0, -0.45);
+    armPivotGroup.add(cwShaft);
+
+    // Counterweight Cylinder
+    const cwGeo = regGeo(new THREE.CylinderGeometry(0.26, 0.26, 0.32, 32));
+    const cwMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x1f2937,
+        metalness: 0.8,
+        roughness: 0.35,
+      })
+    );
+    const cwMesh = new THREE.Mesh(cwGeo, cwMat);
+    cwMesh.rotation.x = Math.PI / 2;
+    cwMesh.position.set(0, 0, -0.65);
+    armPivotGroup.add(cwMesh);
+
+    // Counterweight Index Dial Ring
+    const cwRingGeo = regGeo(new THREE.TorusGeometry(0.27, 0.02, 8, 32));
+    const cwRing = new THREE.Mesh(cwRingGeo, gimbalDomeMat);
+    cwRing.position.set(0, 0, -0.65);
+    armPivotGroup.add(cwRing);
+
+    // Cueing Lever
+    const cueLeverGeo = regGeo(new THREE.CylinderGeometry(0.02, 0.02, 0.2, 8));
+    const cueLever = new THREE.Mesh(cueLeverGeo, gimbalDomeMat);
+    cueLever.position.set(-0.16, 0.08, -0.08);
+    armPivotGroup.add(cueLever);
+
+    // Curved Tonearm Wand Tube
+    const wandPath = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(-0.04, 0.01, 1.1),
+      new THREE.Vector3(0.06, 0.0, 2.2),
+      new THREE.Vector3(-0.06, -0.05, 3.35),
+    ]);
+    const wandGeo = regGeo(new THREE.TubeGeometry(wandPath, 32, 0.042, 12, false));
+    const wandMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        metalness: 0.92,
+        roughness: 0.18,
+      })
+    );
+    const wandMesh = new THREE.Mesh(wandGeo, wandMat);
+    armPivotGroup.add(wandMesh);
+
+    // Headshell & Stylus Cartridge (At wand tip)
+    const headshellGroup = new THREE.Group();
+    headshellGroup.position.set(-0.06, -0.05, 3.35);
+    armPivotGroup.add(headshellGroup);
+
+    // Matte Black Headshell Body
+    const headshellGeo = regGeo(new THREE.BoxGeometry(0.2, 0.08, 0.44));
+    const headshellMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x18181b,
+        metalness: 0.4,
+        roughness: 0.35,
+      })
+    );
+    const headshellMesh = new THREE.Mesh(headshellGeo, headshellMat);
+    headshellMesh.position.set(0, 0, 0.16);
+    headshellGroup.add(headshellMesh);
+
+    // Gold Cartridge Body
+    const cartGeo = regGeo(new THREE.BoxGeometry(0.16, 0.09, 0.24));
+    const cartMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        metalness: 0.75,
+        roughness: 0.25,
+      })
+    );
+    const cartMesh = new THREE.Mesh(cartGeo, cartMat);
+    cartMesh.position.set(0, -0.06, 0.2);
+    headshellGroup.add(cartMesh);
+
+    // Stylus Needle Tip pointing down
+    const needleGeo = regGeo(new THREE.ConeGeometry(0.022, 0.08, 8));
+    const needleMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xf1f5f9,
+        metalness: 0.95,
+        roughness: 0.1,
+      })
+    );
+    const needleMesh = new THREE.Mesh(needleGeo, needleMat);
+    needleMesh.rotation.x = Math.PI;
+    needleMesh.position.set(0, -0.13, 0.22);
+    headshellGroup.add(needleMesh);
+
+    // ----------------------------------------------------
+    // 9. Power / Play Button & Status LED on the Plinth
+    // ----------------------------------------------------
+    const buttonX = -3.3;
+    const buttonZ = 2.8;
+
+    // Button Chrome Bezel
+    const btnBezelGeo = regGeo(new THREE.CylinderGeometry(0.34, 0.36, 0.08, 32));
+    const btnBezelMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        metalness: 0.92,
+        roughness: 0.18,
+      })
+    );
+    const btnBezelMesh = new THREE.Mesh(btnBezelGeo, btnBezelMat);
+    btnBezelMesh.position.set(buttonX, 0.04, buttonZ);
+    turntableRig.add(btnBezelMesh);
+
+    // Physical Push Button Mesh
+    const btnGeo = regGeo(new THREE.CylinderGeometry(0.26, 0.26, 0.1, 32));
+    const btnMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x1f2937,
+        metalness: 0.5,
+        roughness: 0.35,
+      })
+    );
+    const powerButtonMesh = new THREE.Mesh(btnGeo, btnMat);
+    powerButtonMesh.position.set(buttonX, 0.05, buttonZ);
+    turntableRig.add(powerButtonMesh);
+
+    // Status LED dot next to button
+    const ledX = -2.6;
+    const ledZ = 2.8;
+
+    const ledBezelGeo = regGeo(new THREE.TorusGeometry(0.09, 0.02, 8, 24));
+    const ledBezelMesh = new THREE.Mesh(ledBezelGeo, btnBezelMat);
+    ledBezelMesh.rotation.x = Math.PI / 2;
+    ledBezelMesh.position.set(ledX, 0.02, ledZ);
+    turntableRig.add(ledBezelMesh);
+
+    const ledGeo = regGeo(new THREE.SphereGeometry(0.08, 16, 16));
+    const ledMat = regMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x10b981,
+        emissive: 0x10b981,
+        emissiveIntensity: 0.15,
+        roughness: 0.2,
+      })
+    );
+    const ledMesh = new THREE.Mesh(ledGeo, ledMat);
+    ledMesh.position.set(ledX, 0.03, ledZ);
+    turntableRig.add(ledMesh);
+
+    // Local LED point light for soft emerald bloom
+    const ledPointLight = new THREE.PointLight(0x10b981, 0, 3.5);
+    ledPointLight.position.set(ledX, 0.18, ledZ);
+    turntableRig.add(ledPointLight);
+
+    // 33/45 RPM Speed Selector Buttons on front-left
+    const speedPlateGeo = regGeo(new THREE.BoxGeometry(0.48, 0.04, 0.28));
+    const speedPlate = new THREE.Mesh(speedPlateGeo, btnBezelMat);
+    speedPlate.position.set(-3.3, 0.02, 1.9);
+    turntableRig.add(speedPlate);
+
+    const speedBtnGeo = regGeo(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 16));
+    const speedBtn1 = new THREE.Mesh(speedBtnGeo, btnMat);
+    speedBtn1.position.set(-3.3, 0.05, 1.8);
+    turntableRig.add(speedBtn1);
+
+    const speedBtn2 = new THREE.Mesh(speedBtnGeo, btnMat);
+    speedBtn2.position.set(-3.3, 0.05, 2.0);
+    turntableRig.add(speedBtn2);
+
+    // Vintage Brass Branding Badge on front-right
+    const badgeGeo = regGeo(new THREE.PlaneGeometry(1.5, 0.46));
+    const badgeMat = regMat(
+      new THREE.MeshStandardMaterial({
+        map: badgeTexture,
+        metalness: 0.6,
+        roughness: 0.35,
+        side: THREE.DoubleSide,
+      })
+    );
+    const badgeMesh = new THREE.Mesh(badgeGeo, badgeMat);
+    badgeMesh.rotation.x = -Math.PI / 2;
+    badgeMesh.position.set(2.7, 0.004, 2.9);
+    turntableRig.add(badgeMesh);
+
+    // ----------------------------------------------------
+    // 10. Floating Golden Dust Particles (75 points)
+    // ----------------------------------------------------
+    const particleCount = 75;
     const particlePositions = new Float32Array(particleCount * 3);
     const particlePhases = new Float32Array(particleCount);
     const particleSpeeds = new Float32Array(particleCount);
@@ -363,33 +957,40 @@ export function ThreeVinylCanvas({
 
     for (let i = 0; i < particleCount; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const radius = 1.5 + Math.random() * 3.8;
-      const heightVal = (Math.random() - 0.5) * 4.5;
+      const radius = 2.0 + Math.random() * 4.2;
+      const heightVal = (Math.random() - 0.5) * 4.8;
 
       particlePositions[i * 3] = Math.cos(angle) * radius;
       particlePositions[i * 3 + 1] = heightVal;
       particlePositions[i * 3 + 2] = Math.sin(angle) * radius;
 
       particlePhases[i] = Math.random() * Math.PI * 2;
-      particleSpeeds[i] = 0.4 + Math.random() * 0.8;
+      particleSpeeds[i] = 0.35 + Math.random() * 0.75;
       particleRadii[i] = radius;
     }
 
-    const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+    const particleGeometry = regGeo(new THREE.BufferGeometry());
+    particleGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(particlePositions, 3)
+    );
 
-    const particleMaterial = new THREE.PointsMaterial({
-      size: 0.22,
-      map: particleTexture,
-      transparent: true,
-      opacity: 0.85,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
+    const particleMaterial = regMat(
+      new THREE.PointsMaterial({
+        size: 0.22,
+        map: particleTexture,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
     const particles = new THREE.Points(particleGeometry, particleMaterial);
     scene.add(particles);
 
-    // 7. Mouse / Pointer Tracking & Parallax Tilt
+    // ----------------------------------------------------
+    // 11. Mouse / Pointer Tracking & Parallax Tilt
+    // ----------------------------------------------------
     let mouseX = 0;
     let mouseY = 0;
     let targetMouseX = 0;
@@ -418,10 +1019,14 @@ export function ThreeVinylCanvas({
     container.addEventListener("touchmove", onPointerMove, { passive: true });
     container.addEventListener("touchend", onPointerLeave);
 
-    // 8. Animation Loop
+    // ----------------------------------------------------
+    // 12. Animation Loop & Physics Lerping
+    // ----------------------------------------------------
     let animationFrameId: number;
-    let currentSpinSpeed = 0.008;
-    let clock = new THREE.Clock();
+    let currentSpinSpeed = isPlayingRef.current ? 0.046 : 0.006;
+    let currentArmAngle = isPlayingRef.current ? 0.38 : 0.0;
+    let currentArmLift = isPlayingRef.current ? -0.012 : 0.045;
+    const clock = new THREE.Clock();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -433,17 +1038,42 @@ export function ThreeVinylCanvas({
       mouseY += (targetMouseY - mouseY) * 0.06;
 
       // Parallax Tilt & Position
-      vinylRig.rotation.x = baseTiltX - mouseY * 0.28;
-      vinylRig.rotation.y = mouseX * 0.38;
-      vinylRig.rotation.z = baseTiltZ + mouseX * 0.08;
+      turntableRig.rotation.x = baseTiltX - mouseY * 0.22;
+      turntableRig.rotation.y = mouseX * 0.32;
+      turntableRig.rotation.z = baseTiltZ + mouseX * 0.06;
 
-      vinylRig.position.x = mouseX * 0.4;
-      vinylRig.position.y = mouseY * 0.25;
+      turntableRig.position.x = mouseX * 0.35;
+      turntableRig.position.y = mouseY * 0.22;
 
-      // Dynamic Spin Speed: 33 RPM when playing (~0.048 rad/frame), gentle ambient idle sway when paused
-      const targetSpinSpeed = isPlayingRef.current ? 0.046 : 0.007;
+      // Dynamic Platter Spin: 33 RPM when playing (~0.046 rad/frame), gentle idle sway when paused
+      const targetSpinSpeed = isPlayingRef.current ? 0.046 : 0.006;
       currentSpinSpeed += (targetSpinSpeed - currentSpinSpeed) * 0.05;
-      spinGroup.rotation.y += currentSpinSpeed;
+      platterRig.rotation.y += currentSpinSpeed;
+
+      // Physical Tonearm Movement Lerping:
+      // When playing: swings inward over groove (~0.38 rad) and needle lowers softly (-0.012 rad)
+      // When stopped: lifts up (+0.045 rad) and rotates back to rest post (0 rad)
+      const targetArmAngle = isPlayingRef.current ? 0.38 : 0.0;
+      const targetArmLift = isPlayingRef.current ? -0.012 : 0.045;
+
+      currentArmAngle += (targetArmAngle - currentArmAngle) * 0.05;
+      currentArmLift += (targetArmLift - currentArmLift) * 0.05;
+
+      armPivotGroup.rotation.y = -currentArmAngle;
+      armPivotGroup.rotation.x = currentArmLift;
+
+      // Power Button physical push travel relaxation
+      buttonPressYRef.current += (0 - buttonPressYRef.current) * 0.16;
+      powerButtonMesh.position.y = 0.05 - buttonPressYRef.current;
+
+      // Status LED & Light Response
+      if (isPlayingRef.current) {
+        ledMat.emissiveIntensity = 2.4 + Math.sin(elapsedTime * 6) * 0.4;
+        ledPointLight.intensity = 1.2 + Math.sin(elapsedTime * 6) * 0.2;
+      } else {
+        ledMat.emissiveIntensity = 0.15;
+        ledPointLight.intensity = 0.0;
+      }
 
       // Particles Gentle Bobbing & Orbital Drift
       const posAttr = particleGeometry.attributes.position as THREE.BufferAttribute;
@@ -454,24 +1084,25 @@ export function ThreeVinylCanvas({
         const phase = particlePhases[i];
         const r = particleRadii[i];
 
-        // Slowly drift around Y
-        const orbitAngle = phase + elapsedTime * speed * (isPlayingRef.current ? 0.35 : 0.15);
+        const orbitAngle =
+          phase + elapsedTime * speed * (isPlayingRef.current ? 0.32 : 0.14);
         posArray[i * 3] = Math.cos(orbitAngle) * r;
-        // Bob gently up and down
-        posArray[i * 3 + 1] += Math.sin(elapsedTime * speed + phase) * 0.004;
+        posArray[i * 3 + 1] += Math.sin(elapsedTime * speed + phase) * 0.0035;
         posArray[i * 3 + 2] = Math.sin(orbitAngle) * r;
       }
       posAttr.needsUpdate = true;
 
-      // Slight pulsing on ambient rim light
-      amberFillLight.intensity = 2.2 + Math.sin(elapsedTime * 2) * 0.4;
+      // Subtle pulse on ambient rim light
+      amberFillLight.intensity = 2.2 + Math.sin(elapsedTime * 2) * 0.35;
 
       renderer.render(scene, camera);
     };
 
     animate();
 
-    // 9. ResizeObserver
+    // ----------------------------------------------------
+    // 13. Responsive ResizeObserver
+    // ----------------------------------------------------
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width: newW, height: newH } = entry.contentRect;
@@ -484,7 +1115,9 @@ export function ThreeVinylCanvas({
     });
     resizeObserver.observe(container);
 
-    // 10. Comprehensive Cleanup
+    // ----------------------------------------------------
+    // 14. 100% Comprehensive WebGL Cleanup
+    // ----------------------------------------------------
     return () => {
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
@@ -494,29 +1127,16 @@ export function ThreeVinylCanvas({
       container.removeEventListener("touchmove", onPointerMove);
       container.removeEventListener("touchend", onPointerLeave);
 
-      // Dispose Geometries
-      discGeometry.dispose();
-      grooveRingGeo.dispose();
-      labelGeo.dispose();
-      spindleGeo.dispose();
-      spindleCoreGeo.dispose();
-      shadowGeo.dispose();
-      particleGeometry.dispose();
+      // Dispose all registered geometries
+      disposables.geometries.forEach((g) => g.dispose());
 
-      // Dispose Materials & Textures
-      discMaterial.dispose();
-      grooveRingMat.dispose();
-      labelMat.dispose();
-      spindleMat.dispose();
-      spindleCoreMat.dispose();
-      shadowMat.dispose();
-      particleMaterial.dispose();
+      // Dispose all registered materials
+      disposables.materials.forEach((m) => m.dispose());
 
-      grooveTexture.dispose();
-      labelTexture.dispose();
-      particleTexture.dispose();
+      // Dispose all registered textures
+      disposables.textures.forEach((t) => t.dispose());
 
-      // Dispose Renderer & release WebGL context
+      // Dispose renderer & release WebGL context
       renderer.dispose();
       renderer.forceContextLoss();
 
@@ -526,26 +1146,46 @@ export function ThreeVinylCanvas({
     };
   }, [size, interactive]);
 
+  // Handle Play/Stop Toggle with Audio Feedback
+  const handleTogglePlay = () => {
+    // Physical button dip transient
+    buttonPressYRef.current = 0.035;
+
+    const willPlay = !activePlaying;
+
+    if (willPlay) {
+      soundEffects.turntableStart();
+    } else {
+      soundEffects.turntableStop();
+    }
+
+    if (onTogglePlay) {
+      onTogglePlay();
+    } else {
+      setInternalPlaying(willPlay);
+    }
+  };
+
   return (
     <div
       className={`relative inline-flex items-center justify-center select-none group ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onTogglePlay}
-      role={onTogglePlay ? "button" : undefined}
-      tabIndex={onTogglePlay ? 0 : undefined}
+      onClick={handleTogglePlay}
+      role="button"
+      tabIndex={0}
       onKeyDown={(e) => {
-        if (onTogglePlay && (e.key === "Enter" || e.key === " ")) {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onTogglePlay();
+          handleTogglePlay();
         }
       }}
-      aria-label="3D Interactive Vinyl Record"
+      aria-label="3D Interactive Vinyl Turntable Record Player"
     >
-      {/* Three.js Container */}
+      {/* Three.js Canvas Container */}
       <div
         ref={containerRef}
-        className="w-full h-full min-w-[260px] min-h-[260px] flex items-center justify-center cursor-pointer transition-transform duration-300 group-hover:scale-[1.02]"
+        className="w-full h-full min-w-[280px] min-h-[260px] flex items-center justify-center cursor-pointer transition-transform duration-300 group-hover:scale-[1.02]"
         style={{
           width: size ? `${size}px` : undefined,
           height: size ? `${size}px` : undefined,
@@ -553,14 +1193,18 @@ export function ThreeVinylCanvas({
       />
 
       {/* Floating Lo-Fi Audio Badge */}
-      <div className="absolute -bottom-2 sm:bottom-1 flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 dark:bg-stone-900/80 border border-amber-500/30 backdrop-blur-md shadow-lg pointer-events-none transition-all duration-300">
+      <div className="absolute -bottom-2 sm:bottom-0 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 dark:bg-stone-900/90 border border-amber-500/30 backdrop-blur-md shadow-lg pointer-events-none transition-all duration-300">
         <span
-          className={`w-2 h-2 rounded-full ${
-            isPlaying ? "bg-emerald-500 animate-ping" : "bg-amber-500"
+          className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
+            activePlaying
+              ? "bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50"
+              : "bg-amber-500"
           }`}
         />
-        <span className="text-[11px] font-medium text-stone-700 dark:text-stone-300">
-          {isPlaying ? "33 ⅓ RPM • กำลังเล่น" : isHovered ? "คลิกเพื่อหมุนแผ่น" : "3D Vinyl Interactive"}
+        <span className="text-[12px] font-medium text-stone-800 dark:text-stone-200">
+          {activePlaying
+            ? "🟢 กำลังเล่นแผ่นเสียง • คลิกเพื่อหยุด"
+            : "▶ คลิกที่เครื่องเล่นเพื่อเปิดเล่นแผ่นเสียง"}
         </span>
       </div>
     </div>

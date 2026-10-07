@@ -451,6 +451,193 @@ export function playVictoryFanfare(): void {
 }
 
 /**
+ * Authentic vintage turntable start sound:
+ * 1. Physical push switch click transient
+ * 2. Gentle tactile needle drop "thump"
+ * 3. Soft lo-fi warm vinyl crackle/noise burst
+ * 4. Nostalgic warm 7th chord chime (Cmaj9 / lo-fi Rhodes harmonic)
+ */
+export function playTurntableStartSound(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const master = createMasterOutput(ctx);
+  if (!master) return;
+
+  const t0 = ctx.currentTime;
+
+  // 1. Mechanical switch click
+  const clickGain = ctx.createGain();
+  clickGain.gain.setValueAtTime(0.001, t0);
+  clickGain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.003);
+  clickGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.035);
+  clickGain.connect(master);
+
+  const clickOsc = ctx.createOscillator();
+  clickOsc.type = "triangle";
+  clickOsc.frequency.setValueAtTime(1400, t0);
+  clickOsc.frequency.exponentialRampToValueAtTime(180, t0 + 0.035);
+  clickOsc.connect(clickGain);
+  clickOsc.start(t0);
+  clickOsc.stop(t0 + 0.035);
+
+  // 2. Needle drop contact "thump" (around 0.16s when needle lands on vinyl groove)
+  const thumpTime = t0 + 0.16;
+  const thumpGain = ctx.createGain();
+  thumpGain.gain.setValueAtTime(0.001, thumpTime);
+  thumpGain.gain.exponentialRampToValueAtTime(0.28, thumpTime + 0.015);
+  thumpGain.gain.exponentialRampToValueAtTime(0.0001, thumpTime + 0.13);
+  thumpGain.connect(master);
+
+  const thumpFilter = ctx.createBiquadFilter();
+  thumpFilter.type = "lowpass";
+  thumpFilter.frequency.setValueAtTime(260, thumpTime);
+  thumpFilter.frequency.exponentialRampToValueAtTime(70, thumpTime + 0.13);
+  thumpFilter.connect(thumpGain);
+
+  const thumpOsc = ctx.createOscillator();
+  thumpOsc.type = "sine";
+  thumpOsc.frequency.setValueAtTime(120, thumpTime);
+  thumpOsc.frequency.exponentialRampToValueAtTime(45, thumpTime + 0.13);
+  thumpOsc.connect(thumpFilter);
+  thumpOsc.start(thumpTime);
+  thumpOsc.stop(thumpTime + 0.14);
+
+  // 3. Subtle procedural vinyl groove crackle noise (0.16s to 1.6s)
+  try {
+    const crackleDuration = 1.4;
+    const sampleRate = ctx.sampleRate;
+    const bufferSize = Math.floor(sampleRate * crackleDuration);
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      const isPop = Math.random() < 0.0016;
+      const popVal = isPop ? (Math.random() - 0.5) * 0.6 : 0;
+      const hiss = (Math.random() * 2 - 1) * 0.018;
+      output[i] = popVal + hiss;
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.setValueAtTime(1200, thumpTime);
+    noiseFilter.Q.setValueAtTime(0.8, thumpTime);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.001, thumpTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.12, thumpTime + 0.04);
+    noiseGain.gain.setValueAtTime(0.08, thumpTime + 0.6);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, thumpTime + crackleDuration);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(master);
+
+    noiseSource.start(thumpTime);
+    noiseSource.stop(thumpTime + crackleDuration);
+  } catch {}
+
+  // 4. Lo-Fi warm nostalgic chord chime (Cmaj9: C4, G4, B4, D5, E5)
+  const chordNotes = [
+    { freq: 261.63, time: 0.25, dur: 1.8 }, // C4
+    { freq: 392.0, time: 0.33, dur: 1.7 },  // G4
+    { freq: 493.88, time: 0.41, dur: 1.6 }, // B4
+    { freq: 587.33, time: 0.49, dur: 1.5 }, // D5
+    { freq: 659.25, time: 0.57, dur: 1.4 }, // E5
+  ];
+
+  const chordFilter = ctx.createBiquadFilter();
+  chordFilter.type = "lowpass";
+  chordFilter.frequency.setValueAtTime(2200, t0);
+  chordFilter.connect(master);
+
+  chordNotes.forEach((n, idx) => {
+    const noteStart = t0 + n.time;
+    const noteEnd = noteStart + n.dur;
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, noteStart);
+    g.gain.exponentialRampToValueAtTime(0.16, noteStart + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+    g.connect(chordFilter);
+
+    const o = ctx.createOscillator();
+    o.type = idx % 2 === 0 ? "sine" : "triangle";
+    o.frequency.setValueAtTime(n.freq, noteStart);
+    o.connect(g);
+
+    o.start(noteStart);
+    o.stop(noteEnd);
+
+    if (idx === chordNotes.length - 1) {
+      o.onended = () => {
+        chordFilter.disconnect();
+        master.disconnect();
+      };
+    }
+  });
+}
+
+/**
+ * Vintage needle lift & turntable stop sound:
+ * Gentle needle brush / scratch release + mechanical toggle click.
+ */
+export function playTurntableStopSound(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const master = createMasterOutput(ctx);
+  if (!master) return;
+
+  const t0 = ctx.currentTime;
+
+  // 1. Needle friction scrape release (0.12s)
+  const scrapeGain = ctx.createGain();
+  scrapeGain.gain.setValueAtTime(0.001, t0);
+  scrapeGain.gain.exponentialRampToValueAtTime(0.18, t0 + 0.01);
+  scrapeGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+  scrapeGain.connect(master);
+
+  const scrapeFilter = ctx.createBiquadFilter();
+  scrapeFilter.type = "bandpass";
+  scrapeFilter.frequency.setValueAtTime(800, t0);
+  scrapeFilter.frequency.exponentialRampToValueAtTime(1600, t0 + 0.12);
+  scrapeFilter.Q.setValueAtTime(2.0, t0);
+  scrapeFilter.connect(scrapeGain);
+
+  const scrapeOsc = ctx.createOscillator();
+  scrapeOsc.type = "sawtooth";
+  scrapeOsc.frequency.setValueAtTime(220, t0);
+  scrapeOsc.frequency.exponentialRampToValueAtTime(540, t0 + 0.12);
+  scrapeOsc.connect(scrapeFilter);
+  scrapeOsc.start(t0);
+  scrapeOsc.stop(t0 + 0.12);
+
+  // 2. Mechanical latch click at t0 + 0.08s
+  const clickStart = t0 + 0.08;
+  const clickDur = 0.03;
+  const clickGain = ctx.createGain();
+  clickGain.gain.setValueAtTime(0.001, clickStart);
+  clickGain.gain.exponentialRampToValueAtTime(0.2, clickStart + 0.003);
+  clickGain.gain.exponentialRampToValueAtTime(0.0001, clickStart + clickDur);
+  clickGain.connect(master);
+
+  const clickOsc = ctx.createOscillator();
+  clickOsc.type = "sine";
+  clickOsc.frequency.setValueAtTime(900, clickStart);
+  clickOsc.frequency.exponentialRampToValueAtTime(240, clickStart + clickDur);
+  clickOsc.connect(clickGain);
+  clickOsc.start(clickStart);
+  clickOsc.stop(clickStart + clickDur);
+
+  clickOsc.onended = () => {
+    scrapeGain.disconnect();
+    scrapeFilter.disconnect();
+    clickGain.disconnect();
+    master.disconnect();
+  };
+}
+
+/**
  * Convenient bundled sound effects object.
  */
 export const soundEffects = {
@@ -460,6 +647,8 @@ export const soundEffects = {
   countdownTick: playCountdownTickSound,
   click: playClickSound,
   victoryFanfare: playVictoryFanfare,
+  turntableStart: playTurntableStartSound,
+  turntableStop: playTurntableStopSound,
   isMuted,
   setMuted,
   getVolume,

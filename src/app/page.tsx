@@ -177,12 +177,12 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <section className="w-full max-w-3xl lg:max-w-5xl flex flex-col items-center text-center my-auto py-8 lg:py-12 z-10">
-        {/* 3D Interactive Three.js Vinyl */}
+        {/* 3D Interactive Three.js Vinyl Turntable */}
         <div className="my-1 mb-5 flex flex-col items-center">
           <ThreeVinylCanvas
             isPlaying={isVinylPlaying}
             onTogglePlay={() => setIsVinylPlaying((prev) => !prev)}
-            className="w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 drop-shadow-2xl"
+            className="w-64 h-60 sm:w-72 sm:h-64 lg:w-80 lg:h-72 drop-shadow-2xl"
           />
         </div>
 
