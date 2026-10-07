@@ -198,10 +198,11 @@ export async function downloadAndProcessYoutube(
       "ba/b",
       "--no-playlist",
       "--no-warnings",
+      "--no-simulate",
       "--print",
-      "%(title)s",
+      "after_move:%(title)s",
       "--print",
-      "%(duration)s",
+      "after_move:%(duration)s",
       "-o",
       rawOutputTemplate,
       target,
@@ -214,18 +215,16 @@ export async function downloadAndProcessYoutube(
 
     // Locate the downloaded raw audio file in tempDir
     const files = fs.readdirSync(tempDir);
-    const downloadedFile = files.find((f) => f.startsWith("source.") && !f.endsWith(".mp3"));
+    const downloadedFile =
+      files.find((f) => f.startsWith("source.") && f !== "output.mp3") ||
+      files.find((f) => f !== "output.mp3");
     const rawFilePath = downloadedFile ? path.join(tempDir, downloadedFile) : null;
 
     if (!rawFilePath || !fs.existsSync(rawFilePath)) {
-      // Check if yt-dlp saved directly as source.mp3 or similar
-      const anySource = files.find((f) => f.startsWith("source."));
-      if (!anySource) {
-        throw new Error(`Failed to find downloaded audio file in ${tempDir}`);
-      }
+      throw new Error(`Failed to find downloaded audio file in ${tempDir}. Files present: [${files.join(", ")}]`);
     }
 
-    const inputSource = rawFilePath || path.join(tempDir, files.find((f) => f.startsWith("source."))!);
+    const inputSource = rawFilePath;
 
     // 2. Convert to standard MP3 128kbps, 44100Hz, stereo (2 channels)
     // ffmpeg -i input -vn -ar 44100 -ac 2 -b:a 128k -f mp3 output.mp3
