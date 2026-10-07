@@ -105,7 +105,7 @@ export function BuzzerButton({
       {status === "ready" && !disabled && (
         <div
           aria-hidden="true"
-          className="absolute w-56 h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 rounded-full bg-amber-500/20 animate-ping pointer-events-none"
+          className="absolute w-56 h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-[380px] lg:h-[380px] xl:w-[440px] xl:h-[440px] rounded-full bg-amber-500/20 animate-ping pointer-events-none"
         />
       )}
 
@@ -125,7 +125,7 @@ export function BuzzerButton({
             ? "คุณตอบผิดในข้อนี้แล้ว"
             : "รอเริ่มรอบ"
         }
-        className={`relative z-10 w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-full flex flex-col items-center justify-center p-4 text-center touch-manipulation [touch-action:manipulation] active:scale-95 transition-transform duration-75 border-4 shadow-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/50 ${
+        className={`relative z-10 w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-full flex flex-col items-center justify-center p-4 text-center touch-manipulation [touch-action:manipulation] active:scale-95 transition-transform duration-75 border-4 shadow-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/50 ${
           status === "ready" && !disabled
             ? "bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 border-amber-200 dark:border-amber-300 text-stone-950 shadow-[0_0_40px_rgba(245,158,11,0.5)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse"
             : status === "buzzed_by_me"
@@ -139,13 +139,13 @@ export function BuzzerButton({
       >
         {status === "ready" && (
           <>
-            <div className="p-3 sm:p-3.5 md:p-4 bg-white/30 rounded-full backdrop-blur-sm mb-2 shadow-inner">
-              <Bell className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-stone-950 animate-bounce" />
+            <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-white/30 rounded-full backdrop-blur-sm mb-2 lg:mb-3 shadow-inner">
+              <Bell className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-18 lg:h-18 xl:w-22 xl:h-22 text-stone-950 animate-bounce" />
             </div>
-            <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-wide drop-shadow-sm text-stone-950">
+            <span className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black tracking-wide drop-shadow-sm text-stone-950">
               กดกริ่ง!
             </span>
-            <span className="text-xs sm:text-sm font-semibold text-stone-900 mt-1 uppercase tracking-wider bg-black/15 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs sm:text-sm lg:text-base font-semibold text-stone-900 mt-1 uppercase tracking-wider bg-black/15 px-2.5 py-0.5 lg:px-4 lg:py-1 rounded-full">
               (SPACE)
             </span>
           </>
@@ -153,13 +153,13 @@ export function BuzzerButton({
 
         {status === "buzzed_by_me" && (
           <>
-            <div className="p-3 sm:p-3.5 md:p-4 bg-amber-400/20 rounded-full mb-2">
-              <Sparkles className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-amber-500 dark:text-amber-300 animate-spin" />
+            <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-amber-400/20 rounded-full mb-2 lg:mb-3">
+              <Sparkles className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-18 lg:h-18 xl:w-22 xl:h-22 text-amber-500 dark:text-amber-300 animate-spin" />
             </div>
-            <span className="text-base sm:text-lg md:text-xl font-black text-amber-800 dark:text-amber-300 leading-tight">
+            <span className="text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-black text-amber-800 dark:text-amber-300 leading-tight">
               คุณได้สิทธิ์ตอบ!
             </span>
-            <span className="text-xs sm:text-sm font-semibold text-amber-700 dark:text-amber-200/80 mt-1 bg-amber-500/20 dark:bg-amber-950/60 px-2 py-0.5 rounded-full">
+            <span className="text-xs sm:text-sm lg:text-base font-semibold text-amber-700 dark:text-amber-200/80 mt-1 bg-amber-500/20 dark:bg-amber-950/60 px-2 py-0.5 lg:px-3 lg:py-1 rounded-full">
               (ตอบด่วน)
             </span>
           </>
@@ -167,25 +167,25 @@ export function BuzzerButton({
 
         {status === "locked_by_other" && (
           <>
-            <div className="p-3 sm:p-3.5 md:p-4 bg-stone-300 dark:bg-stone-800 rounded-full mb-2">
-              <Lock className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-stone-600 dark:text-stone-400" />
+            <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-stone-300 dark:bg-stone-800 rounded-full mb-2 lg:mb-3">
+              <Lock className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-20 xl:h-20 text-stone-600 dark:text-stone-400" />
             </div>
-            <span className="text-sm sm:text-base md:text-lg font-bold text-stone-800 dark:text-stone-200 px-3 line-clamp-2 leading-tight">
+            <span className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-bold text-stone-800 dark:text-stone-200 px-3 line-clamp-2 leading-tight">
               {buzzedPlayerName ? `[${buzzedPlayerName}]` : "ผู้เล่นอื่น"}
             </span>
-            <span className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">กำลังตอบ...</span>
+            <span className="text-xs sm:text-sm lg:text-base text-stone-500 dark:text-stone-400 mt-1">กำลังตอบ...</span>
           </>
         )}
 
         {status === "excluded" && (
           <>
-            <div className="p-3 sm:p-3.5 md:p-4 bg-rose-200 dark:bg-rose-950/80 rounded-full mb-2 border border-rose-300 dark:border-rose-500/30">
-              <XCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-rose-600 dark:text-rose-400" />
+            <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-rose-200 dark:bg-rose-950/80 rounded-full mb-2 lg:mb-3 border border-rose-300 dark:border-rose-500/30">
+              <XCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-20 xl:h-20 text-rose-600 dark:text-rose-400" />
             </div>
-            <span className="text-xs sm:text-sm md:text-base font-bold text-rose-800 dark:text-rose-300 px-2 leading-tight">
+            <span className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-bold text-rose-800 dark:text-rose-300 px-2 leading-tight">
               คุณตอบผิดในข้อนี้แล้ว
             </span>
-            <span className="text-[11px] sm:text-xs text-rose-600 dark:text-rose-400/70 mt-1">
+            <span className="text-[11px] sm:text-xs lg:text-sm text-rose-600 dark:text-rose-400/70 mt-1">
               รอข้อถัดไป
             </span>
           </>
@@ -193,10 +193,10 @@ export function BuzzerButton({
 
         {status === "idle" && (
           <>
-            <div className="p-3 sm:p-3.5 md:p-4 bg-stone-200 dark:bg-stone-800/60 rounded-full mb-2">
-              <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-stone-500 dark:text-slate-600 animate-spin" />
+            <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-stone-200 dark:bg-stone-800/60 rounded-full mb-2 lg:mb-3">
+              <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-20 xl:h-20 text-stone-500 dark:text-slate-600 animate-spin" />
             </div>
-            <span className="text-sm sm:text-base font-medium text-stone-500">
+            <span className="text-sm sm:text-base lg:text-lg font-medium text-stone-500">
               รอเริ่มรอบถัดไป...
             </span>
           </>
@@ -206,17 +206,17 @@ export function BuzzerButton({
       {/* Helper cue label underneath button */}
       <div className="mt-3 text-center">
         {status === "ready" && !disabled && (
-          <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-300/90 font-medium">
-            กดปุ่มด้านบน หรือเคาะ <kbd className="px-1.5 py-0.5 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-stone-800 dark:text-stone-200 text-xs font-mono shadow-sm">Spacebar</kbd>
+          <p className="text-xs sm:text-sm lg:text-base text-amber-800 dark:text-amber-300/90 font-medium">
+            กดปุ่มด้านบน หรือเคาะ <kbd className="px-1.5 py-0.5 lg:px-2.5 lg:py-1 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-stone-800 dark:text-stone-200 text-xs lg:text-sm font-mono shadow-sm">Spacebar</kbd>
           </p>
         )}
         {status === "locked_by_other" && (
-          <p className="text-xs text-stone-500 dark:text-stone-400 font-medium animate-pulse">
+          <p className="text-xs sm:text-sm lg:text-base text-stone-500 dark:text-stone-400 font-medium animate-pulse">
             รอฟังผลคำตอบ ถ้าตอบผิด กริ่งจะเปิดอีกครั้ง!
           </p>
         )}
         {status === "excluded" && (
-          <p className="text-xs text-rose-600 dark:text-rose-400/80 font-medium">
+          <p className="text-xs sm:text-sm lg:text-base text-rose-600 dark:text-rose-400/80 font-medium">
             สิทธิ์ตอบข้อนี้หมดลงแล้ว ให้กำลังใจเพื่อนๆ อยู่ตรงนี้!
           </p>
         )}
