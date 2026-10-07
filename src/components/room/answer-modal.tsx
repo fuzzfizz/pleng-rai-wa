@@ -143,7 +143,7 @@ export function AnswerModal({
       aria-labelledby="answer-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
     >
-      <div className="relative w-full max-w-lg bg-stone-50 dark:bg-stone-900 border-2 border-amber-500/80 rounded-3xl p-6 shadow-2xl flex flex-col gap-4 text-stone-900 dark:text-stone-100 overflow-hidden">
+      <div className="relative w-full max-w-lg lg:max-w-2xl bg-stone-50 dark:bg-stone-900 border-2 border-amber-500/80 rounded-3xl p-6 sm:p-7 lg:p-8 shadow-2xl flex flex-col gap-4 text-stone-900 dark:text-stone-100 overflow-hidden">
         {/* Subtle decorative glow */}
         <div
           aria-hidden="true"
@@ -157,10 +157,10 @@ export function AnswerModal({
               <Sparkles className="w-5 h-5 animate-spin" />
             </span>
             <div>
-              <h2 id="answer-modal-title" className="text-xl font-bold font-serif text-stone-900 dark:text-amber-300 tracking-wide">
+              <h2 id="answer-modal-title" className="text-xl lg:text-2xl font-bold font-serif text-stone-900 dark:text-amber-300 tracking-wide">
                 สิทธิ์ตอบเป็นของคุณ!
               </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400">ตอบด่วนก่อนเวลาจะหมด</p>
+              <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400">ตอบด่วนก่อนเวลาจะหมด</p>
             </div>
           </div>
 
@@ -179,13 +179,13 @@ export function AnswerModal({
 
         {/* Animated Countdown Progress Bar */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-semibold">
+          <div className="flex items-center justify-between text-xs lg:text-sm font-semibold">
             <span className="flex items-center gap-1 text-stone-600 dark:text-stone-300">
               <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               เวลาที่เหลือ:
             </span>
             <span
-              className={`font-mono text-sm font-bold ${
+              className={`font-mono text-sm lg:text-base font-bold ${
                 secondsLeft <= 3 ? "text-rose-500 dark:text-rose-400 animate-pulse" : "text-amber-600 dark:text-amber-300"
               }`}
             >
@@ -204,11 +204,11 @@ export function AnswerModal({
         {/* Input Form */}
         <form onSubmit={onFormSubmit} className="space-y-3">
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 lg:pl-4 flex items-center pointer-events-none text-stone-400">
               {inputMode === "autocomplete" ? (
-                <Search className="w-5 h-5" />
+                <Search className="w-5 h-5 lg:w-6 lg:h-6" />
               ) : (
-                <Music className="w-5 h-5" />
+                <Music className="w-5 h-5 lg:w-6 lg:h-6" />
               )}
             </div>
 
@@ -229,7 +229,7 @@ export function AnswerModal({
               }
               autoComplete="off"
               autoFocus
-              className="w-full min-h-[44px] pl-11 pr-4 py-3.5 bg-white dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base transition shadow-inner"
+              className="w-full min-h-[44px] lg:min-h-[52px] pl-11 lg:pl-12 pr-4 py-3.5 lg:py-4 bg-white dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base lg:text-lg transition shadow-inner"
             />
           </div>
 
@@ -243,7 +243,7 @@ export function AnswerModal({
                     key={song.id || idx}
                     type="button"
                     onClick={() => handleSubmit(song.title)}
-                    className={`w-full text-left px-3 py-2.5 min-h-[44px] rounded-xl flex items-center justify-between text-sm transition group cursor-pointer ${
+                    className={`w-full text-left px-3 py-2.5 lg:py-3 lg:px-4 min-h-[44px] rounded-xl flex items-center justify-between text-sm lg:text-base transition group cursor-pointer ${
                       isHighlighted
                         ? "bg-amber-500 text-stone-950 font-bold"
                         : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
@@ -252,7 +252,7 @@ export function AnswerModal({
                     <div className="truncate pr-2">
                       <div className="font-semibold truncate">{song.title}</div>
                       <div
-                        className={`text-xs truncate ${
+                        className={`text-xs lg:text-sm truncate ${
                           isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
                         }`}
                       >
@@ -260,7 +260,7 @@ export function AnswerModal({
                       </div>
                     </div>
                     <span
-                      className={`text-[11px] px-2 py-0.5 rounded-full uppercase font-medium ${
+                      className={`text-[11px] lg:text-xs px-2 py-0.5 rounded-full uppercase font-medium ${
                         isHighlighted
                           ? "bg-stone-950/20 text-stone-950"
                           : "bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-400"
@@ -278,7 +278,7 @@ export function AnswerModal({
           <button
             type="submit"
             disabled={!inputValue.trim() || isSubmitting}
-            className={`w-full min-h-[44px] py-3.5 px-6 rounded-2xl font-bold text-base sm:text-lg flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] ${
+            className={`w-full min-h-[44px] py-3.5 lg:py-4 px-6 rounded-2xl font-bold text-base sm:text-lg lg:text-lg flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] ${
               inputValue.trim() && !isSubmitting
                 ? "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/30 cursor-pointer"
                 : "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed border border-stone-300 dark:border-stone-700/50"
@@ -299,7 +299,7 @@ export function AnswerModal({
         </form>
 
         {/* Modal Footer Note */}
-        <p className="text-center text-[11px] text-stone-500 dark:text-stone-400">
+        <p className="text-center text-[11px] lg:text-xs text-stone-500 dark:text-stone-400">
           กด <kbd className="px-1 py-0.5 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-stone-700 dark:text-stone-300 font-mono text-[10px]">Enter</kbd> เพื่อส่งคำตอบทันที
         </p>
       </div>

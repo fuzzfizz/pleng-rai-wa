@@ -192,21 +192,21 @@ export function GameView({
       {/* ==================================================== */}
       {/* TOP HEADER: Round info, game mode badge, sound mute  */}
       {/* ==================================================== */}
-      <header className="sticky top-0 z-30 bg-white/80 dark:bg-stone-950/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800/80 px-4 py-3 sm:px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-30 bg-white/80 dark:bg-stone-950/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800/80 px-4 py-3 sm:px-6 lg:py-4">
+        <div className="max-w-6xl lg:max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Round Indicator & Mode Badge */}
           <div className="flex items-center gap-2.5">
-            <span className="px-3 py-1 bg-amber-500 rounded-full font-black text-xs sm:text-sm text-stone-950 shadow-md shadow-amber-500/20">
+            <span className="px-3 py-1 lg:px-4 lg:py-1.5 bg-amber-500 rounded-full font-black text-xs sm:text-sm lg:text-base text-stone-950 shadow-md shadow-amber-500/20">
               {roundText}
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-full text-xs font-semibold text-stone-700 dark:text-stone-300">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 lg:px-4 lg:py-1.5 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-full text-xs font-semibold text-stone-700 dark:text-stone-300">
               <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               {modeLabel}
             </span>
           </div>
 
           {/* Quick Player Scores Ribbon */}
-          <div className="flex items-center gap-2 overflow-x-auto max-w-[50%] sm:max-w-md py-1 no-scrollbar">
+          <div className="flex items-center gap-2 overflow-x-auto max-w-[50%] sm:max-w-md lg:max-w-xl py-1 no-scrollbar">
             {sortedPlayers.slice(0, 4).map((p, idx) => {
               const isMe = myPlayer && p.id === myPlayer.id;
               const avatar = getDeterministicAvatar({ id: p.id, avatarUrl: p.avatarUrl });
@@ -219,10 +219,10 @@ export function GameView({
                       : "bg-white/80 dark:bg-stone-900/90 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-800"
                   }`}
                 >
-                  <span className="text-[13px]">{avatar}</span>
-                  <span className="truncate max-w-[70px] sm:max-w-[90px]">{p.displayName}</span>
+                  <span className="text-[13px] lg:text-base">{avatar}</span>
+                  <span className="truncate max-w-[70px] sm:max-w-[90px] lg:max-w-[130px] lg:text-sm">{p.displayName}</span>
                   {idx === 0 && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
-                  <span className="px-1.5 py-0.2 rounded bg-stone-100 dark:bg-stone-950 text-amber-600 dark:text-amber-400 font-mono text-[11px]">
+                  <span className="px-1.5 lg:px-2 py-0.2 rounded bg-stone-100 dark:bg-stone-950 text-amber-600 dark:text-amber-400 font-mono text-[11px] lg:text-xs">
                     {p.score}
                   </span>
                 </div>
@@ -262,7 +262,7 @@ export function GameView({
       {/* ==================================================== */}
       {/* CENTER STAGE: Gameplay arena                         */}
       {/* ==================================================== */}
-      <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-4xl mx-auto w-full z-10">
+      <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 max-w-4xl lg:max-w-5xl mx-auto w-full z-10">
         {/* Wrong Guess Feedback Banner */}
         <WrongGuessBanner wrongGuess={lastWrongGuess} showResumeCue={true} />
 
@@ -285,19 +285,19 @@ export function GameView({
             {/* Audio Wave / Lyrics Reading Visualization */}
             <div className="flex flex-col items-center gap-2 my-2 text-center">
               {gameMode === "ai-lyrics" ? (
-                <div className="max-w-lg p-4 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-amber-500/40 shadow-lg text-amber-800 dark:text-amber-200">
+                <div className="max-w-lg lg:max-w-2xl p-4 lg:p-6 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-amber-500/40 shadow-lg text-amber-800 dark:text-amber-200">
                   <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
                     <Radio className="w-4 h-4 animate-pulse text-amber-500" />
                     <span>AI กำลังอ่านท่อนเนื้อเพลง</span>
                   </div>
-                  <p className="text-base sm:text-lg font-semibold italic text-stone-900 dark:text-white drop-shadow">
+                  <p className="text-base sm:text-lg lg:text-2xl font-semibold italic text-stone-900 dark:text-white drop-shadow">
                     &ldquo;{activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}&rdquo;
                   </p>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 h-10 px-4 py-2 bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 rounded-full shadow-sm">
+                <div className="flex items-center gap-1.5 h-10 lg:h-12 px-4 lg:px-6 py-2 bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 rounded-full shadow-sm">
                   <Music className="w-4 h-4 text-amber-500 mr-1" />
-                  <span className="text-xs font-bold text-stone-600 dark:text-stone-400 mr-2">
+                  <span className="text-xs lg:text-sm font-bold text-stone-600 dark:text-stone-400 mr-2">
                     {isAudioPlaying ? "กำลังเปิดเสียงตัวอย่าง..." : "เพลงหยุดชั่วคราว"}
                   </span>
                   {[0.4, 0.9, 0.6, 1.0, 0.7, 0.3, 0.8].map((scale, i) => (
@@ -330,7 +330,7 @@ export function GameView({
 
         {/* 3. Game Over Screen */}
         {status === "game_over" && (
-          <div className="w-full max-w-lg bg-white/95 dark:bg-stone-900/95 border-2 border-amber-400 rounded-3xl p-7 text-center shadow-2xl flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-lg lg:max-w-2xl bg-white/95 dark:bg-stone-900/95 border-2 border-amber-400 rounded-3xl p-7 lg:p-9 text-center shadow-2xl flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
             <div className="p-3 bg-amber-500/20 rounded-full text-amber-600 dark:text-amber-300">
               <Trophy className="w-12 h-12 animate-bounce" />
             </div>
@@ -399,7 +399,7 @@ export function GameView({
       {/* ==================================================== */}
       {/* BOTTOM BAR: Status cue pill                          */}
       {/* ==================================================== */}
-      <footer className="p-3 pb-safe text-center text-xs text-stone-500 border-t border-stone-200 dark:border-stone-900 bg-white/80 dark:bg-stone-950/80">
+      <footer className="p-3 lg:p-4 pb-safe text-center text-xs lg:text-sm text-stone-500 border-t border-stone-200 dark:border-stone-900 bg-white/80 dark:bg-stone-950/80">
         <p>
           ห้อง: <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{roomCode}</span> •{" "}
           {status === "question_active"

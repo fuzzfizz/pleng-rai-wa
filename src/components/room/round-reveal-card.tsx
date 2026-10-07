@@ -119,7 +119,7 @@ export function RoundRevealCard({
   }, [isPlayingAudio, song]);
 
   return (
-    <div className="w-full max-w-xl mx-auto my-4 bg-slate-900/95 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-7 shadow-[0_0_60px_rgba(245,158,11,0.3)] text-white flex flex-col gap-6 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+    <div className="w-full max-w-xl lg:max-w-2xl mx-auto my-4 bg-slate-900/95 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-7 lg:p-8 shadow-[0_0_60px_rgba(245,158,11,0.3)] text-white flex flex-col gap-6 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
       {/* Hidden audio element for full hook playback */}
       {song?.audioUrl && (
         <audio
@@ -133,7 +133,7 @@ export function RoundRevealCard({
 
       {/* Winner Announcement Banner */}
       <div
-        className={`p-4 rounded-2xl border text-center transition-all ${
+        className={`p-4 lg:p-5 rounded-2xl border text-center transition-all ${
           hasWinner
             ? "bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border-amber-400/60 shadow-[0_0_25px_rgba(245,158,11,0.25)]"
             : "bg-slate-800/80 border-slate-700/80 text-slate-300"
@@ -141,29 +141,29 @@ export function RoundRevealCard({
       >
         <div className="flex items-center justify-center gap-2 mb-1">
           {hasWinner ? (
-            <Trophy className="w-6 h-6 text-amber-400 animate-bounce" />
+            <Trophy className="w-6 h-6 lg:w-7 lg:h-7 text-amber-400 animate-bounce" />
           ) : (
-            <Clock className="w-5 h-5 text-slate-400" />
+            <Clock className="w-5 h-5 lg:w-6 lg:h-6 text-slate-400" />
           )}
-          <h3 className="text-lg sm:text-xl font-black text-amber-300 tracking-wide">
+          <h3 className="text-lg sm:text-xl lg:text-2xl font-black text-amber-300 tracking-wide">
             {announcement}
           </h3>
         </div>
 
         {hasWinner && winner?.answerText && (
-          <p className="text-xs sm:text-sm text-amber-200/90 font-medium">
+          <p className="text-xs sm:text-sm lg:text-base text-amber-200/90 font-medium">
             คำตอบที่ถูกต้อง: &ldquo;<span className="font-bold underline decoration-amber-400/50">{winner.answerText}</span>&rdquo;
           </p>
         )}
       </div>
 
       {/* Revealed Song Metadata Card */}
-      <div className="flex flex-col sm:flex-row items-center gap-5 p-4 sm:p-5 bg-stone-50 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-inner">
+      <div className="flex flex-col sm:flex-row items-center gap-5 lg:gap-6 p-4 sm:p-5 lg:p-6 bg-stone-50 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-inner">
         {/* Vinyl / Cover Art Graphic */}
-        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-amber-600 via-amber-500 to-orange-600 p-0.5 shadow-md shrink-0 flex items-center justify-center group overflow-hidden">
+        <div className="relative w-24 h-24 sm:w-28 sm:h-28 lg:w-36 lg:h-36 rounded-2xl bg-gradient-to-br from-amber-600 via-amber-500 to-orange-600 p-0.5 shadow-md shrink-0 flex items-center justify-center group overflow-hidden">
           <div className="w-full h-full bg-stone-100 dark:bg-stone-950 rounded-2xl flex items-center justify-center relative overflow-hidden">
             <Disc
-              className={`w-14 h-14 sm:w-16 sm:h-16 text-amber-600 dark:text-amber-400 transition-transform duration-1000 ${
+              className={`w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 text-amber-600 dark:text-amber-400 transition-transform duration-1000 ${
                 isPlayingAudio ? "animate-spin" : "group-hover:rotate-45"
               }`}
             />
@@ -177,28 +177,28 @@ export function RoundRevealCard({
         <div className="flex-1 text-center sm:text-left overflow-hidden w-full">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1.5">
             {song?.genre?.nameTh && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+              <span className="inline-flex items-center gap-1 text-[11px] lg:text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
                 <Tag className="w-3 h-3" />
                 {song.genre.nameTh}
               </span>
             )}
             {song?.releaseYear && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700">
+              <span className="inline-flex items-center gap-1 text-[11px] lg:text-xs font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700">
                 <Calendar className="w-3 h-3 text-stone-500 dark:text-slate-400" />
                 ปี {song.releaseYear}
               </span>
             )}
             {song?.era && (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/10 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-500/30">
+              <span className="text-[11px] lg:text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-500/10 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-500/30">
                 ยุค {song.era}
               </span>
             )}
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white truncate drop-shadow-sm">
+          <h2 className="text-lg sm:text-2xl lg:text-3xl font-black text-stone-900 dark:text-white truncate drop-shadow-sm">
             {song?.title || "ไม่ทราบชื่อเพลง"}
           </h2>
-          <p className="text-sm sm:text-base text-stone-600 dark:text-slate-300 font-medium truncate mt-0.5">
+          <p className="text-sm sm:text-base lg:text-lg text-stone-600 dark:text-slate-300 font-medium truncate mt-0.5">
             ศิลปิน: <span className="text-amber-700 dark:text-amber-400 font-semibold">{song?.artist || "ไม่ระบุศิลปิน"}</span>
           </p>
 
@@ -239,7 +239,7 @@ export function RoundRevealCard({
             type="button"
             onClick={onNextRound}
             disabled={isLoadingNext}
-            className={`w-full min-h-[48px] py-4 px-6 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-md touch-manipulation ${
+            className={`w-full min-h-[48px] py-3.5 lg:py-4.5 px-6 rounded-2xl font-black text-base lg:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-md touch-manipulation ${
               isLoadingNext
                 ? "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-slate-500 cursor-not-allowed border border-stone-300 dark:border-stone-700"
                 : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/20 cursor-pointer"
