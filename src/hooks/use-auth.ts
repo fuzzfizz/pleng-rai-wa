@@ -59,7 +59,15 @@ export function mapProfileRowToUserProfile(row: ProfileRow): UserProfile {
  */
 export function translateAuthError(message: string): string {
   if (!message) return "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์";
-  const lower = message.toLowerCase();
+  const lower = typeof message === "string" ? message.toLowerCase() : JSON.stringify(message).toLowerCase();
+
+  if (
+    lower.includes("unsupported provider") ||
+    lower.includes("provider is not enabled") ||
+    lower.includes("validation_failed")
+  ) {
+    return "ระบบ Google Sign-in ยังไม่เปิดใช้งานในเซิร์ฟเวอร์ กรุณาใช้อีเมล/รหัสผ่าน หรือเล่นแบบ Guest ได้ทันที";
+  }
 
   if (
     lower.includes("invalid login credentials") ||
@@ -308,14 +316,26 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
       });
 
       if (error) {
-        return { success: false, error: translateAuthError(error.message) };
+        const errorDetail =
+          (error as any)?.msg ||
+          (error as any)?.error_description ||
+          error.message ||
+          (error as any)?.error_code ||
+          "";
+        return { success: false, error: translateAuthError(errorDetail || error.message) };
       }
 
       return { success: true };
     } catch (err: any) {
+      const errorDetail =
+        err?.msg ||
+        err?.error_description ||
+        err?.error_code ||
+        err?.message ||
+        "";
       return {
         success: false,
-        error: translateAuthError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ Google"),
+        error: translateAuthError(errorDetail || "เกิดข้อผิดพลาดในการเชื่อมต่อ Google"),
       };
     }
   }, []);

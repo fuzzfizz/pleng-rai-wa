@@ -67,7 +67,7 @@ export function getPlayerStatusBadge(player: Player): PlayerStatusBadgeInfo {
   return {
     text: "รอสักครู่...",
     variant: "waiting",
-    colorClass: "bg-stone-200/80 dark:bg-stone-800/80 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300",
+    colorClass: "bg-stone-200/80 dark:bg-stone-800/80 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-slate-300",
   };
 }
 
@@ -95,72 +95,69 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
 
   return (
     <div
-      className={`relative p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 overflow-hidden ${containerStyle}`}
+      className={`relative p-3.5 sm:p-4 lg:p-4.5 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 sm:gap-4 overflow-hidden ${containerStyle}`}
     >
       {/* Current player subtle gradient badge glow */}
       {isCurrentPlayer && (
         <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
       )}
 
-      {/* Left: Avatar & Name */}
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="relative shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700/50 shadow-inner overflow-hidden">
-          {isImageAvatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatar}
-              alt={player.displayName}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <span className="text-2xl select-none" role="img" aria-label="avatar">
-              {avatar}
-            </span>
-          )}
+      {/* Avatar */}
+      <div className="relative w-12 h-12 lg:w-13 lg:h-13 shrink-0 rounded-2xl flex items-center justify-center bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700/50 shadow-inner overflow-hidden">
+        {isImageAvatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatar}
+            alt={player.displayName}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="text-2xl lg:text-3xl select-none" role="img" aria-label="avatar">
+            {avatar}
+          </span>
+        )}
 
-          {/* Mini Host Crown in Avatar corner */}
-          {player.isHost && (
-            <div
-              title="Host"
-              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 border border-amber-300 flex items-center justify-center shadow-sm"
-            >
-              <Crown className="w-3 h-3 text-stone-950 fill-stone-950" />
-            </div>
-          )}
-        </div>
-
-        <div className="min-w-0 flex flex-col">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`font-semibold text-sm sm:text-base truncate ${
-                isCurrentPlayer ? "text-amber-800 dark:text-amber-300 font-bold" : "text-stone-900 dark:text-stone-100"
-              }`}
-              title={displayName}
-            >
-              {displayName}
-            </span>
+        {/* Mini Host Crown in Avatar corner */}
+        {player.isHost && (
+          <div
+            title="Host"
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 border border-amber-300 flex items-center justify-center shadow-sm"
+          >
+            <Crown className="w-3 h-3 text-stone-950 fill-stone-950" />
           </div>
+        )}
+      </div>
 
-          {/* Score display */}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
-              <Trophy className="w-3 h-3" />
-              <span>{player.score ?? 0} คะแนน</span>
-            </span>
-          </div>
+      {/* Name & Score */}
+      <div className="min-w-0 flex-1 flex flex-col justify-center">
+        <span
+          className={`font-bold text-sm sm:text-base lg:text-base truncate ${
+            isCurrentPlayer
+              ? "text-amber-800 dark:text-amber-300"
+              : "text-stone-900 dark:text-stone-100"
+          }`}
+          title={displayName}
+        >
+          {displayName}
+        </span>
+
+        {/* Score badge */}
+        <div className="flex items-center gap-1.5 mt-1">
+          <span className="inline-flex items-center gap-1 text-[11px] lg:text-xs font-semibold px-2 py-0.5 rounded-full text-amber-800 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30">
+            <Trophy className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
+            <span>{player.score ?? 0} คะแนน</span>
+          </span>
         </div>
       </div>
 
-      {/* Right: Status Badge */}
-      <div className="shrink-0 flex flex-col items-end gap-1">
-        <div
-          className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusBadge.colorClass}`}
-        >
-          {statusBadge.variant === "host" && <Crown className="w-3.5 h-3.5" />}
-          {statusBadge.variant === "ready" && <Check className="w-3.5 h-3.5" />}
-          {statusBadge.variant === "waiting" && <Clock className="w-3.5 h-3.5" />}
-          <span>{statusBadge.text}</span>
-        </div>
+      {/* Status badge */}
+      <div
+        className={`shrink-0 inline-flex items-center gap-1.5 text-xs lg:text-sm font-semibold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border whitespace-nowrap ${statusBadge.colorClass}`}
+      >
+        {statusBadge.variant === "host" && <Crown className="w-3.5 h-3.5" />}
+        {statusBadge.variant === "ready" && <Check className="w-3.5 h-3.5" />}
+        {statusBadge.variant === "waiting" && <Clock className="w-3.5 h-3.5" />}
+        <span>{statusBadge.text}</span>
       </div>
     </div>
   );

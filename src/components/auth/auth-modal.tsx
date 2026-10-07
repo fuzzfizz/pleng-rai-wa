@@ -246,12 +246,45 @@ export function AuthModal({
           </button>
         </div>
 
-        {/* Error Alert */}
+        {/* Error / Notice Alert */}
         {errorMessage && (
-          <div className="mb-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{errorMessage}</span>
-          </div>
+          errorMessage.includes("Google Sign-in ยังไม่เปิดใช้งาน") ? (
+            <div className="mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col gap-2.5 animate-in fade-in duration-150">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                <div className="leading-relaxed font-medium">
+                  {errorMessage}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("signup");
+                    setErrorMessage(null);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold text-[11px] border border-amber-500/40 transition-colors cursor-pointer"
+                >
+                  สมัครด้วยอีเมล
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("signin");
+                    setErrorMessage(null);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[11px] border border-slate-700 transition-colors cursor-pointer"
+                >
+                  เข้าสู่ระบบด้วยอีเมล
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{errorMessage}</span>
+            </div>
+          )
         )}
 
         {/* Form */}
