@@ -173,7 +173,7 @@ export default function HomePage() {
       <div className="absolute top-40 right-10 w-80 h-80 bg-amber-400/08 dark:bg-amber-700/06 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header */}
-      <NavHeader className="max-w-5xl z-10 py-2" />
+      <NavHeader className="max-w-5xl lg:max-w-6xl xl:max-w-7xl z-30 py-3 lg:py-5 px-4 sm:px-6 lg:px-8" />
 
       {/* Hero Section */}
       <section className="relative w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl my-auto py-8 lg:py-14 z-10 overflow-visible min-h-0 lg:min-h-[580px] xl:min-h-[640px] flex items-center">

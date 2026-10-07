@@ -91,28 +91,28 @@ export function NavHeader({
   return (
     <>
       <header
-        className={`w-full flex items-center justify-between z-20 transition-colors duration-200 lg:py-3.5 lg:px-4 ${className}`}
+        className={`w-full flex items-center justify-between z-20 transition-colors duration-200 py-3 sm:py-3.5 lg:py-5 lg:px-2 ${className}`}
       >
         {/* Brand Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 group cursor-pointer"
+          className="flex items-center gap-3 group cursor-pointer"
           onClick={() => {
             try {
               soundEffects.click();
             } catch {}
           }}
         >
-          <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
-            <Disc3 className="w-5 h-5 lg:w-6 lg:h-6 text-stone-950 animate-[spin_8s_linear_infinite]" />
+          <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+            <Disc3 className="w-6 h-6 lg:w-7.5 lg:h-7.5 text-stone-950 animate-[spin_8s_linear_infinite]" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xl lg:text-2xl font-black tracking-tight text-stone-900 dark:text-stone-100 font-sans group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+              <span className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 dark:text-stone-100 font-sans group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 เพลงไรวะ?
               </span>
             </div>
-            <p className="text-[11px] lg:text-xs text-stone-500 dark:text-stone-400 font-sans tracking-wide">
+            <p className="text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 font-sans tracking-wide">
               Vinyl & Music Quiz
             </p>
           </div>
@@ -120,7 +120,7 @@ export function NavHeader({
 
         {/* Center Navigation Links (Desktop) */}
         {showNavigationLinks && (
-          <nav className="hidden md:flex items-center gap-1.5 bg-stone-100/90 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800/80 px-3 py-1.5 rounded-full backdrop-blur-md shadow-sm">
+          <nav className="hidden md:flex items-center gap-2 bg-stone-100/90 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800/80 px-3.5 py-1.5 lg:px-5 lg:py-2 rounded-full backdrop-blur-md shadow-sm">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               const Icon = link.icon;
@@ -128,9 +128,9 @@ export function NavHeader({
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-1.5 text-xs lg:text-sm font-medium px-3 py-1.5 lg:px-4 lg:py-2 rounded-full transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 text-xs sm:text-sm lg:text-base font-semibold px-3.5 py-1.5 lg:px-5 lg:py-2.5 rounded-full transition-all cursor-pointer ${
                     isActive
-                      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold"
+                      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold"
                       : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50"
                   }`}
                   onClick={() => {
@@ -139,7 +139,7 @@ export function NavHeader({
                     } catch {}
                   }}
                 >
-                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                  {Icon && <Icon className="w-4 h-4 lg:w-4.5 lg:h-4.5" />}
                   <span>{link.label}</span>
                 </Link>
               );
@@ -148,13 +148,13 @@ export function NavHeader({
         )}
 
         {/* Right Auth Area & Theme Toggle */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-3.5">
           {/* Theme Toggle Button */}
           <ThemeToggle />
 
           {isLoading ? (
             // Loading Skeleton
-            <div className="h-9 lg:h-10 w-28 lg:w-36 bg-stone-200 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700/40 rounded-full animate-pulse" />
+            <div className="h-9 sm:h-10 lg:h-12 w-28 lg:w-44 bg-stone-200 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700/40 rounded-full animate-pulse" />
           ) : user && profile ? (
             // Authenticated User Pill
             <div className="relative" ref={menuRef}>
@@ -166,17 +166,17 @@ export function NavHeader({
                   } catch {}
                   setIsUserMenuOpen((prev) => !prev);
                 }}
-                className="flex items-center gap-2 py-1.5 lg:py-2 px-3 lg:px-4 text-xs lg:text-sm rounded-full bg-stone-100 dark:bg-stone-900/80 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                className="flex items-center gap-2.5 py-2 lg:py-2.5 px-3.5 lg:px-5 text-xs sm:text-sm lg:text-base rounded-full bg-stone-100 dark:bg-stone-900/80 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
                 aria-expanded={isUserMenuOpen}
               >
-                <span className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm lg:text-base">
+                <span className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9.5 lg:h-9.5 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm sm:text-base lg:text-lg">
                   {profile.avatar || "🦊"}
                 </span>
-                <span className="font-semibold text-stone-800 dark:text-stone-200 max-w-[110px] lg:max-w-[140px] truncate">
+                <span className="font-semibold text-stone-800 dark:text-stone-200 max-w-[110px] sm:max-w-[140px] lg:max-w-[200px] truncate">
                   {profile.displayName || "นักฟังเพลง"}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 lg:w-4 lg:h-4 text-stone-500 dark:text-stone-400 transition-transform ${
+                  className={`w-4 h-4 lg:w-5 lg:h-5 text-stone-500 dark:text-stone-400 transition-transform ${
                     isUserMenuOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -184,13 +184,13 @@ export function NavHeader({
 
               {/* User Dropdown Menu */}
               {isUserMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-2 shadow-xl backdrop-blur-xl z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2 w-56 sm:w-64 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-2 shadow-xl backdrop-blur-xl z-30 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="px-3 py-2 border-b border-stone-200 dark:border-stone-800/80">
-                    <p className="text-xs font-semibold text-stone-900 dark:text-white truncate flex items-center gap-1.5">
+                    <p className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-white truncate flex items-center gap-1.5">
                       <span>{profile.avatar}</span>
                       <span>{profile.displayName}</span>
                     </p>
-                    <p className="text-[11px] text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                    <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5">
                       {user.email}
                     </p>
                   </div>
@@ -199,7 +199,7 @@ export function NavHeader({
                     <button
                       type="button"
                       onClick={handleOpenProfile}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/70 rounded-xl transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs sm:text-sm text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/70 rounded-xl transition-colors cursor-pointer text-left"
                     >
                       <User className="w-4 h-4 text-amber-500" />
                       <span>จัดการโปรไฟล์</span>
@@ -210,7 +210,7 @@ export function NavHeader({
                     <button
                       type="button"
                       onClick={handleSignOut}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs sm:text-sm text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer text-left"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>ออกจากระบบ</span>
@@ -224,9 +224,9 @@ export function NavHeader({
             <button
               type="button"
               onClick={() => handleOpenAuth("signin")}
-              className="flex items-center gap-2 px-3.5 py-1.5 lg:px-5 lg:py-2.5 text-xs lg:text-sm font-semibold rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 sm:px-4.5 sm:py-2.5 lg:px-6 lg:py-3.5 text-xs sm:text-sm lg:text-base font-bold rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm cursor-pointer active:scale-95 min-h-[44px] lg:min-h-[52px]"
             >
-              <LogIn className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-500" />
+              <LogIn className="w-4 h-4 lg:w-5 lg:h-5 text-amber-500" />
               <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
             </button>
           )}

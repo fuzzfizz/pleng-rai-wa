@@ -33,7 +33,7 @@ export function ThemeToggle({ className = "" }: ThemeToggleProps): React.JSX.Ele
     // Placeholder to avoid hydration mismatch
     return (
       <div
-        className={`w-11 h-11 rounded-full border border-stone-200 dark:border-stone-800 bg-stone-100/60 dark:bg-stone-900/60 ${className}`}
+        className={`w-11 h-11 lg:w-13 lg:h-13 rounded-full border border-stone-200 dark:border-stone-800 bg-stone-100/60 dark:bg-stone-900/60 ${className}`}
         aria-hidden="true"
       />
     );
@@ -45,16 +45,16 @@ export function ThemeToggle({ className = "" }: ThemeToggleProps): React.JSX.Ele
     <button
       type="button"
       onClick={handleClick}
-      className={`relative inline-flex items-center justify-center min-h-[44px] min-w-[44px] w-11 h-11 rounded-full bg-white/90 dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 shadow-sm transition-all duration-200 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 ${className}`}
+      className={`relative inline-flex items-center justify-center min-h-[44px] min-w-[44px] w-11 h-11 lg:w-13 lg:h-13 rounded-full bg-white/90 dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 shadow-sm transition-all duration-200 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 ${className}`}
       title={isDark ? "สลับเป็นโหมดกลางวัน (Light Mode)" : "สลับเป็นโหมดกลางคืน (Dark Mode)"}
       aria-label={isDark ? "สลับเป็นโหมดกลางวัน" : "สลับเป็นโหมดกลางคืน"}
     >
       <span className="sr-only">Toggle Theme</span>
-      <div className="relative w-5 h-5 flex items-center justify-center">
+      <div className="relative w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center">
         {isDark ? (
-          <Sun className="w-5 h-5 text-amber-400 rotate-0 scale-100 transition-all duration-300" />
+          <Sun className="w-5 h-5 lg:w-6 lg:h-6 text-amber-400 rotate-0 scale-100 transition-all duration-300" />
         ) : (
-          <Moon className="w-5 h-5 text-amber-600 rotate-0 scale-100 transition-all duration-300" />
+          <Moon className="w-5 h-5 lg:w-6 lg:h-6 text-amber-600 rotate-0 scale-100 transition-all duration-300" />
         )}
       </div>
     </button>
