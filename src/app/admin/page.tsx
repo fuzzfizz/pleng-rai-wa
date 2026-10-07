@@ -44,6 +44,28 @@ export default function AdminPage() {
   const [playingSongId, setPlayingSongId] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
+  // Room Cleanup State
+  const [isCleaningRooms, setIsCleaningRooms] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+
+  const handleCleanupRooms = async () => {
+    setIsCleaningRooms(true);
+    setCleanupMessage(null);
+    try {
+      const res = await fetch("/api/admin/rooms/cleanup", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setCleanupMessage(`✓ ล้างห้องร้างเรียบร้อยแล้ว: ลบไปทั้งหมด ${data.deletedCount} ห้อง`);
+      } else {
+        setCleanupMessage(`❌ เกิดข้อผิดพลาด: ${data.error}`);
+      }
+    } catch {
+      setCleanupMessage("❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+    } finally {
+      setIsCleaningRooms(false);
+    }
+  };
+
   // Load Genres and API Key from localStorage
   useEffect(() => {
     const savedKey = localStorage.getItem("pleng_gemini_key");
@@ -735,6 +757,35 @@ export default function AdminPage() {
                   <p className="text-xs font-semibold text-stone-900 dark:text-stone-100">Cloudflare R2 / Local</p>
                 </div>
               </div>
+            </div>
+
+            {/* Room Maintenance & Cleanup */}
+            <div className="p-4 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl space-y-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                    <Trash2 className="w-3.5 h-3.5 text-amber-500" />
+                    <span>จัดการทำความสะอาดห้องเกม (Room Cleanup)</span>
+                  </h3>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                    ระบบจะเคลียร์ห้องร้างที่ไม่มีคนเล่นเกิน 24 ชั่วโมง และห้องที่จบเกมแล้วอัตโนมัติเมื่อมีการสร้างห้องใหม่
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCleanupRooms}
+                  disabled={isCleaningRooms}
+                  className="min-h-[40px] px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-stone-950 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer active:scale-95 shrink-0"
+                >
+                  {isCleaningRooms ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>สั่งล้างห้องร้างทันที</span>
+                </button>
+              </div>
+              {cleanupMessage && (
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                  {cleanupMessage}
+                </p>
+              )}
             </div>
           </div>
         )}

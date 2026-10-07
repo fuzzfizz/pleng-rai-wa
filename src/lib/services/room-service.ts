@@ -54,6 +54,9 @@ export class RoomService {
     const sessionToken = playerId;
     const roomCode = generateRoomCode();
 
+    // Auto-cleanup stale/abandoned rooms in the background (fire-and-forget, non-blocking)
+    this.cleanupStaleRooms(24).catch(() => {});
+
     const mergedSettings: RoomSettings = {
       ...DEFAULT_ROOM_SETTINGS,
       ...initialSettings,
@@ -222,6 +225,44 @@ export class RoomService {
 
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * Automatically cleans up inactive / abandoned rooms from database.
+   * - Rooms with status 'game_over' older than 2 hours.
+   * - Abandoned rooms with no activity older than olderThanHours (default 24h).
+   */
+  static async cleanupStaleRooms(olderThanHours = 24): Promise<{ deletedCount: number }> {
+    try {
+      const client = this.getClient();
+      const staleThreshold = new Date(Date.now() - olderThanHours * 60 * 60 * 1000).toISOString();
+      const endedThreshold = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+      // 1. Delete ended rooms older than 2 hours
+      const { data: endedRooms } = await client
+        .from("rooms")
+        .delete()
+        .eq("status", "game_over")
+        .lt("updated_at", endedThreshold)
+        .select("id");
+
+      // 2. Delete abandoned rooms with no activity older than olderThanHours
+      const { data: staleRooms, error } = await client
+        .from("rooms")
+        .delete()
+        .lt("updated_at", staleThreshold)
+        .select("id");
+
+      if (error) {
+        console.warn("[RoomService] Warning during cleanupStaleRooms:", error.message);
+      }
+
+      const totalDeleted = (endedRooms?.length || 0) + (staleRooms?.length || 0);
+      return { deletedCount: totalDeleted };
+    } catch (err) {
+      console.warn("[RoomService] Error during cleanupStaleRooms:", err);
+      return { deletedCount: 0 };
+    }
   }
 }
 
