@@ -146,25 +146,25 @@ export default function HomePage() {
       <NavHeader className="max-w-5xl z-10 py-2" />
 
       {/* Hero Section */}
-      <section className="w-full max-w-3xl flex flex-col items-center text-center my-auto py-12 z-10">
+      <section className="w-full max-w-3xl lg:max-w-5xl flex flex-col items-center text-center my-auto py-12 z-10">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium mb-6 shadow-sm">
           <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
           <span>เว็บเกมทายเพลงออนไลน์ บรรยากาศชิวๆ เล่นฟรีกับเพื่อน</span>
         </div>
 
-        <h2 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 leading-tight">
+        <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight">
           ฟังแป๊บเดียว... <br />
           <span className="text-gradient">
             จะรู้ไหมว่า "เพลงไรวะ?"
           </span>
         </h2>
 
-        <p className="text-base sm:text-lg text-stone-600 dark:text-stone-400 max-w-xl mb-8 leading-relaxed">
+        <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-400 max-w-xl lg:max-w-2xl mb-8 lg:mb-10 leading-relaxed">
           ประลองความเซียนเพลงไทย ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
         </p>
 
         {/* Action Box */}
-        <div className="w-full max-w-md bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-xl backdrop-blur-xl">
+        <div className="w-full max-w-md lg:max-w-xl bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 lg:p-8 shadow-xl backdrop-blur-xl">
           <div className="flex flex-col gap-3">
             <button
               type="button"
@@ -175,7 +175,7 @@ export default function HomePage() {
                 }
                 setIsCreateModalOpen(true);
               }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-base shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-3.5 lg:py-4 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-base lg:text-lg shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer"
             >
               <Users className="w-5 h-5" />
               <span>สร้างห้องเล่นกับเพื่อน</span>
@@ -197,11 +197,11 @@ export default function HomePage() {
                     if (joinError) setJoinError(null);
                   }}
                   maxLength={6}
-                  className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-center tracking-widest font-mono text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors uppercase"
+                  className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl px-4 lg:px-5 py-3 min-h-[44px] lg:min-h-[52px] text-base sm:text-sm lg:text-lg text-center tracking-widest font-mono text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors uppercase"
                 />
                 <button
                   type="submit"
-                  className="bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-white px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
+                  className="bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-white px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] lg:min-h-[52px] lg:min-w-[52px]"
                   title="เข้าร่วมห้อง"
                 >
                   <ArrowRight className="w-4 h-4" />
@@ -221,7 +221,7 @@ export default function HomePage() {
               <div className="pt-1">
                 <Link
                   href={`/room/${lastRoomCode}`}
-                  className="w-full py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/15 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-2 lg:py-3 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/15 text-amber-800 dark:text-amber-300 text-xs lg:text-sm flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>กลับเข้าห้องล่าสุด: <strong className="font-mono">{lastRoomCode}</strong></span>
@@ -231,7 +231,7 @@ export default function HomePage() {
 
             <Link
               href="/play/solo"
-              className="mt-1 w-full py-2.5 text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50"
+              className="mt-1 w-full py-2.5 lg:py-3 text-xs lg:text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50"
             >
               <Play className="w-3.5 h-3.5" />
               <span>เล่นคนเดียวซ้อมมือก่อน</span>
@@ -241,37 +241,37 @@ export default function HomePage() {
       </section>
 
       {/* 3 Game Modes Grid */}
-      <section className="w-full max-w-5xl z-10 py-6">
+      <section className="w-full max-w-5xl lg:max-w-6xl z-10 py-6 lg:py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Mode 1 */}
-          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 hover:border-amber-500/40 transition-colors shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 lg:p-7 hover:border-amber-500/40 transition-colors shadow-sm">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
               <Volume2 className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-semibold text-stone-900 dark:text-white mb-1">โหมด Audio Slice</h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมด Audio Slice</h3>
+            <p className="text-xs lg:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
               ฟังเสียงเพลงสั้นเพียง 1, 2 หรือ 5 วินาที แล้วทายชื่อเพลง ท้าทายหูทิพย์ขั้นสุด
             </p>
           </div>
 
           {/* Mode 2 */}
-          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 hover:border-orange-500/40 transition-colors shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-3">
+          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 lg:p-7 hover:border-orange-500/40 transition-colors shadow-sm">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-3">
               <Bell className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-semibold text-stone-900 dark:text-white mb-1">โหมดกดกริ่งแย่งตอบ</h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมดกดกริ่งแย่งตอบ</h3>
+            <p className="text-xs lg:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
               เพลงจะเล่นไปเรื่อยๆ ใครมั่นใจให้กดกริ่งหยุดเพลงทันที คนกดเร็วสุดได้สิทธิ์ตอบก่อน!
             </p>
           </div>
 
           {/* Mode 3 */}
-          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 hover:border-amber-500/40 transition-colors shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-amber-600/15 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-3">
+          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 lg:p-7 hover:border-amber-500/40 transition-colors shadow-sm">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-amber-600/15 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-3">
               <Bot className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-semibold text-stone-900 dark:text-white mb-1">โหมด AI อ่านเนื้อเพลง ⭐</h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมด AI อ่านเนื้อเพลง ⭐</h3>
+            <p className="text-xs lg:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
               ให้เสียง AI อ่านเนื้อเพลงท่อนเปิดหรือท่อนฮุกแบบเรียบนิ่ง ไร้ทำนอง ชวนขำและจำยากมาก
             </p>
           </div>
