@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Music,
@@ -11,7 +11,9 @@ import {
   Play,
   Pause,
   CheckCircle2,
+  CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Plus,
   RefreshCw,
@@ -19,6 +21,8 @@ import {
   Settings,
   Database,
   Volume2,
+  Zap,
+  Square,
 } from "lucide-react";
 import { Genre, Song } from "@/types";
 import { ExtractedSongMetadata } from "@/lib/ai-extractor";
@@ -66,13 +70,27 @@ export default function AdminPage() {
     }
   };
 
-  // Load Genres and API Key from localStorage
+  // Audio Audit & Auto-Queue State
+  const [audioAuditMap, setAudioAuditMap] = useState<Record<string, boolean>>({});
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [isQueueRunning, setIsQueueRunning] = useState(false);
+  const [syncingSongId, setSyncingSongId] = useState<string | null>(null);
+  const [queueProgress, setQueueProgress] = useState<{
+    current: number;
+    total: number;
+    songTitle: string;
+  } | null>(null);
+  const [queueStatusMessage, setQueueStatusMessage] = useState<string | null>(null);
+  const stopQueueRef = useRef(false);
+
+  // Load Genres, Songs, and API Key from localStorage
   useEffect(() => {
     const savedKey = localStorage.getItem("pleng_gemini_key");
     if (savedKey) setCustomApiKey(savedKey);
 
     fetchGenres();
     fetchSongs();
+    fetchAudioAudit();
   }, []);
 
   const fetchGenres = async () => {
@@ -100,6 +118,114 @@ export default function AdminPage() {
     } finally {
       setIsLoadingSongs(false);
     }
+  };
+
+  const fetchAudioAudit = async () => {
+    setIsAuditing(true);
+    try {
+      const res = await fetch("/api/admin/songs/audit");
+      const data = await res.json();
+      if (data.success && data.songs) {
+        const map: Record<string, boolean> = {};
+        data.songs.forEach((s: { id: string; hasAudio: boolean }) => {
+          map[s.id] = s.hasAudio;
+        });
+        setAudioAuditMap(map);
+      }
+    } catch (e) {
+      console.error("Audio audit failed:", e);
+    } finally {
+      setIsAuditing(false);
+    }
+  };
+
+  const handleSyncSingleSong = async (songId: string, songTitle: string) => {
+    setSyncingSongId(songId);
+    setQueueStatusMessage(`กำลังค้นหาและดาวน์โหลดเสียงสำหรับ "${songTitle}"...`);
+    try {
+      const res = await fetch("/api/admin/songs/sync-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ songId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAudioAuditMap((prev) => ({ ...prev, [songId]: true }));
+        setSongs((prev) =>
+          prev.map((s) => (s.id === songId ? { ...s, audioUrl: data.audioUrl, durationSec: data.durationSec } : s))
+        );
+        setQueueStatusMessage(`✓ ดาวน์โหลดเสียง "${songTitle}" สำเร็จแล้ว!`);
+      } else {
+        setQueueStatusMessage(`❌ ดาวน์โหลดเสียงไม่สำเร็จ: ${data.error}`);
+      }
+    } catch {
+      setQueueStatusMessage(`❌ เกิดข้อผิดพลาดในการดาวน์โหลด "${songTitle}"`);
+    } finally {
+      setSyncingSongId(null);
+    }
+  };
+
+  const handleStartQueue = async () => {
+    const missing = songs.filter((s) => audioAuditMap[s.id] === false || !audioAuditMap[s.id]);
+    if (missing.length === 0) {
+      setQueueStatusMessage("✓ ทุกเพลงในคลังมีไฟล์เสียงเรียบร้อยแล้ว!");
+      return;
+    }
+
+    setIsQueueRunning(true);
+    stopQueueRef.current = false;
+    setQueueStatusMessage(`เริ่มคิวค้นหาและดาวน์โหลดเสียง (${missing.length} เพลง)...`);
+
+    for (let i = 0; i < missing.length; i++) {
+      if (stopQueueRef.current) {
+        setQueueStatusMessage("⏹ หยุดการทำงานของคิวเรียบร้อยแล้ว");
+        break;
+      }
+
+      const currentSong = missing[i];
+      setSyncingSongId(currentSong.id);
+      setQueueProgress({
+        current: i + 1,
+        total: missing.length,
+        songTitle: `${currentSong.title} - ${currentSong.artist}`,
+      });
+
+      try {
+        const res = await fetch("/api/admin/songs/sync-audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ songId: currentSong.id }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setAudioAuditMap((prev) => ({ ...prev, [currentSong.id]: true }));
+          setSongs((prev) =>
+            prev.map((s) =>
+              s.id === currentSong.id
+                ? { ...s, audioUrl: data.audioUrl, durationSec: data.durationSec }
+                : s
+            )
+          );
+        }
+      } catch (e) {
+        console.error(`Failed to sync song ${currentSong.title}:`, e);
+      }
+    }
+
+    setSyncingSongId(null);
+    setQueueProgress(null);
+    setIsQueueRunning(false);
+    if (!stopQueueRef.current) {
+      setQueueStatusMessage("🎉 ดำเนินการดาวน์โหลดทุกเพลงในคิวเสร็จสมบูรณ์แล้ว!");
+    }
+    fetchAudioAudit();
+  };
+
+  const handleStopQueue = () => {
+    stopQueueRef.current = true;
+    setIsQueueRunning(false);
+    setSyncingSongId(null);
+    setQueueStatusMessage("⏹ กำลังหยุดคิว...");
   };
 
   // Handle AI Extraction
@@ -586,12 +712,119 @@ export default function AdminPage() {
               </div>
 
               <button
-                onClick={fetchSongs}
+                onClick={() => {
+                  fetchSongs();
+                  fetchAudioAudit();
+                }}
                 className="min-h-[44px] text-xs bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors self-end sm:self-auto cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSongs ? "animate-spin" : ""}`} />
                 <span>รีเฟรช ({songs.length} เพลง)</span>
               </button>
+            </div>
+
+            {/* Audio Health & Batch Queue Controller Banner */}
+            <div className="bg-white dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-amber-500" />
+                    <span>สถานะความพร้อมของไฟล์เสียง (Audio Health & Queue)</span>
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    ตรวจเช็คไฟล์เสียงในระบบ หากยังไม่มีไฟล์เสียง สามารถสั่งระบบค้นหาและดาวน์โหลดจาก YouTube เข้าคลังอัตโนมัติ
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={fetchAudioAudit}
+                    disabled={isAuditing}
+                    className="min-h-[40px] px-3.5 py-2 text-xs font-semibold rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isAuditing ? "animate-spin" : ""}`} />
+                    <span>ตรวจเช็คไฟล์เสียง</span>
+                  </button>
+
+                  {isQueueRunning ? (
+                    <button
+                      type="button"
+                      onClick={handleStopQueue}
+                      className="min-h-[40px] px-4 py-2 text-xs font-bold rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                      <span>หยุดคิว</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStartQueue}
+                      disabled={songs.filter((s) => !audioAuditMap[s.id]).length === 0}
+                      className="min-h-[40px] px-4 py-2 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-stone-950 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>เริ่มคิวดาวน์โหลดอัตโนมัติ</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status summary pills */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800/80">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  <span className="text-xs font-medium text-stone-600 dark:text-stone-400">
+                    เพลงทั้งหมด: <strong className="text-stone-900 dark:text-white">{songs.length}</strong> เพลง
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                    มีไฟล์เสียงพร้อมเล่น: <strong>{songs.filter((s) => audioAuditMap[s.id]).length}</strong> เพลง
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                  <span className="text-xs font-medium text-rose-800 dark:text-rose-300">
+                    ยังไม่มีไฟล์เสียง: <strong>{songs.filter((s) => !audioAuditMap[s.id]).length}</strong> เพลง
+                  </span>
+                </div>
+              </div>
+
+              {/* Live Queue Progress Bar */}
+              {isQueueRunning && queueProgress && (
+                <div className="pt-2 space-y-2 border-t border-stone-100 dark:border-stone-800/80">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>กำลังดาวน์โหลด: {queueProgress.songTitle}</span>
+                    </span>
+                    <span className="font-mono text-stone-500">
+                      {queueProgress.current} / {queueProgress.total} (
+                      {Math.round((queueProgress.current / queueProgress.total) * 100)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-stone-200 dark:bg-stone-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-amber-500 h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${(queueProgress.current / queueProgress.total) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {queueStatusMessage && !isQueueRunning && (
+                <div className="pt-2 border-t border-stone-100 dark:border-stone-800/80">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                    {queueStatusMessage}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Song Cards List */}
@@ -659,7 +892,36 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                      {/* Audio status pill or individual fetch button */}
+                      {audioAuditMap[song.id] ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg">
+                          <CheckCircle className="w-3 h-3" />
+                          <span>มีไฟล์เสียงแล้ว</span>
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-lg">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>ขาดไฟล์เสียง</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleSyncSingleSong(song.id, song.title)}
+                            disabled={syncingSongId === song.id || isQueueRunning}
+                            className="min-h-[36px] px-2.5 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-stone-950 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                            title="ค้นหาจาก YouTube และดาวน์โหลดเข้าคลังทันที"
+                          >
+                            {syncingSongId === song.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Zap className="w-3 h-3 fill-current" />
+                            )}
+                            <span>{syncingSongId === song.id ? "กำลังโหลด..." : "โหลดเสียง"}</span>
+                          </button>
+                        </div>
+                      )}
+
                       {song.hookStartSec !== undefined && song.hookEndSec !== undefined && (
                         <span className="text-[11px] font-mono text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg">
                           ฮุก: {song.hookStartSec}s - {song.hookEndSec}s
