@@ -432,15 +432,19 @@ export function PodiumView({
           </button>
         )}
 
-        {isHost && onBackToLobby && (
+        {onBackToLobby && (
           <button
             type="button"
             onClick={handleBackToLobby}
             disabled={isProcessingAction}
-            className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation"
+            className={`w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl font-bold text-base transition transform active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation ${
+              isHost
+                ? "bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700"
+                : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-md shadow-amber-500/20"
+            }`}
           >
-            <Home className="w-5 h-5 text-stone-400" />
-            <span>กลับสู่ Lobby</span>
+            <Home className="w-5 h-5" />
+            <span>กลับสู่ห้องล็อบบี้ (Back to Lobby)</span>
           </button>
         )}
 

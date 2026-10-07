@@ -379,6 +379,44 @@ export function reduceRoomRealtimeEvent(
           break;
         }
 
+        case "room_state": {
+          if (payload?.status) {
+            nextState.status = payload.status as RoomRealtimeStatus;
+          }
+          if (payload?.status === "lobby") {
+            nextState.status = "lobby";
+            nextState.currentRound = 0;
+            nextState.activeQuestion = null;
+            nextState.buzzedPlayer = null;
+            nextState.isMyBuzz = false;
+            nextState.isExcludedFromBuzz = false;
+            nextState.wrongGuesses = [];
+            nextState.lastWrongGuess = null;
+            nextState.revealedSong = null;
+            nextState.roundWinner = null;
+            nextState.isAudioPlaying = false;
+            if (payload?.scores && typeof payload.scores === "object") {
+              nextState.scores = payload.scores;
+            } else {
+              const resetScores: Record<string, number> = {};
+              for (const p of nextState.players) {
+                resetScores[p.id] = 0;
+              }
+              nextState.scores = resetScores;
+            }
+            if (nextState.room) {
+              nextState.room = {
+                ...nextState.room,
+                status: "lobby",
+                current_round: 0,
+                played_song_ids: [],
+                current_song_id: null,
+              };
+            }
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -610,6 +648,9 @@ export function useRoomRealtime(
       })
       .on("broadcast", { event: "game_over" }, ({ payload }) => {
         handleBroadcast("game_over", payload);
+      })
+      .on("broadcast", { event: "room_state" }, ({ payload }) => {
+        handleBroadcast("room_state", payload);
       });
 
     channel.subscribe(async (status) => {
@@ -813,6 +854,49 @@ export function useRoomRealtime(
     [cleanCode, state.myPlayer]
   );
 
+  // Action: resetToLobby
+  const resetToLobby = useCallback(async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    try {
+      const res = await fetch(`/api/room/${cleanCode}/reset-lobby`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || "Failed to reset room to lobby" };
+      }
+      // Update local state directly
+      dispatch({
+        type: "broadcast",
+        event: "room_state",
+        payload: { status: "lobby", scores: {} },
+      });
+      if (channelRef.current && state.myPlayer) {
+        try {
+          await channelRef.current.track({
+            id: state.myPlayer.id,
+            displayName: state.myPlayer.displayName,
+            isHost: state.myPlayer.isHost,
+            isReady: false,
+            score: 0,
+            sessionToken: state.myPlayer.sessionToken,
+            lastSeenAt: new Date().toISOString(),
+            avatarUrl: state.myPlayer.avatarUrl,
+          });
+        } catch (err) {
+          console.warn("[useRoomRealtime] Reset presence ready/score failed:", err);
+        }
+      }
+      await refetchState();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "network_error" };
+    }
+  }, [cleanCode, refetchState, state.myPlayer]);
+
   // Audio helpers
   const playAudio = useCallback(() => {
     dispatch({ type: "set_audio_playing", isPlaying: true });
@@ -834,6 +918,7 @@ export function useRoomRealtime(
     buzz,
     submitAnswer,
     nextRound,
+    resetToLobby,
     setReady,
     updateSettings,
     transferHost,

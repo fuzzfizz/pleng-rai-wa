@@ -54,20 +54,20 @@ export function getPlayerStatusBadge(player: Player): PlayerStatusBadgeInfo {
     return {
       text: "👑 ผู้สร้างห้อง",
       variant: "host",
-      colorClass: "bg-amber-500/15 border-amber-500/40 text-amber-300",
+      colorClass: "bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-300",
     };
   }
   if (player.isReady) {
     return {
       text: "✓ พร้อมแล้ว",
       variant: "ready",
-      colorClass: "bg-emerald-500/15 border-emerald-500/40 text-emerald-300",
+      colorClass: "bg-emerald-500/15 border-emerald-500/40 text-emerald-800 dark:text-emerald-300",
     };
   }
   return {
     text: "รอสักครู่...",
     variant: "waiting",
-    colorClass: "bg-slate-800/80 border-slate-700/60 text-slate-400",
+    colorClass: "bg-stone-200/80 dark:bg-stone-800/80 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300",
   };
 }
 
@@ -133,7 +133,7 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
           <div className="flex items-center gap-1.5">
             <span
               className={`font-semibold text-sm sm:text-base truncate ${
-                isCurrentPlayer ? "text-amber-800 dark:text-amber-300 font-bold" : "text-stone-900 dark:text-white"
+                isCurrentPlayer ? "text-amber-800 dark:text-amber-300 font-bold" : "text-stone-900 dark:text-stone-100"
               }`}
               title={displayName}
             >

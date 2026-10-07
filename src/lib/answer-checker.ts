@@ -261,8 +261,13 @@ export function checkAnswer(
 }
 
 /**
- * Fast, typo-tolerant song autocomplete using Fuse.js.
- * Searches across song title, artist, and aliases.
+ * Fast, typo-tolerant song autocomplete using strict matching for short queries and Fuse.js for longer queries.
+ * - If query is 1 or 2 characters:
+ *   Matches strictly by checking if song.title (or song.artist) contains or starts with the normalized query.
+ *   DOES NOT search across aliases (such as "คงไว้ได้แค่กลิ่น") when query is only 1-2 characters (e.g. typing "ว" must NOT match "ซ่อนกลิ่น").
+ * - If query is 3+ characters:
+ *   Prioritizes songs where title contains the query first.
+ *   Uses Fuse.js with a strict threshold (threshold: 0.25) so loose accidental matches don't appear.
  */
 export function searchSongAutocomplete(
   query: string,
@@ -278,19 +283,128 @@ export function searchSongAutocomplete(
     return songPool.slice(0, limit);
   }
 
+  const normQuery = normalizeThaiText(trimmedQuery);
+  const normQueryNoTones = normalizeThaiText(trimmedQuery, { stripTones: true });
+  const rawLowerQuery = trimmedQuery.toLowerCase();
+
+  // If query is 1 or 2 characters:
+  // Match strictly by checking if song.title (or song.artist) contains or starts with the normalized query.
+  // DO NOT search across aliases when query is only 1-2 characters (e.g. typing "ว" must NOT match "ซ่อนกลิ่น").
+  if (trimmedQuery.length <= 2 || (normQuery && normQuery.length <= 2)) {
+    const titleStarts: Song[] = [];
+    const titleContains: Song[] = [];
+    const artistStarts: Song[] = [];
+    const artistContains: Song[] = [];
+
+    for (const song of songPool) {
+      const title = song.title || "";
+      const artist = song.artist || "";
+
+      const normTitle = normalizeThaiText(title);
+      const normTitleNoTones = normalizeThaiText(title, { stripTones: true });
+      const rawLowerTitle = title.toLowerCase();
+
+      const normArtist = normalizeThaiText(artist);
+      const normArtistNoTones = normalizeThaiText(artist, { stripTones: true });
+      const rawLowerArtist = artist.toLowerCase();
+
+      const titleMatchesStart =
+        (normQuery && normTitle.startsWith(normQuery)) ||
+        (normQueryNoTones && normTitleNoTones.startsWith(normQueryNoTones)) ||
+        rawLowerTitle.startsWith(rawLowerQuery);
+
+      const titleMatchesContains =
+        (normQuery && normTitle.includes(normQuery)) ||
+        (normQueryNoTones && normTitleNoTones.includes(normQueryNoTones)) ||
+        rawLowerTitle.includes(rawLowerQuery);
+
+      const artistMatchesStart =
+        (normQuery && normArtist.startsWith(normQuery)) ||
+        (normQueryNoTones && normArtistNoTones.startsWith(normQueryNoTones)) ||
+        rawLowerArtist.startsWith(rawLowerQuery);
+
+      const artistMatchesContains =
+        (normQuery && normArtist.includes(normQuery)) ||
+        (normQueryNoTones && normArtistNoTones.includes(normQueryNoTones)) ||
+        rawLowerArtist.includes(rawLowerQuery);
+
+      if (titleMatchesStart) {
+        titleStarts.push(song);
+      } else if (titleMatchesContains) {
+        titleContains.push(song);
+      } else if (artistMatchesStart) {
+        artistStarts.push(song);
+      } else if (artistMatchesContains) {
+        artistContains.push(song);
+      }
+    }
+
+    return [...titleStarts, ...titleContains, ...artistStarts, ...artistContains].slice(0, limit);
+  }
+
+  // If query is 3+ characters:
+  // Prioritize songs where title contains the query first.
+  const titleStarts: Song[] = [];
+  const titleContains: Song[] = [];
+  const seenIds = new Set<string>();
+
+  for (const song of songPool) {
+    const title = song.title || "";
+    const normTitle = normalizeThaiText(title);
+    const normTitleNoTones = normalizeThaiText(title, { stripTones: true });
+    const rawLowerTitle = title.toLowerCase();
+
+    const titleMatchesStart =
+      (normQuery && normTitle.startsWith(normQuery)) ||
+      (normQueryNoTones && normTitleNoTones.startsWith(normQueryNoTones)) ||
+      rawLowerTitle.startsWith(rawLowerQuery);
+
+    const titleMatchesContains =
+      (normQuery && normTitle.includes(normQuery)) ||
+      (normQueryNoTones && normTitleNoTones.includes(normQueryNoTones)) ||
+      rawLowerTitle.includes(rawLowerQuery);
+
+    if (titleMatchesStart) {
+      titleStarts.push(song);
+      seenIds.add(song.id || song.title);
+    } else if (titleMatchesContains) {
+      titleContains.push(song);
+      seenIds.add(song.id || song.title);
+    }
+  }
+
+  const prioritized = [...titleStarts, ...titleContains];
+  if (prioritized.length >= limit) {
+    return prioritized.slice(0, limit);
+  }
+
+  // Use Fuse.js with a strict threshold (threshold: 0.25) so loose accidental matches don't appear.
   const fuse = new Fuse(songPool, {
     keys: [
-      { name: "title", weight: 0.55 },
+      { name: "title", weight: 0.6 },
       { name: "aliases", weight: 0.25 },
-      { name: "artist", weight: 0.20 },
+      { name: "artist", weight: 0.15 },
     ],
-    threshold: 0.4, // Typo tolerance (0.0 = exact match only, 1.0 = match anything)
+    threshold: 0.25,
     distance: 100,
-    ignoreLocation: true, // Matches anywhere within the title or artist
-    minMatchCharLength: 1,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
     shouldSort: true,
   });
 
-  const results = fuse.search(trimmedQuery);
-  return results.slice(0, limit).map((r) => r.item);
+  const fuseResults = fuse.search(trimmedQuery);
+  const results: Song[] = [...prioritized];
+
+  for (const match of fuseResults) {
+    const key = match.item.id || match.item.title;
+    if (!seenIds.has(key)) {
+      seenIds.add(key);
+      results.push(match.item);
+      if (results.length >= limit) {
+        break;
+      }
+    }
+  }
+
+  return results.slice(0, limit);
 }
