@@ -239,7 +239,7 @@ export function RoundRevealCard({
             type="button"
             onClick={onNextRound}
             disabled={isLoadingNext}
-            className={`w-full min-h-[48px] py-3.5 lg:py-4.5 px-6 rounded-2xl font-black text-base lg:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-md touch-manipulation ${
+            className={`w-full min-h-[48px] py-3.5 lg:py-4 px-6 rounded-2xl font-black text-base lg:text-lg flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-md touch-manipulation ${
               isLoadingNext
                 ? "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-slate-500 cursor-not-allowed border border-stone-300 dark:border-stone-700"
                 : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/20 cursor-pointer"
