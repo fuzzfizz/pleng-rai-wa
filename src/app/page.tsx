@@ -16,7 +16,7 @@ const ThreeVinylCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center">
+      <div className="w-full max-w-md lg:max-w-lg h-64 sm:h-72 lg:h-[460px] xl:max-w-xl xl:h-[500px] flex items-center justify-center">
         <div className="w-40 h-40 rounded-full border-2 border-dashed border-amber-500/20 animate-spin" />
       </div>
     ),
@@ -176,100 +176,105 @@ export default function HomePage() {
       <NavHeader className="max-w-5xl z-10 py-2" />
 
       {/* Hero Section */}
-      <section className="w-full max-w-3xl lg:max-w-5xl flex flex-col items-center text-center my-auto py-8 lg:py-12 z-10">
-        {/* 3D Interactive Three.js Vinyl Turntable */}
-        <div className="my-1 mb-5 flex flex-col items-center">
-          <ThreeVinylCanvas
-            isPlaying={isVinylPlaying}
-            onTogglePlay={() => setIsVinylPlaying((prev) => !prev)}
-            className="w-64 h-60 sm:w-72 sm:h-64 lg:w-80 lg:h-72 drop-shadow-2xl"
-          />
-        </div>
+      <section className="w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl my-auto py-8 lg:py-12 z-10">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-2 items-center gap-8 lg:gap-12 text-center lg:text-left">
+          {/* Column 1 (Left) */}
+          <div className="flex flex-col items-center lg:items-start order-2 lg:order-1">
+            <h2 className="text-4xl sm:text-6xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight">
+              ฟังแป๊บเดียว... <br />
+              <span className="text-gradient">
+                จะรู้ไหมว่า "เพลงไรวะ?"
+              </span>
+            </h2>
 
-        <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight">
-          ฟังแป๊บเดียว... <br />
-          <span className="text-gradient">
-            จะรู้ไหมว่า "เพลงไรวะ?"
-          </span>
-        </h2>
+            <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-400 max-w-xl lg:max-w-2xl mb-8 lg:mb-10 leading-relaxed">
+              ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
+            </p>
 
-        <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-400 max-w-xl lg:max-w-2xl mb-8 lg:mb-10 leading-relaxed">
-          ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
-        </p>
-
-        {/* Action Box */}
-        <div className="w-full max-w-md lg:max-w-xl bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 lg:p-8 shadow-xl backdrop-blur-xl">
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setCreateError(null);
-                if (!hostNickname && profile?.displayName) {
-                  setHostNickname(profile.displayName);
-                }
-                setIsCreateModalOpen(true);
-              }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 lg:py-4 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-base lg:text-lg shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer"
-            >
-              <Users className="w-5 h-5" />
-              <span>สร้างห้องเล่นกับเพื่อน</span>
-            </button>
-
-            <div className="relative flex items-center justify-center my-1">
-              <div className="border-t border-stone-200 dark:border-stone-800 w-full" />
-              <span className="bg-white dark:bg-stone-900 px-3 text-xs text-stone-500">หรือเข้าร่วมห้อง</span>
-            </div>
-
-            <form onSubmit={handleJoinRoom} className="flex flex-col gap-1.5">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="กรอกรหัสห้อง (เช่น ABC123)"
-                  value={roomCode}
-                  onChange={(e) => {
-                    setRoomCode(e.target.value.toUpperCase());
-                    if (joinError) setJoinError(null);
-                  }}
-                  maxLength={6}
-                  className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl px-4 lg:px-5 py-3 min-h-[44px] lg:min-h-[52px] text-base sm:text-sm lg:text-lg text-center tracking-widest font-mono text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors uppercase"
-                />
+            {/* Action Box */}
+            <div className="w-full max-w-md lg:max-w-xl mx-auto lg:mx-0 bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 lg:p-8 shadow-xl backdrop-blur-xl">
+              <div className="flex flex-col gap-3">
                 <button
-                  type="submit"
-                  className="bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-white px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] lg:min-h-[52px] lg:min-w-[52px]"
-                  title="เข้าร่วมห้อง"
+                  type="button"
+                  onClick={() => {
+                    setCreateError(null);
+                    if (!hostNickname && profile?.displayName) {
+                      setHostNickname(profile.displayName);
+                    }
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 lg:py-4 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-base lg:text-lg shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  <ArrowRight className="w-4 h-4" />
+                  <Users className="w-5 h-5" />
+                  <span>สร้างห้องเล่นกับเพื่อน</span>
                 </button>
-              </div>
 
-              {joinError && (
-                <p className="text-xs text-rose-500 text-center font-medium mt-1 flex items-center justify-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{joinError}</span>
-                </p>
-              )}
-            </form>
+                <div className="relative flex items-center justify-center my-1">
+                  <div className="border-t border-stone-200 dark:border-stone-800 w-full" />
+                  <span className="bg-white dark:bg-stone-900 px-3 text-xs text-stone-500">หรือเข้าร่วมห้อง</span>
+                </div>
 
-            {/* Quick rejoin shortcut if last room exists */}
-            {lastRoomCode && (
-              <div className="pt-1">
+                <form onSubmit={handleJoinRoom} className="flex flex-col gap-1.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="กรอกรหัสห้อง (เช่น ABC123)"
+                      value={roomCode}
+                      onChange={(e) => {
+                        setRoomCode(e.target.value.toUpperCase());
+                        if (joinError) setJoinError(null);
+                      }}
+                      maxLength={6}
+                      className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl px-4 lg:px-5 py-3 min-h-[44px] lg:min-h-[52px] text-base sm:text-sm lg:text-lg text-center tracking-widest font-mono text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors uppercase"
+                    />
+                    <button
+                      type="submit"
+                      className="bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-white px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] lg:min-h-[52px] lg:min-w-[52px]"
+                      title="เข้าร่วมห้อง"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {joinError && (
+                    <p className="text-xs text-rose-500 text-center font-medium mt-1 flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{joinError}</span>
+                    </p>
+                  )}
+                </form>
+
+                {/* Quick rejoin shortcut if last room exists */}
+                {lastRoomCode && (
+                  <div className="pt-1">
+                    <Link
+                      href={`/room/${lastRoomCode}`}
+                      className="w-full py-2 lg:py-3 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/15 text-amber-800 dark:text-amber-300 text-xs lg:text-sm flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>กลับเข้าห้องล่าสุด: <strong className="font-mono">{lastRoomCode}</strong></span>
+                    </Link>
+                  </div>
+                )}
+
                 <Link
-                  href={`/room/${lastRoomCode}`}
-                  className="w-full py-2 lg:py-3 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/15 text-amber-800 dark:text-amber-300 text-xs lg:text-sm flex items-center justify-center gap-1.5 transition-colors"
+                  href="/play/solo"
+                  className="mt-1 w-full py-2.5 lg:py-3 text-xs lg:text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>กลับเข้าห้องล่าสุด: <strong className="font-mono">{lastRoomCode}</strong></span>
+                  <Play className="w-3.5 h-3.5" />
+                  <span>เล่นคนเดียวซ้อมมือก่อน</span>
                 </Link>
               </div>
-            )}
+            </div>
+          </div>
 
-            <Link
-              href="/play/solo"
-              className="mt-1 w-full py-2.5 lg:py-3 text-xs lg:text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50"
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>เล่นคนเดียวซ้อมมือก่อน</span>
-            </Link>
+          {/* Column 2 (Right) */}
+          <div className="w-full flex items-center justify-center order-1 lg:order-2">
+            <ThreeVinylCanvas
+              isPlaying={isVinylPlaying}
+              onTogglePlay={() => setIsVinylPlaying((prev) => !prev)}
+              className="w-full max-w-md lg:max-w-lg lg:h-[460px] xl:max-w-xl xl:h-[500px] h-64 sm:h-72 drop-shadow-2xl"
+            />
           </div>
         </div>
       </section>

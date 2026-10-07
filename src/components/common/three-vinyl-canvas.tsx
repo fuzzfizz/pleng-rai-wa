@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { soundEffects } from "@/lib/sound-effects";
+import { soundEffects, getAudioContext } from "@/lib/sound-effects";
 
 export interface ThreeVinylCanvasProps {
   isPlaying?: boolean;
@@ -10,6 +10,130 @@ export interface ThreeVinylCanvasProps {
   size?: number;
   interactive?: boolean;
   onTogglePlay?: () => void;
+}
+
+const PRIMARY_STREAM_URL = "https://radio.loficafe.net/listen/studying/radio.mp3";
+const FALLBACK_STREAM_URL = "https://boxradio-edge-00.streamafrica.net/lofi";
+const TARGET_STREAM_VOLUME = 0.38;
+const FADE_IN_DURATION_MS = 1200;
+const FADE_OUT_DURATION_MS = 600;
+
+/**
+ * Smoothly animates HTMLAudioElement volume between startVol and targetVol.
+ */
+function fadeAudioVolume(
+  audio: HTMLAudioElement,
+  startVol: number,
+  targetVol: number,
+  durationMs: number,
+  animRef: React.MutableRefObject<number | null>,
+  onComplete?: () => void
+) {
+  if (animRef.current !== null) {
+    cancelAnimationFrame(animRef.current);
+    animRef.current = null;
+  }
+
+  const startTime = performance.now();
+  audio.volume = Math.max(0, Math.min(1, startVol));
+
+  const tick = (now: number) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / durationMs);
+    const newVol = startVol + (targetVol - startVol) * progress;
+    audio.volume = Math.max(0, Math.min(1, newVol));
+
+    if (progress < 1) {
+      animRef.current = requestAnimationFrame(tick);
+    } else {
+      animRef.current = null;
+      onComplete?.();
+    }
+  };
+
+  animRef.current = requestAnimationFrame(tick);
+}
+
+/**
+ * Procedural Web Audio ambient lo-fi synth chord loop used as an offline fallback
+ * if the radio stream cannot connect.
+ */
+function createProceduralAmbientSynth(): { stop: () => void } | null {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return null;
+
+    let isPlaying = true;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, ctx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 1.2);
+    masterGain.connect(ctx.destination);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(800, ctx.currentTime);
+    filter.connect(masterGain);
+
+    // Warm Lo-Fi jazz progression: Cmaj9 -> Am9 -> Dm9 -> G13
+    const progressions = [
+      [130.81, 196.0, 246.94, 293.66, 329.63], // Cmaj9
+      [110.0, 164.81, 196.0, 246.94, 261.63],  // Am9
+      [146.83, 220.0, 261.63, 329.63, 349.23], // Dm9
+      [98.0, 146.83, 174.61, 246.94, 329.63],  // G13
+    ];
+
+    let chordStep = 0;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const playChord = () => {
+      if (!isPlaying) return;
+      const now = ctx.currentTime;
+      const notes = progressions[chordStep % progressions.length];
+      chordStep++;
+
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        osc.type = idx % 2 === 0 ? "sine" : "triangle";
+        osc.frequency.setValueAtTime(freq, now);
+
+        const noteGain = ctx.createGain();
+        noteGain.gain.setValueAtTime(0.0001, now);
+        noteGain.gain.linearRampToValueAtTime(0.03, now + 0.6);
+        noteGain.gain.setValueAtTime(0.03, now + 2.4);
+        noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.2);
+
+        osc.connect(noteGain);
+        noteGain.connect(filter);
+
+        osc.start(now);
+        osc.stop(now + 3.3);
+      });
+
+      timerId = setTimeout(playChord, 2800);
+    };
+
+    playChord();
+
+    return {
+      stop: () => {
+        isPlaying = false;
+        if (timerId) clearTimeout(timerId);
+        try {
+          masterGain.gain.cancelScheduledValues(ctx.currentTime);
+          masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
+          masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+          setTimeout(() => {
+            try {
+              masterGain.disconnect();
+              filter.disconnect();
+            } catch {}
+          }, 700);
+        } catch {}
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -374,6 +498,11 @@ export function ThreeVinylCanvas({
   const [internalPlaying, setInternalPlaying] = useState(isPlaying);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Audio player state & refs
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fadeAnimRef = useRef<number | null>(null);
+  const synthRef = useRef<{ stop: () => void } | null>(null);
+
   // Track button press transient offset for tactile physical click
   const buttonPressYRef = useRef(0);
 
@@ -385,10 +514,157 @@ export function ThreeVinylCanvas({
   const isControlled = onTogglePlay !== undefined;
   const activePlaying = isControlled ? isPlaying : internalPlaying;
   const isPlayingRef = useRef(activePlaying);
+  const prevPlayingRef = useRef<boolean>(activePlaying);
+  const isFirstMountRef = useRef<boolean>(true);
 
   useEffect(() => {
     isPlayingRef.current = activePlaying;
   }, [activePlaying]);
+
+  // Audio playback management effect (Lo-Fi stream & turntable SFX)
+  useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      if (!activePlaying) return;
+    }
+
+    if (prevPlayingRef.current === activePlaying) return;
+    prevPlayingRef.current = activePlaying;
+
+    if (activePlaying) {
+      // 1. Play turntable start mechanical needle drop sound effect
+      soundEffects.turntableStart();
+
+      // Clean up previous synth if running
+      if (synthRef.current) {
+        synthRef.current.stop();
+        synthRef.current = null;
+      }
+
+      // 2. Offline fallback check
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        synthRef.current = createProceduralAmbientSynth();
+        return;
+      }
+
+      // 3. Initialize or reuse HTMLAudioElement
+      let audio = audioRef.current;
+      if (!audio) {
+        audio = new Audio(PRIMARY_STREAM_URL);
+        audio.crossOrigin = "anonymous";
+        audio.preload = "none";
+        audioRef.current = audio;
+
+        audio.addEventListener("error", () => {
+          if (audioRef.current && audioRef.current.src.includes("loficafe")) {
+            audioRef.current.src = FALLBACK_STREAM_URL;
+            audioRef.current.load();
+            const p = audioRef.current.play();
+            if (p !== undefined) {
+              p.then(() => {
+                fadeAudioVolume(
+                  audioRef.current!,
+                  0,
+                  TARGET_STREAM_VOLUME,
+                  FADE_IN_DURATION_MS,
+                  fadeAnimRef
+                );
+              }).catch(() => {
+                synthRef.current = createProceduralAmbientSynth();
+              });
+            }
+          } else {
+            synthRef.current = createProceduralAmbientSynth();
+          }
+        });
+      } else {
+        if (!audio.src) {
+          audio.src = PRIMARY_STREAM_URL;
+          audio.load();
+        }
+      }
+
+      audio.volume = 0;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            fadeAudioVolume(
+              audio!,
+              0,
+              TARGET_STREAM_VOLUME,
+              FADE_IN_DURATION_MS,
+              fadeAnimRef
+            );
+          })
+          .catch((err) => {
+            console.warn("Primary stream play failed, trying fallback:", err);
+            if (audio) {
+              audio.src = FALLBACK_STREAM_URL;
+              audio.load();
+              const p2 = audio.play();
+              if (p2 !== undefined) {
+                p2.then(() => {
+                  fadeAudioVolume(
+                    audio!,
+                    0,
+                    TARGET_STREAM_VOLUME,
+                    FADE_IN_DURATION_MS,
+                    fadeAnimRef
+                  );
+                }).catch(() => {
+                  synthRef.current = createProceduralAmbientSynth();
+                });
+              }
+            }
+          });
+      }
+    } else {
+      // 1. Play turntable stop needle lift sound effect
+      soundEffects.turntableStop();
+
+      // Clean up procedural synth if active
+      if (synthRef.current) {
+        synthRef.current.stop();
+        synthRef.current = null;
+      }
+
+      // 2. Smoothly fade audio volume down to 0 over ~0.6s and pause
+      const audio = audioRef.current;
+      if (audio && !audio.paused) {
+        fadeAudioVolume(
+          audio,
+          audio.volume,
+          0,
+          FADE_OUT_DURATION_MS,
+          fadeAnimRef,
+          () => {
+            audio.pause();
+          }
+        );
+      }
+    }
+  }, [activePlaying]);
+
+  // Comprehensive audio cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (fadeAnimRef.current !== null) {
+        cancelAnimationFrame(fadeAnimRef.current);
+        fadeAnimRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current.load();
+        audioRef.current = null;
+      }
+      if (synthRef.current) {
+        synthRef.current.stop();
+        synthRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -1146,18 +1422,12 @@ export function ThreeVinylCanvas({
     };
   }, [size, interactive]);
 
-  // Handle Play/Stop Toggle with Audio Feedback
+  // Handle Play/Stop Toggle
   const handleTogglePlay = () => {
     // Physical button dip transient
     buttonPressYRef.current = 0.035;
 
     const willPlay = !activePlaying;
-
-    if (willPlay) {
-      soundEffects.turntableStart();
-    } else {
-      soundEffects.turntableStop();
-    }
 
     if (onTogglePlay) {
       onTogglePlay();
@@ -1193,19 +1463,28 @@ export function ThreeVinylCanvas({
       />
 
       {/* Floating Lo-Fi Audio Badge */}
-      <div className="absolute -bottom-2 sm:bottom-0 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 dark:bg-stone-900/90 border border-amber-500/30 backdrop-blur-md shadow-lg pointer-events-none transition-all duration-300">
-        <span
-          className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
-            activePlaying
-              ? "bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50"
-              : "bg-amber-500"
-          }`}
-        />
-        <span className="text-[12px] font-medium text-stone-800 dark:text-stone-200">
-          {activePlaying
-            ? "🟢 กำลังเล่นแผ่นเสียง • คลิกเพื่อหยุด"
-            : "▶ คลิกที่เครื่องเล่นเพื่อเปิดเล่นแผ่นเสียง"}
-        </span>
+      <div className="absolute -bottom-2 sm:bottom-0 flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/95 dark:bg-stone-900/95 border border-amber-500/30 backdrop-blur-md shadow-lg pointer-events-none transition-all duration-300">
+        {activePlaying ? (
+          <>
+            {/* Mini Animated Sound Equalizer Bars */}
+            <div className="flex items-end gap-[2px] h-3.5 pb-0.5" aria-hidden="true">
+              <span className="w-[2.5px] bg-emerald-500 rounded-full h-2 animate-[pulse_0.6s_ease-in-out_infinite]" />
+              <span className="w-[2.5px] bg-emerald-500 rounded-full h-3.5 animate-[pulse_0.8s_ease-in-out_infinite_150ms]" />
+              <span className="w-[2.5px] bg-emerald-500 rounded-full h-2 animate-[pulse_0.5s_ease-in-out_infinite_300ms]" />
+              <span className="w-[2.5px] bg-emerald-500 rounded-full h-3 animate-[pulse_0.7s_ease-in-out_infinite_100ms]" />
+            </div>
+            <span className="text-[12px] font-medium text-stone-800 dark:text-stone-200">
+              🟢 กำลังเล่น: Lo-Fi Radio • คลิกเพื่อหยุด
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="text-[12px] font-medium text-stone-800 dark:text-stone-200">
+              ▶ คลิกที่เครื่องเล่นเพื่อเปิดเพลง Lo-Fi Chill
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
