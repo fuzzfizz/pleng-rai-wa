@@ -698,7 +698,7 @@ export function ThreeVinylCanvas({
 
     // 2. Camera setup - isometric turntable perspective
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(0, 0.28, 9.8);
+    camera.position.set(0, 0.28, 10.4);
 
     // 3. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -818,36 +818,6 @@ export function ThreeVinylCanvas({
       rubberMesh.position.set(fx, -(plinthH + 0.22), fz);
       turntableRig.add(rubberMesh);
     });
-
-    // Soft Ambient Drop Shadow Plane beneath plinth
-    const shadowGeo = regGeo(new THREE.PlaneGeometry(10.2, 9.2));
-    const shadowMat = regMat(
-      new THREE.MeshBasicMaterial({
-        color: 0x09090b,
-        transparent: true,
-        opacity: 0.32,
-        depthWrite: false,
-      })
-    );
-    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-    shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.y = -(plinthH + 0.26);
-    turntableRig.add(shadowMesh);
-
-    // Amber bloom floor shadow
-    const amberFloorGeo = regGeo(new THREE.PlaneGeometry(12.5, 11.5));
-    const amberFloorMat = regMat(
-      new THREE.MeshBasicMaterial({
-        color: 0xf59e0b,
-        transparent: true,
-        opacity: 0.1,
-        depthWrite: false,
-      })
-    );
-    const amberFloorMesh = new THREE.Mesh(amberFloorGeo, amberFloorMat);
-    amberFloorMesh.rotation.x = -Math.PI / 2;
-    amberFloorMesh.position.y = -(plinthH + 0.27);
-    turntableRig.add(amberFloorMesh);
 
     // ----------------------------------------------------
     // 7. Recessed Platter Well & Spinning Platter Assembly
@@ -1455,7 +1425,7 @@ export function ThreeVinylCanvas({
       {/* Three.js Canvas Container */}
       <div
         ref={containerRef}
-        className="w-full h-full min-w-[280px] min-h-[260px] flex items-center justify-center cursor-pointer transition-transform duration-300 group-hover:scale-[1.02] overflow-visible"
+        className="w-full h-full min-w-[220px] min-h-[200px] flex items-center justify-center cursor-pointer transition-transform duration-300 group-hover:scale-[1.02] overflow-visible"
         style={{
           width: size ? `${size}px` : undefined,
           height: size ? `${size}px` : undefined,

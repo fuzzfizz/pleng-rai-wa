@@ -269,12 +269,12 @@ export default function HomePage() {
           </div>
 
           {/* Right Column / Overlapping Record Player (z-10, unconstrained, free-flowing) */}
-          <div className="w-full lg:w-auto flex items-center justify-center order-1 lg:order-2 lg:absolute lg:right-[-60px] xl:right-[-20px] 2xl:right-4 lg:top-1/2 lg:-translate-y-1/2 z-10 pointer-events-none mb-6 lg:mb-0">
+          <div className="w-full lg:w-auto flex items-center justify-center order-1 lg:order-2 lg:absolute lg:right-[-10px] xl:right-4 2xl:right-12 lg:top-1/2 lg:-translate-y-1/2 z-10 pointer-events-none mb-6 lg:mb-0">
             <div className="pointer-events-auto">
               <ThreeVinylCanvas
                 isPlaying={isVinylPlaying}
                 onTogglePlay={() => setIsVinylPlaying((prev) => !prev)}
-                className="w-[300px] h-[280px] sm:w-[400px] sm:h-[360px] lg:w-[640px] lg:h-[560px] xl:w-[740px] xl:h-[620px]"
+                className="w-[280px] h-[260px] sm:w-[350px] sm:h-[320px] lg:w-[480px] lg:h-[420px] xl:w-[540px] xl:h-[460px]"
               />
             </div>
           </div>
