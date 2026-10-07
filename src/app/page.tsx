@@ -180,14 +180,14 @@ export default function HomePage() {
         <div className="relative w-full flex flex-col lg:flex-row items-center justify-between">
           {/* Left Column: Hero Text & Action Box (z-20, overlays turntable if they overlap) */}
           <div className="relative z-20 w-full lg:max-w-xl xl:max-w-2xl flex flex-col items-center lg:items-start text-center lg:text-left order-2 lg:order-1 pointer-events-auto">
-            <h2 className="text-4xl sm:text-6xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight drop-shadow-sm">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-5xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-3 lg:mb-4 leading-tight drop-shadow-sm">
               ฟังแป๊บเดียว... <br />
               <span className="text-gradient">
                 จะรู้ไหมว่า "เพลงไรวะ?"
               </span>
             </h2>
 
-            <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-400 max-w-xl lg:max-w-2xl mb-8 lg:mb-10 leading-relaxed drop-shadow-sm">
+            <p className="text-sm sm:text-base lg:text-lg text-stone-600 dark:text-stone-400 max-w-lg lg:max-w-xl mb-6 lg:mb-8 leading-relaxed drop-shadow-sm">
               ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
             </p>
 
