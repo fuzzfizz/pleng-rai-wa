@@ -698,7 +698,7 @@ export function ThreeVinylCanvas({
 
     // 2. Camera setup - isometric turntable perspective
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(0, 0.35, 11.2);
+    camera.position.set(0, 0.28, 9.8);
 
     // 3. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -1438,7 +1438,7 @@ export function ThreeVinylCanvas({
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center select-none group ${className}`}
+      className={`relative inline-flex items-center justify-center select-none group overflow-visible ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleTogglePlay}
@@ -1455,7 +1455,7 @@ export function ThreeVinylCanvas({
       {/* Three.js Canvas Container */}
       <div
         ref={containerRef}
-        className="w-full h-full min-w-[280px] min-h-[260px] flex items-center justify-center cursor-pointer transition-transform duration-300 group-hover:scale-[1.02]"
+        className="w-full h-full min-w-[280px] min-h-[260px] flex items-center justify-center cursor-pointer transition-transform duration-300 group-hover:scale-[1.02] overflow-visible"
         style={{
           width: size ? `${size}px` : undefined,
           height: size ? `${size}px` : undefined,

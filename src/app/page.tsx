@@ -16,7 +16,7 @@ const ThreeVinylCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full max-w-md lg:max-w-lg h-64 sm:h-72 lg:h-[460px] xl:max-w-xl xl:h-[500px] flex items-center justify-center">
+      <div className="w-[300px] h-[280px] sm:w-[400px] sm:h-[360px] lg:w-[640px] lg:h-[560px] xl:w-[740px] xl:h-[620px] flex items-center justify-center">
         <div className="w-40 h-40 rounded-full border-2 border-dashed border-amber-500/20 animate-spin" />
       </div>
     ),
@@ -176,23 +176,23 @@ export default function HomePage() {
       <NavHeader className="max-w-5xl z-10 py-2" />
 
       {/* Hero Section */}
-      <section className="w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl my-auto py-8 lg:py-12 z-10">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-2 items-center gap-8 lg:gap-12 text-center lg:text-left">
-          {/* Column 1 (Left) */}
-          <div className="flex flex-col items-center lg:items-start order-2 lg:order-1">
-            <h2 className="text-4xl sm:text-6xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight">
+      <section className="relative w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl my-auto py-8 lg:py-14 z-10 overflow-visible min-h-0 lg:min-h-[580px] xl:min-h-[640px] flex items-center">
+        <div className="relative w-full flex flex-col lg:flex-row items-center justify-between">
+          {/* Left Column: Hero Text & Action Box (z-20, overlays turntable if they overlap) */}
+          <div className="relative z-20 w-full lg:max-w-xl xl:max-w-2xl flex flex-col items-center lg:items-start text-center lg:text-left order-2 lg:order-1 pointer-events-auto">
+            <h2 className="text-4xl sm:text-6xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-4 lg:mb-6 leading-tight drop-shadow-sm">
               ฟังแป๊บเดียว... <br />
               <span className="text-gradient">
                 จะรู้ไหมว่า "เพลงไรวะ?"
               </span>
             </h2>
 
-            <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-400 max-w-xl lg:max-w-2xl mb-8 lg:mb-10 leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-400 max-w-xl lg:max-w-2xl mb-8 lg:mb-10 leading-relaxed drop-shadow-sm">
               ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
             </p>
 
             {/* Action Box */}
-            <div className="w-full max-w-md lg:max-w-xl mx-auto lg:mx-0 bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 lg:p-8 shadow-xl backdrop-blur-xl">
+            <div className="w-full max-w-md lg:max-w-xl mx-auto lg:mx-0 bg-white/95 dark:bg-stone-900/95 border border-stone-200/90 dark:border-stone-800/90 rounded-3xl p-6 lg:p-8 shadow-2xl backdrop-blur-xl">
               <div className="flex flex-col gap-3">
                 <button
                   type="button"
@@ -268,13 +268,15 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Column 2 (Right) */}
-          <div className="w-full flex items-center justify-center order-1 lg:order-2">
-            <ThreeVinylCanvas
-              isPlaying={isVinylPlaying}
-              onTogglePlay={() => setIsVinylPlaying((prev) => !prev)}
-              className="w-full max-w-md lg:max-w-lg lg:h-[460px] xl:max-w-xl xl:h-[500px] h-64 sm:h-72 drop-shadow-2xl"
-            />
+          {/* Right Column / Overlapping Record Player (z-10, unconstrained, free-flowing) */}
+          <div className="w-full lg:w-auto flex items-center justify-center order-1 lg:order-2 lg:absolute lg:right-[-60px] xl:right-[-20px] 2xl:right-4 lg:top-1/2 lg:-translate-y-1/2 z-10 pointer-events-none mb-6 lg:mb-0">
+            <div className="pointer-events-auto">
+              <ThreeVinylCanvas
+                isPlaying={isVinylPlaying}
+                onTogglePlay={() => setIsVinylPlaying((prev) => !prev)}
+                className="w-[300px] h-[280px] sm:w-[400px] sm:h-[360px] lg:w-[640px] lg:h-[560px] xl:w-[740px] xl:h-[620px]"
+              />
+            </div>
           </div>
         </div>
       </section>
