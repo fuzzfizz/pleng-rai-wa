@@ -6,7 +6,22 @@ export type GameMode = "audio-slice" | "buzzer" | "ai-lyrics" | "translated-lyri
 
 export type AnswerInputMode = "autocomplete" | "free-text" | "multiple-choice";
 
+export interface ChoiceOption {
+  id: string; // Masked choice key, e.g. "choice_0", "choice_1"
+  title: string;
+  artist: string;
+}
+
+export interface ActiveQuestion {
+  sliceUrl?: string;
+  durationSec?: number;
+  lyrics?: string;
+  startedAt?: string;
+  choices?: ChoiceOption[];
+}
+
 export type LyricsType = "chorus" | "intro";
+
 
 export interface Genre {
   id: string;
@@ -104,6 +119,7 @@ export interface SongFilterConfig {
 export interface RoomSettings {
   gameMode: GameMode;
   answerInputMode: AnswerInputMode;
+  maxWrongGuesses?: number; // 0 = unlimited, 1 = 1 time [default], 2 = 2 times, etc.
   lyricsType?: LyricsType;
   voiceGender?: AIVoiceGender;
   sliceDurationSec: number; // e.g. 1.0, 2.0, 5.0

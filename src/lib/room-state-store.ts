@@ -3,7 +3,7 @@
 // Authoritative active round manager, FCFS buzzer arbitration & scoring
 // ==========================================
 
-import type { Song, RoomSettings, GameMode } from "@/types";
+import type { Song, RoomSettings, GameMode, ChoiceOption } from "@/types";
 import { checkAnswer } from "@/lib/answer-checker";
 
 export type RoundStatus =
@@ -32,6 +32,8 @@ export interface RoomRoundState {
   sliceStartSec?: number;
   sliceDurationSec?: number;
   lyrics?: string;
+  choices?: ChoiceOption[];
+  playerWrongCounts: Record<string, number>;
   buzzedPlayerId?: string | null;
   buzzedPlayerName?: string | null;
   buzzedAt?: string | null;
@@ -107,6 +109,7 @@ export class RoomStateStore {
       sliceStartSec?: number;
       sliceDurationSec?: number;
       lyrics?: string;
+      choices?: ChoiceOption[];
     }
   ): RoomRoundState {
     const cleanCode = code.trim().toUpperCase();
@@ -128,6 +131,8 @@ export class RoomStateStore {
       sliceStartSec: extra?.sliceStartSec ?? song.hookStartSec ?? 0,
       sliceDurationSec: extra?.sliceDurationSec ?? settings.sliceDurationSec ?? 2.0,
       lyrics: extra?.lyrics,
+      choices: extra?.choices,
+      playerWrongCounts: {},
       buzzedPlayerId: null,
       buzzedPlayerName: null,
       buzzedAt: null,
@@ -249,8 +254,7 @@ export class RoomStateStore {
     const isStandardBuzzer =
       state.roundStatus === "buzzed" && state.buzzedPlayerId === playerId;
     const isDirectAnswer =
-      (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") &&
-      state.roundStatus === "question_active";
+      gameMode !== "buzzer" && state.roundStatus === "question_active";
 
     if (!isStandardBuzzer && !isDirectAnswer) {
       return {
@@ -343,13 +347,23 @@ export class RoomStateStore {
       };
     } else {
       // Wrong guess: -20 points (clamped to 0)
+      if (!state.playerWrongCounts) state.playerWrongCounts = {};
+      state.playerWrongCounts[playerId] = (state.playerWrongCounts[playerId] || 0) + 1;
       const currentScore = state.scores[playerId] || 0;
       const newScore = Math.max(0, currentScore - 20);
       state.scores[playerId] = newScore;
 
-      // Exclude player from re-guessing this song
-      if (!state.excludedPlayerIds.includes(playerId)) {
-        state.excludedPlayerIds.push(playerId);
+      if (isStandardBuzzer) {
+        if (!state.excludedPlayerIds.includes(playerId)) {
+          state.excludedPlayerIds.push(playerId);
+        }
+      } else {
+        const maxWrong = state.settings?.maxWrongGuesses ?? 1;
+        if (maxWrong > 0 && state.playerWrongCounts[playerId] >= maxWrong) {
+          if (!state.excludedPlayerIds.includes(playerId)) {
+            state.excludedPlayerIds.push(playerId);
+          }
+        }
       }
 
       // Record wrong guess history
@@ -418,6 +432,9 @@ export class RoomStateStore {
     const currentScore = state.scores[playerId] || 0;
     const newScore = Math.max(0, currentScore - 20);
     state.scores[playerId] = newScore;
+
+    if (!state.playerWrongCounts) state.playerWrongCounts = {};
+    state.playerWrongCounts[playerId] = (state.playerWrongCounts[playerId] || 0) + 1;
 
     if (!state.excludedPlayerIds.includes(playerId)) {
       state.excludedPlayerIds.push(playerId);
@@ -517,6 +534,33 @@ export class RoomStateStore {
       hintType,
       hintText,
       pointsAvailable,
+    };
+  }
+
+  /**
+   * Skips active round and transitions directly to revealing with winner null.
+   */
+  static skipRound(code: string): {
+    success: boolean;
+    roundState?: RoomRoundState;
+    fullSong?: Song;
+  } {
+    const cleanCode = code.trim().toUpperCase();
+    const state = roomRoundStates.get(cleanCode);
+    if (!state) return { success: false };
+
+    state.roundStatus = "revealing";
+    state.winnerPlayerId = null;
+    state.roundWinnerPlayerId = null;
+    state.buzzedPlayerId = null;
+    state.buzzedPlayerName = null;
+    state.buzzedAt = null;
+    state.buzzDeadline = null;
+
+    return {
+      success: true,
+      roundState: state,
+      fullSong: state.currentSong,
     };
   }
 
