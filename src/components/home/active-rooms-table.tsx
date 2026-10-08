@@ -303,10 +303,10 @@ export function ActiveRoomsTable() {
                         </div>
                       </div>
 
-                      {/* Prominent Player Count Pill on Mobile */}
-                      <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/35 shadow-xs">
+                      {/* Player Count Pill on Mobile */}
+                      <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
                         <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                        <span>{room.playerCount || 1} คนในห้อง</span>
+                        <span>{room.playerCount || 1} คน</span>
                       </span>
                     </div>
 
@@ -334,9 +334,7 @@ export function ActiveRoomsTable() {
                   <tr className="border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 text-xs font-semibold bg-stone-50/50 dark:bg-stone-950/30">
                     <th className="py-3 px-4 sm:px-5">รหัสห้อง</th>
                     <th className="py-3 px-3 sm:px-4">หัวหน้าห้อง</th>
-                    <th className="py-3 px-3 sm:px-4 text-amber-700 dark:text-amber-300 font-bold bg-amber-500/5">
-                      👥 ผู้เล่นในห้อง
-                    </th>
+                    <th className="py-3 px-3 sm:px-4">ผู้เล่น</th>
                     <th className="py-3 px-3 sm:px-4">โหมดการเล่น</th>
                     <th className="py-3 px-3 sm:px-4">สถานะ</th>
                     <th className="py-3 px-4 sm:px-5 text-right">เข้าร่วม</th>
@@ -371,21 +369,16 @@ export function ActiveRoomsTable() {
                         <td className="py-3.5 px-3 sm:px-4">
                           <div className="flex items-center gap-2">
                             <span className="text-base select-none">{room.hostAvatar}</span>
-                            <div>
-                              <div className="font-semibold text-stone-800 dark:text-stone-200 truncate max-w-[120px] sm:max-w-[160px]">
-                                {room.hostDisplayName}
-                              </div>
-                              <div className="text-[11px] text-stone-400 dark:text-stone-500">
-                                หัวหน้าห้อง
-                              </div>
-                            </div>
+                            <span className="font-semibold text-stone-800 dark:text-stone-200 truncate max-w-[120px] sm:max-w-[160px]">
+                              {room.hostDisplayName}
+                            </span>
                           </div>
                         </td>
 
                         {/* Player Count */}
-                        <td className="py-3.5 px-3 sm:px-4 bg-amber-500/5">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/35 shadow-xs">
-                            <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <td className="py-3.5 px-3 sm:px-4">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                             <span>{room.playerCount || 1} คน</span>
                           </span>
                         </td>
