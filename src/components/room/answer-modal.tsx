@@ -9,7 +9,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Search, Send, Clock, Sparkles, Loader2, Music, X } from "lucide-react";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
-import type { Song, AnswerInputMode } from "@/types";
+import type { Song, AnswerInputMode, ChoiceOption } from "@/types";
 
 export interface AnswerModalProps {
   isOpen: boolean;
@@ -17,6 +17,7 @@ export interface AnswerModalProps {
   onSubmitAnswer: (answerText: string) => Promise<void>;
   timeRemainingSec?: number; // default 15 seconds (0 = unlimited)
   inputMode?: AnswerInputMode;
+  choices?: ChoiceOption[];
   songLibrary?: Song[];
   isSubmitting?: boolean;
 }
@@ -36,6 +37,7 @@ export function AnswerModal({
   onSubmitAnswer,
   timeRemainingSec = 15,
   inputMode = "autocomplete",
+  choices = [],
   songLibrary = [],
   isSubmitting = false,
 }: AnswerModalProps): React.JSX.Element | null {
@@ -216,107 +218,147 @@ export function AnswerModal({
           </div>
         )}
 
-        {/* Input Form */}
-        <form onSubmit={onFormSubmit} className="space-y-3">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 lg:pl-4 flex items-center pointer-events-none text-stone-400">
-              {inputMode === "autocomplete" ? (
-                <Search className="w-5 h-5 lg:w-6 lg:h-6" />
-              ) : (
-                <Music className="w-5 h-5 lg:w-6 lg:h-6" />
-              )}
-            </div>
-
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value);
-                setHighlightedIndex(-1);
-              }}
-              onKeyDown={handleKeyDown}
-              disabled={isSubmitting}
-              placeholder={
-                inputMode === "autocomplete"
-                  ? "พิมพ์ชื่อเพลง ศิลปิน หรือคำร้อง..."
-                  : "พิมพ์ชื่อเพลงที่คิดว่าใช่..."
-              }
-              autoComplete="off"
-              autoFocus
-              className="w-full min-h-[44px] lg:min-h-[52px] pl-11 lg:pl-12 pr-4 py-3.5 lg:py-4 bg-white dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base lg:text-lg transition shadow-inner"
-            />
-          </div>
-
-          {/* Autocomplete Dropdown List */}
-          {inputMode === "autocomplete" && suggestions.length > 0 && (
-            <div className="bg-white dark:bg-stone-950/95 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
-              {suggestions.map((song, idx) => {
-                const isHighlighted = idx === highlightedIndex;
+        {/* Input Form or Multiple-Choice Cards */}
+        {inputMode === "multiple-choice" ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-3">
+              {(choices || []).map((choice, idx) => {
+                const letter = ["A", "B", "C", "D"][idx] || `${idx + 1}`;
                 return (
                   <button
-                    key={song.id || idx}
+                    key={choice.id || idx}
                     type="button"
-                    onClick={() => handleSubmit(song.title)}
-                    className={`w-full text-left px-3 py-2.5 lg:py-3 lg:px-4 min-h-[44px] rounded-xl flex items-center justify-between text-sm lg:text-base transition group cursor-pointer ${
-                      isHighlighted
-                        ? "bg-amber-500 text-stone-950 font-bold"
-                        : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
-                    }`}
+                    onClick={() => handleSubmit(choice.title)}
+                    disabled={isSubmitting}
+                    className="min-h-[52px] p-3.5 rounded-2xl border-2 border-stone-200 dark:border-stone-800 hover:border-amber-500 hover:bg-amber-500/10 active:scale-[0.98] bg-stone-50 dark:bg-stone-900 flex items-center gap-3 text-left transition cursor-pointer touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <div className="truncate pr-2">
-                      <div className="font-semibold truncate">{song.title}</div>
-                      <div
-                        className={`text-xs lg:text-sm truncate ${
-                          isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
-                        }`}
-                      >
-                        {song.artist}
-                      </div>
-                    </div>
-                    <span
-                      className={`text-[11px] lg:text-xs px-2 py-0.5 rounded-full uppercase font-medium ${
-                        isHighlighted
-                          ? "bg-stone-950/20 text-stone-950"
-                          : "bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-400"
-                      }`}
-                    >
-                      เลือก
+                    <span className="w-7 h-7 rounded-lg bg-amber-500 text-stone-950 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                      {letter}
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-sm truncate text-stone-900 dark:text-white">{choice.title}</div>
+                      <div className="text-xs text-stone-500 dark:text-stone-400 truncate">{choice.artist}</div>
+                    </div>
                   </button>
                 );
               })}
             </div>
-          )}
 
-          {/* Submit Action Button */}
-          <button
-            type="submit"
-            disabled={!inputValue.trim() || isSubmitting}
-            className={`w-full min-h-[44px] py-3.5 lg:py-4 px-6 rounded-2xl font-bold text-base sm:text-lg lg:text-lg flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] ${
-              inputValue.trim() && !isSubmitting
-                ? "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/30 cursor-pointer"
-                : "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed border border-stone-300 dark:border-stone-700/50"
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+            {isSubmitting && (
+              <div className="flex items-center justify-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-semibold py-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
                 <span>กำลังส่งคำตอบ...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-5 h-5" />
-                <span>ส่งคำตอบ (Submit)</span>
-              </>
+              </div>
             )}
-          </button>
-        </form>
 
-        {/* Modal Footer Note */}
-        <p className="text-center text-[11px] lg:text-xs text-stone-500 dark:text-stone-400">
-          กด <kbd className="px-1 py-0.5 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-stone-700 dark:text-stone-300 font-mono text-[10px]">Enter</kbd> เพื่อส่งคำตอบทันที
-        </p>
+            <p className="text-center text-[11px] lg:text-xs text-stone-500 dark:text-stone-400">
+              แตะหรือคลิกเลือกคำตอบที่คิดว่าถูกต้องทันที
+            </p>
+          </div>
+        ) : (
+          <>
+            <form onSubmit={onFormSubmit} className="space-y-3">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 lg:pl-4 flex items-center pointer-events-none text-stone-400">
+                  {inputMode === "autocomplete" ? (
+                    <Search className="w-5 h-5 lg:w-6 lg:h-6" />
+                  ) : (
+                    <Music className="w-5 h-5 lg:w-6 lg:h-6" />
+                  )}
+                </div>
+
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    setHighlightedIndex(-1);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  disabled={isSubmitting}
+                  placeholder={
+                    inputMode === "autocomplete"
+                      ? "พิมพ์ชื่อเพลง ศิลปิน หรือคำร้อง..."
+                      : "พิมพ์ชื่อเพลงที่คิดว่าใช่..."
+                  }
+                  autoComplete="off"
+                  autoFocus
+                  className="w-full min-h-[44px] lg:min-h-[52px] pl-11 lg:pl-12 pr-4 py-3.5 lg:py-4 bg-white dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base lg:text-lg transition shadow-inner"
+                />
+              </div>
+
+              {/* Autocomplete Dropdown List */}
+              {inputMode === "autocomplete" && suggestions.length > 0 && (
+                <div className="bg-white dark:bg-stone-950/95 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
+                  {suggestions.map((song, idx) => {
+                    const isHighlighted = idx === highlightedIndex;
+                    return (
+                      <button
+                        key={song.id || idx}
+                        type="button"
+                        onClick={() => handleSubmit(song.title)}
+                        className={`w-full text-left px-3 py-2.5 lg:py-3 lg:px-4 min-h-[44px] rounded-xl flex items-center justify-between text-sm lg:text-base transition group cursor-pointer ${
+                          isHighlighted
+                            ? "bg-amber-500 text-stone-950 font-bold"
+                            : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
+                        }`}
+                      >
+                        <div className="truncate pr-2">
+                          <div className="font-semibold truncate">{song.title}</div>
+                          <div
+                            className={`text-xs lg:text-sm truncate ${
+                              isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
+                            }`}
+                          >
+                            {song.artist}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[11px] lg:text-xs px-2 py-0.5 rounded-full uppercase font-medium ${
+                            isHighlighted
+                              ? "bg-stone-950/20 text-stone-950"
+                              : "bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-400"
+                          }`}
+                        >
+                          เลือก
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Submit Action Button */}
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isSubmitting}
+                className={`w-full min-h-[44px] py-3.5 lg:py-4 px-6 rounded-2xl font-bold text-base sm:text-lg lg:text-lg flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] ${
+                  inputValue.trim() && !isSubmitting
+                    ? "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/30 cursor-pointer"
+                    : "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed border border-stone-300 dark:border-stone-700/50"
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>กำลังส่งคำตอบ...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    <span>ส่งคำตอบ (Submit)</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Modal Footer Note */}
+            <p className="text-center text-[11px] lg:text-xs text-stone-500 dark:text-stone-400">
+              กด <kbd className="px-1 py-0.5 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-stone-700 dark:text-stone-300 font-mono text-[10px]">Enter</kbd> เพื่อส่งคำตอบทันที
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

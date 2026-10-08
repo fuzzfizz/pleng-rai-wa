@@ -105,6 +105,10 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
 
   const cleanCode = (roomCode || "").trim().toUpperCase();
 
+  const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
+  const hasChoices = Boolean(activeQuestion?.choices && activeQuestion.choices.length > 0);
+  const isMultipleChoice = answerInputMode === "multiple-choice" && hasChoices;
+
   // Populate browser origin on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -252,7 +256,9 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                 </span>
               </h1>
               <p className="text-xs sm:text-sm text-stone-400 font-medium">
-                {gameMode === "buzzer"
+                {answerInputMode === "multiple-choice"
+                  ? "โหมด ปรนัย 4 ตัวเลือก (Multiple Choice)"
+                  : gameMode === "buzzer"
                   ? "โหมด แย่งกดกริ่ง"
                   : gameMode === "ai-lyrics"
                   ? "โหมด AI อ่านเนื้อเพลง"
@@ -460,10 +466,39 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                 </div>
               )}
 
+              {/* 4 Choices Grid during Question Active */}
+              {isMultipleChoice && (
+                <div className="w-full max-w-4xl grid grid-cols-1 sm:grid-cols-2 gap-4 my-6 animate-in fade-in zoom-in-95 duration-200">
+                  {activeQuestion!.choices!.map((choice, idx) => {
+                    const letter = ["A", "B", "C", "D"][idx] || `${idx + 1}`;
+                    return (
+                      <div
+                        key={choice.id || idx}
+                        className="p-5 sm:p-6 rounded-3xl bg-stone-900/90 border-2 border-stone-800 flex items-center gap-4 text-left shadow-xl backdrop-blur-md"
+                      >
+                        <span className="w-12 h-12 rounded-2xl bg-amber-500 text-stone-950 font-black text-xl flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+                          {letter}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-extrabold text-xl sm:text-2xl text-white truncate drop-shadow-sm">
+                            {choice.title}
+                          </div>
+                          <div className="text-sm sm:text-base text-stone-400 font-medium truncate mt-0.5">
+                            {choice.artist}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Big Bold Cue Banner */}
               <div className="mt-4 animate-pulse">
                 <h2 className="text-3xl sm:text-5xl md:text-6xl font-black font-serif text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-100 to-amber-400 tracking-tight">
-                  {gameMode === "audio-slice"
+                  {isMultipleChoice
+                    ? "ปรนัย 4 ตัวเลือก: เลือกคำตอบบนมือถือ!"
+                    : gameMode === "audio-slice"
                     ? "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
                     : gameMode === "translated-lyrics"
                     ? "🌐 อ่านเนื้อแปลแล้วพิมพ์ตอบบนมือถือ!"
@@ -472,7 +507,9 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                     : "🎵 ฟังเพลงแล้วกดกริ่งบนมือถือเพื่อตอบ!"}
                 </h2>
                 <p className="text-base sm:text-xl text-stone-300 font-semibold mt-3">
-                  {gameMode === "audio-slice"
+                  {isMultipleChoice
+                    ? "เลือกตัวเลือกที่ถูกต้องบนมือถือของคุณ ใครตอบถูกก่อนชนะ!"
+                    : gameMode === "audio-slice"
                     ? "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
                     : gameMode === "translated-lyrics" || gameMode === "ai-lyrics"
                     ? "ตอบได้ทันทีโดยไม่ต้องแย่งกดกริ่ง ยิ่งตอบไวยิ่งได้คะแนนเยอะ!"
@@ -524,6 +561,33 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                     วินาที)
                   </span>
                 </div>
+
+                {/* 4 Choices Grid during Buzzed */}
+                {isMultipleChoice && (
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 text-left animate-in fade-in duration-200">
+                    {activeQuestion!.choices!.map((choice, idx) => {
+                      const letter = ["A", "B", "C", "D"][idx] || `${idx + 1}`;
+                      return (
+                        <div
+                          key={choice.id || idx}
+                          className="p-4 sm:p-5 rounded-2xl bg-stone-900/90 border border-stone-800 flex items-center gap-3.5 shadow-md"
+                        >
+                          <span className="w-10 h-10 rounded-xl bg-amber-500 text-stone-950 font-black text-lg flex items-center justify-center shrink-0">
+                            {letter}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-lg sm:text-xl text-white truncate">
+                              {choice.title}
+                            </div>
+                            <div className="text-xs sm:text-sm text-stone-400 truncate">
+                              {choice.artist}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -579,6 +643,59 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                 </div>
               </div>
 
+              {/* 4 Choices Grid during Revealing with Winning Choice Highlight */}
+              {isMultipleChoice && (
+                <div className="w-full max-w-4xl grid grid-cols-1 sm:grid-cols-2 gap-4 my-6 text-left animate-in fade-in duration-300">
+                  {activeQuestion!.choices!.map((choice, idx) => {
+                    const letter = ["A", "B", "C", "D"][idx] || `${idx + 1}`;
+                    const correctTitle = (
+                      revealedSong?.title ||
+                      roundWinner?.answerText ||
+                      ""
+                    ).toLowerCase().trim();
+                    const isWinningChoice = (choice.title || "").toLowerCase().trim() === correctTitle;
+
+                    return (
+                      <div
+                        key={choice.id || idx}
+                        className={`p-5 rounded-3xl transition-all duration-300 flex items-center gap-4 ${
+                          isWinningChoice
+                            ? "bg-emerald-950/80 border-2 border-emerald-400 ring-4 ring-emerald-400/30 text-emerald-100 shadow-[0_0_35px_rgba(16,185,129,0.4)]"
+                            : "bg-stone-900/40 border border-stone-800/60 opacity-40 line-through text-stone-400"
+                        }`}
+                      >
+                        <span
+                          className={`w-12 h-12 rounded-2xl font-black text-xl flex items-center justify-center shrink-0 shadow-md ${
+                            isWinningChoice
+                              ? "bg-emerald-400 text-stone-950"
+                              : "bg-stone-800 text-stone-400"
+                          }`}
+                        >
+                          {isWinningChoice ? "✓" : letter}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className={`font-extrabold text-xl sm:text-2xl truncate ${
+                              isWinningChoice ? "text-emerald-200" : "text-stone-400"
+                            }`}
+                          >
+                            {choice.title}
+                          </div>
+                          <div
+                            className={`text-sm sm:text-base font-medium truncate mt-0.5 ${
+                              isWinningChoice ? "text-emerald-300/80" : "text-stone-500"
+                            }`}
+                          >
+                            {choice.artist}
+                            {isWinningChoice && " (คำตอบที่ถูกต้อง)"}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Winner Spotlight or No Winner */}
               <div className="mt-8">
                 {roundWinner ? (
@@ -591,7 +708,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-stone-800/80 border border-stone-700 text-stone-300 text-lg sm:text-xl font-bold">
-                    <span>⌛ หมดเวลา! ไม่มีผู้ตอบถูกในข้อนี้</span>
+                    <span>🏳️ ข้ามข้อนี้ / ยอมแพ้ (ไม่มีใครได้คะแนน)</span>
                   </div>
                 )}
               </div>

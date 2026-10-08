@@ -44,8 +44,8 @@ export interface RoundRevealCardProps {
 export function formatRoundWinnerAnnouncement(
   winner: RoundWinnerInfo | null
 ): string {
-  if (!winner || !winner.displayName) {
-    return "⏱️ ไม่มีใครตอบถูกในข้อนี้!";
+  if (!winner || !winner.displayName || !winner.playerId) {
+    return "🏳️ ข้ามข้อนี้ / ไม่มีใครได้คะแนนในรอบนี้";
   }
   const delta = typeof winner.scoreDelta === "number" ? winner.scoreDelta : 100;
   return `🎉 ${winner.displayName} ตอบถูก! (+${delta} คะแนน)`;
@@ -63,7 +63,7 @@ export function RoundRevealCard({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const hasWinner = Boolean(winner && winner.displayName);
+  const hasWinner = Boolean(winner && winner.displayName && winner.playerId);
   const announcement = formatRoundWinnerAnnouncement(winner);
 
   const isFinalRound = Boolean(

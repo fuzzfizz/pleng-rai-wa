@@ -24,6 +24,7 @@ import {
   Tag,
   Calendar,
   UserCheck,
+  Flag,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
 import type { Song, GameMode } from "@/types";
@@ -41,6 +42,7 @@ export interface GameViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
   songLibrary?: Song[];
   onLeaveRoom?: () => void;
+  onSkipRound?: () => Promise<boolean>;
 }
 
 /**
@@ -71,6 +73,7 @@ export function GameView({
   roomRealtime,
   songLibrary = [],
   onLeaveRoom,
+  onSkipRound,
 }: GameViewProps): React.JSX.Element {
   const {
     roomCode,
@@ -95,6 +98,7 @@ export function GameView({
     buzz,
     submitAnswer,
     nextRound,
+    skipRound,
     requestHint,
     toggleMute,
   } = roomRealtime;
@@ -103,7 +107,40 @@ export function GameView({
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [isBuzzing, setIsBuzzing] = useState(false);
   const [isRequestingHint, setIsRequestingHint] = useState(false);
+  const [clickedWrongChoices, setClickedWrongChoices] = useState<string[]>([]);
+  const [isSkipping, setIsSkipping] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Reset wrong choices when currentRound changes or status transitions
+  useEffect(() => {
+    setClickedWrongChoices([]);
+  }, [currentRound, status]);
+
+  // Sync wrong guess to clickedWrongChoices
+  useEffect(() => {
+    if (myPlayer && lastWrongGuess?.playerId === myPlayer.id && lastWrongGuess.answerText) {
+      setClickedWrongChoices((prev) => {
+        if (!prev.includes(lastWrongGuess.answerText)) {
+          return [...prev, lastWrongGuess.answerText];
+        }
+        return prev;
+      });
+    }
+  }, [lastWrongGuess, myPlayer]);
+
+  const handleSkipQuestion = useCallback(async () => {
+    if (isSkipping) return;
+    setIsSkipping(true);
+    try {
+      if (onSkipRound) {
+        await onSkipRound();
+      } else if (skipRound) {
+        await skipRound();
+      }
+    } finally {
+      setIsSkipping(false);
+    }
+  }, [isSkipping, onSkipRound, skipRound]);
 
   const handleRequestHint = useCallback(async () => {
     if (isRequestingHint) return;
@@ -224,6 +261,21 @@ export function GameView({
       handleSubmitAnswer(title);
     },
     [handleSubmitAnswer]
+  );
+
+  const handleChoiceSubmit = useCallback(
+    async (choiceTitle: string) => {
+      if (
+        isExcludedFromBuzz ||
+        isSubmittingAnswer ||
+        clickedWrongChoices.includes(choiceTitle) ||
+        status !== "question_active"
+      ) {
+        return;
+      }
+      await handleSubmitAnswer(choiceTitle);
+    },
+    [isExcludedFromBuzz, isSubmittingAnswer, clickedWrongChoices, status, handleSubmitAnswer]
   );
 
   const handleDirectAnswerSubmit = useCallback(
@@ -502,6 +554,19 @@ export function GameView({
                     <span>ขอคำใบ้ (ขั้นที่ {(revealedHints?.level || 0) + 1}/3)</span>
                   </button>
                 )}
+
+                {isHost && (status === "question_active" || status === "buzzed") && (
+                  <button
+                    type="button"
+                    onClick={handleSkipQuestion}
+                    disabled={isSkipping}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 transition cursor-pointer touch-manipulation disabled:opacity-50"
+                    title="ยอมแพ้ / ข้ามข้อนี้และเปิดเฉลยทันที"
+                  >
+                    <Flag className="w-3.5 h-3.5 text-rose-500" />
+                    <span>{isSkipping ? "กำลังข้าม..." : "ข้ามข้อนี้ (ยอมแพ้)"}</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -524,112 +589,148 @@ export function GameView({
                   </div>
                 )}
 
-                {/* Input form */}
-                <form onSubmit={handleDirectAnswerSubmit} className="relative space-y-3">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 lg:pl-4 flex items-center pointer-events-none text-stone-400">
-                      {answerInputMode === "autocomplete" ? (
-                        <Search className="w-5 h-5 lg:w-6 lg:h-6" />
-                      ) : (
-                        <Music className="w-5 h-5 lg:w-6 lg:h-6" />
-                      )}
-                    </div>
-
-                    <input
-                      ref={directInputRef}
-                      type="text"
-                      value={directAnswer}
-                      onChange={(e) => {
-                        setDirectAnswer(e.target.value);
-                        setHighlightedIndex(-1);
-                        setShowSuggestions(true);
-                      }}
-                      onFocus={() => setShowSuggestions(true)}
-                      onBlur={() => {
-                        setTimeout(() => setShowSuggestions(false), 200);
-                      }}
-                      onKeyDown={handleDirectInputKeyDown}
-                      disabled={isExcludedFromBuzz || isSubmittingAnswer || status !== "question_active"}
-                      placeholder={
-                        isExcludedFromBuzz
-                          ? "คุณหมดสิทธิ์ตอบในข้อนี้แล้ว"
-                          : answerInputMode === "autocomplete"
-                          ? "พิมพ์ชื่อเพลง ศิลปิน หรือคำร้อง..."
-                          : "พิมพ์ชื่อเพลงที่คิดว่าใช่..."
-                      }
-                      autoComplete="off"
-                      className="w-full min-h-[48px] lg:min-h-[54px] pl-11 lg:pl-12 pr-4 py-3 bg-stone-50 dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base lg:text-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
-                    />
-                  </div>
-
-                  {/* Autocomplete Dropdown List */}
-                  {answerInputMode === "autocomplete" && showSuggestions && directSuggestions.length > 0 && !isExcludedFromBuzz && (
-                    <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
-                      {directSuggestions.map((song, idx) => {
-                        const isHighlighted = idx === highlightedIndex;
-                        return (
-                          <button
-                            key={song.id || idx}
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              handleSelectSuggestion(song.title);
-                            }}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between text-sm lg:text-base transition cursor-pointer ${
-                              isHighlighted
-                                ? "bg-amber-500 text-stone-950 font-bold"
-                                : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
+                {answerInputMode === "multiple-choice" ? (
+                  <div className="w-full max-w-lg lg:max-w-2xl grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-200">
+                    {(activeQuestion?.choices || []).map((choice, idx) => {
+                      const choiceLetter = ["A", "B", "C", "D"][idx] || `${idx + 1}`;
+                      const isWrong = clickedWrongChoices.includes(choice.title);
+                      return (
+                        <button
+                          key={choice.id || idx}
+                          type="button"
+                          disabled={isExcludedFromBuzz || isSubmittingAnswer || isWrong || status !== "question_active"}
+                          onClick={() => handleChoiceSubmit(choice.title)}
+                          className={`min-h-[58px] sm:min-h-[66px] p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 transition-all cursor-pointer touch-manipulation shadow-md ${
+                            isWrong
+                              ? "bg-rose-500/10 border-rose-500/40 text-rose-400 line-through opacity-60 cursor-not-allowed"
+                              : "bg-white/95 dark:bg-stone-900/95 border-stone-200 dark:border-stone-800 hover:border-amber-500 hover:bg-amber-500/10 active:scale-[0.98] text-stone-900 dark:text-white"
+                          } disabled:cursor-not-allowed disabled:active:scale-100`}
+                        >
+                          <span
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-inner ${
+                              isWrong
+                                ? "bg-rose-500 text-white"
+                                : "bg-amber-500 text-stone-950"
                             }`}
                           >
-                            <div className="truncate pr-2">
-                              <div className="font-semibold truncate">{song.title}</div>
-                              <div
-                                className={`text-xs truncate ${
-                                  isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
-                                }`}
-                              >
-                                {song.artist}
-                              </div>
-                            </div>
-                            <span
-                              className={`text-[11px] px-2 py-0.5 rounded-full uppercase font-medium shrink-0 ${
+                            {isWrong ? "✕" : choiceLetter}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-sm sm:text-base truncate">{choice.title}</div>
+                            <div className="text-xs text-stone-500 dark:text-stone-400 truncate">{choice.artist}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Input form */
+                  <form onSubmit={handleDirectAnswerSubmit} className="relative space-y-3">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 lg:pl-4 flex items-center pointer-events-none text-stone-400">
+                        {answerInputMode === "autocomplete" ? (
+                          <Search className="w-5 h-5 lg:w-6 lg:h-6" />
+                        ) : (
+                          <Music className="w-5 h-5 lg:w-6 lg:h-6" />
+                        )}
+                      </div>
+
+                      <input
+                        ref={directInputRef}
+                        type="text"
+                        value={directAnswer}
+                        onChange={(e) => {
+                          setDirectAnswer(e.target.value);
+                          setHighlightedIndex(-1);
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => {
+                          setTimeout(() => setShowSuggestions(false), 200);
+                        }}
+                        onKeyDown={handleDirectInputKeyDown}
+                        disabled={isExcludedFromBuzz || isSubmittingAnswer || status !== "question_active"}
+                        placeholder={
+                          isExcludedFromBuzz
+                            ? "คุณหมดสิทธิ์ตอบในข้อนี้แล้ว"
+                            : answerInputMode === "autocomplete"
+                            ? "พิมพ์ชื่อเพลง ศิลปิน หรือคำร้อง..."
+                            : "พิมพ์ชื่อเพลงที่คิดว่าใช่..."
+                        }
+                        autoComplete="off"
+                        className="w-full min-h-[48px] lg:min-h-[54px] pl-11 lg:pl-12 pr-4 py-3 bg-stone-50 dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base lg:text-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
+                      />
+                    </div>
+
+                    {/* Autocomplete Dropdown List */}
+                    {answerInputMode === "autocomplete" && showSuggestions && directSuggestions.length > 0 && !isExcludedFromBuzz && (
+                      <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
+                        {directSuggestions.map((song, idx) => {
+                          const isHighlighted = idx === highlightedIndex;
+                          return (
+                            <button
+                              key={song.id || idx}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleSelectSuggestion(song.title);
+                              }}
+                              className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between text-sm lg:text-base transition cursor-pointer ${
                                 isHighlighted
-                                  ? "bg-stone-950/20 text-stone-950"
-                                  : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+                                  ? "bg-amber-500 text-stone-950 font-bold"
+                                  : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
                               }`}
                             >
-                              เลือก
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={
-                      !directAnswer.trim() ||
-                      isExcludedFromBuzz ||
-                      isSubmittingAnswer ||
-                      status !== "question_active"
-                    }
-                    className="w-full min-h-[46px] lg:min-h-[52px] py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-stone-950 font-bold text-base lg:text-lg shadow-md shadow-amber-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500 touch-manipulation"
-                  >
-                    {isSubmittingAnswer ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>กำลังตรวจสอบ...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-5 h-5" />
-                        <span>ส่งคำตอบ</span>
-                      </>
+                              <div className="truncate pr-2">
+                                <div className="font-semibold truncate">{song.title}</div>
+                                <div
+                                  className={`text-xs truncate ${
+                                    isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
+                                  }`}
+                                >
+                                  {song.artist}
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[11px] px-2 py-0.5 rounded-full uppercase font-medium shrink-0 ${
+                                  isHighlighted
+                                    ? "bg-stone-950/20 text-stone-950"
+                                    : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+                                }`}
+                              >
+                                เลือก
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
-                  </button>
-                </form>
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={
+                        !directAnswer.trim() ||
+                        isExcludedFromBuzz ||
+                        isSubmittingAnswer ||
+                        status !== "question_active"
+                      }
+                      className="w-full min-h-[46px] lg:min-h-[52px] py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-stone-950 font-bold text-base lg:text-lg shadow-md shadow-amber-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500 touch-manipulation"
+                    >
+                      {isSubmittingAnswer ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>กำลังตรวจสอบ...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" />
+                          <span>ส่งคำตอบ</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
               </div>
             ) : (
               /* Giant Circular Buzzer Button */
@@ -706,6 +807,7 @@ export function GameView({
         isOpen={Boolean(gameMode === "buzzer" && isMyBuzz && status === "buzzed")}
         onSubmitAnswer={handleSubmitAnswer}
         inputMode={answerInputMode}
+        choices={activeQuestion?.choices}
         songLibrary={songLibrary}
         isSubmitting={isSubmittingAnswer}
         timeRemainingSec={room?.settings?.roundTimeoutSec ?? 15}

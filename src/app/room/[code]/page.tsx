@@ -532,7 +532,13 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   }
 
   // question_active, buzzed, revealing
-  return <GameView roomRealtime={roomRealtime} onLeaveRoom={handleLeave} />;
+  return (
+    <GameView
+      roomRealtime={roomRealtime}
+      onLeaveRoom={handleLeave}
+      onSkipRound={roomRealtime.skipRound}
+    />
+  );
 }
 
 /**
