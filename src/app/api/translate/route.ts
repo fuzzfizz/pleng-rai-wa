@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       success: true,
       original: text,
       translated,
+      translation: translated,
     });
   } catch (error) {
     console.error("[TranslateAPI] Error:", error);

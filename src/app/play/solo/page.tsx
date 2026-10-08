@@ -557,8 +557,8 @@ function SoloPlayContent() {
       .then((res) => res.json())
       .then((data) => {
         if (!isMounted) return;
-        if (data.success && data.translation) {
-          setTranslatedLyrics(data.translation);
+        if (data.success && (data.translation || data.translated)) {
+          setTranslatedLyrics(data.translation || data.translated);
         } else {
           setTranslatedLyrics(sourceText);
         }
