@@ -858,6 +858,17 @@ export function useRoomRealtime(
     [cleanCode, state.myPlayer]
   );
 
+  // Host automatically syncs live presence player count to DB room settings
+  const lastSyncedCountRef = useRef<number>(0);
+  useEffect(() => {
+    if (!state.isHost || !cleanCode || state.players.length === 0) return;
+    const currentCount = state.players.length;
+    if (lastSyncedCountRef.current === currentCount) return;
+
+    lastSyncedCountRef.current = currentCount;
+    updateSettings({ playerCount: currentCount }).catch(() => {});
+  }, [state.isHost, cleanCode, state.players.length, updateSettings]);
+
   // Action: transferHost
   const transferHost = useCallback(
     async (newHostPlayerId: string): Promise<boolean> => {

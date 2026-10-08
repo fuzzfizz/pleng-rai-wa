@@ -208,8 +208,8 @@ export function ActiveRoomsTable() {
             <h2 className="text-lg lg:text-xl font-black text-stone-900 dark:text-white flex items-center gap-2">
               <span>ห้องที่กำลังเปิดเล่นอยู่ (Active Rooms)</span>
               {rooms.length > 0 && (
-                <span className="text-xs bg-amber-500 text-stone-950 font-bold px-2 py-0.5 rounded-full font-mono">
-                  {rooms.length}
+                <span className="text-xs bg-amber-500 text-stone-950 font-bold px-2.5 py-0.5 rounded-full font-mono">
+                  {rooms.length} ห้อง
                 </span>
               )}
             </h2>
@@ -250,98 +250,184 @@ export function ActiveRoomsTable() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 text-xs font-semibold bg-stone-50/50 dark:bg-stone-950/30">
-                  <th className="py-3 px-4 sm:px-5">รหัสห้อง</th>
-                  <th className="py-3 px-3 sm:px-4">หัวหน้าห้อง</th>
-                  <th className="py-3 px-3 sm:px-4">ผู้เล่น</th>
-                  <th className="py-3 px-3 sm:px-4">โหมดการเล่น</th>
-                  <th className="py-3 px-3 sm:px-4">สถานะ</th>
-                  <th className="py-3 px-4 sm:px-5 text-right">เข้าร่วม</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60">
-                {rooms.map((room) => {
-                  const isLobby = room.status === "lobby";
-                  return (
-                    <tr
-                      key={room.roomCode}
-                      className="hover:bg-amber-500/5 transition-colors group"
-                    >
-                      {/* Room Code & Lock */}
-                      <td className="py-3.5 px-4 sm:px-5 font-mono font-black text-stone-900 dark:text-stone-100">
-                        <div className="flex items-center gap-2">
-                          <span className="tracking-wider text-sm sm:text-base font-black">
-                            {room.roomCode}
-                          </span>
-                          {room.isLocked && (
-                            <span
-                              title="ห้องนี้มีรหัสผ่าน"
-                              className="text-amber-600 dark:text-amber-400 bg-amber-500/15 p-1 rounded-md"
-                            >
-                              <Lock className="w-3.5 h-3.5" />
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Host Name & Avatar */}
-                      <td className="py-3.5 px-3 sm:px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base select-none">{room.hostAvatar}</span>
-                          <span className="font-semibold text-stone-800 dark:text-stone-200 truncate max-w-[120px] sm:max-w-[160px]">
-                            {room.hostDisplayName}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Player Count */}
-                      <td className="py-3.5 px-3 sm:px-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                          <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                          <span>{room.playerCount || 1} คน</span>
+          <>
+            {/* Mobile Card View (Optimized for phones - zero horizontal overflow) */}
+            <div className="sm:hidden divide-y divide-stone-100 dark:divide-stone-800/80">
+              {rooms.map((room) => {
+                const isLobby = room.status === "lobby";
+                return (
+                  <div
+                    key={room.roomCode}
+                    className="p-4 flex flex-col gap-3 hover:bg-amber-500/5 transition-colors"
+                  >
+                    {/* Top row: Room Code & Status */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-base font-black tracking-wider text-stone-900 dark:text-white">
+                          {room.roomCode}
                         </span>
-                      </td>
-
-                      {/* Game Mode */}
-                      <td className="py-3.5 px-3 sm:px-4">
-                        {getModeBadge(room.gameMode)}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3.5 px-3 sm:px-4">
-                        {isLobby ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>รอผู้เล่น (Lobby)</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                            <span className="w-2 h-2 rounded-full bg-amber-500" />
-                            <span>กำลังเล่นอยู่</span>
+                        {room.isLocked && (
+                          <span
+                            title="ห้องนี้มีรหัสผ่าน"
+                            className="text-amber-600 dark:text-amber-400 bg-amber-500/15 p-1 rounded-md"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
                           </span>
                         )}
-                      </td>
+                      </div>
 
-                      {/* Action Button */}
-                      <td className="py-3.5 px-4 sm:px-5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenJoin(room)}
-                          className="min-h-[38px] px-3.5 py-1.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <span>เข้าเล่น</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {isLobby ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>รอผู้เล่น (Lobby)</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          <span>กำลังเล่นอยู่</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Middle row: Host & Player Count Highlight */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-lg select-none shrink-0">{room.hostAvatar}</span>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-stone-800 dark:text-stone-200 truncate">
+                            {room.hostDisplayName}
+                          </div>
+                          <div className="text-[10px] text-stone-400 dark:text-stone-500">
+                            หัวหน้าห้อง
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Prominent Player Count Pill on Mobile */}
+                      <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/35 shadow-xs">
+                        <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span>{room.playerCount || 1} คนในห้อง</span>
+                      </span>
+                    </div>
+
+                    {/* Bottom row: Mode badge & Join CTA */}
+                    <div className="flex items-center justify-between pt-1 border-t border-stone-100/60 dark:border-stone-800/40">
+                      <div>{getModeBadge(room.gameMode)}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenJoin(room)}
+                        className="min-h-[44px] px-4 py-2 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>เข้าเล่น</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (sm+) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 text-xs font-semibold bg-stone-50/50 dark:bg-stone-950/30">
+                    <th className="py-3 px-4 sm:px-5">รหัสห้อง</th>
+                    <th className="py-3 px-3 sm:px-4">หัวหน้าห้อง</th>
+                    <th className="py-3 px-3 sm:px-4 text-amber-700 dark:text-amber-300 font-bold bg-amber-500/5">
+                      👥 ผู้เล่นในห้อง
+                    </th>
+                    <th className="py-3 px-3 sm:px-4">โหมดการเล่น</th>
+                    <th className="py-3 px-3 sm:px-4">สถานะ</th>
+                    <th className="py-3 px-4 sm:px-5 text-right">เข้าร่วม</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60">
+                  {rooms.map((room) => {
+                    const isLobby = room.status === "lobby";
+                    return (
+                      <tr
+                        key={room.roomCode}
+                        className="hover:bg-amber-500/5 transition-colors group"
+                      >
+                        {/* Room Code & Lock */}
+                        <td className="py-3.5 px-4 sm:px-5 font-mono font-black text-stone-900 dark:text-stone-100">
+                          <div className="flex items-center gap-2">
+                            <span className="tracking-wider text-sm sm:text-base font-black">
+                              {room.roomCode}
+                            </span>
+                            {room.isLocked && (
+                              <span
+                                title="ห้องนี้มีรหัสผ่าน"
+                                className="text-amber-600 dark:text-amber-400 bg-amber-500/15 p-1 rounded-md"
+                              >
+                                <Lock className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Host Name & Avatar */}
+                        <td className="py-3.5 px-3 sm:px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base select-none">{room.hostAvatar}</span>
+                            <div>
+                              <div className="font-semibold text-stone-800 dark:text-stone-200 truncate max-w-[120px] sm:max-w-[160px]">
+                                {room.hostDisplayName}
+                              </div>
+                              <div className="text-[11px] text-stone-400 dark:text-stone-500">
+                                หัวหน้าห้อง
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Player Count */}
+                        <td className="py-3.5 px-3 sm:px-4 bg-amber-500/5">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/35 shadow-xs">
+                            <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            <span>{room.playerCount || 1} คน</span>
+                          </span>
+                        </td>
+
+                        {/* Game Mode */}
+                        <td className="py-3.5 px-3 sm:px-4">
+                          {getModeBadge(room.gameMode)}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-3 sm:px-4">
+                          {isLobby ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>รอผู้เล่น (Lobby)</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                              <span className="w-2 h-2 rounded-full bg-amber-500" />
+                              <span>กำลังเล่นอยู่</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Action Button */}
+                        <td className="py-3.5 px-4 sm:px-5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenJoin(room)}
+                            className="min-h-[38px] px-3.5 py-1.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>เข้าเล่น</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
