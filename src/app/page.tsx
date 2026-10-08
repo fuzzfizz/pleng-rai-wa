@@ -7,6 +7,7 @@
 // ==========================================
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -70,8 +71,10 @@ export default function HomePage() {
 
   // 3D Vinyl Interactive state
   const [isVinylPlaying, setIsVinylPlaying] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const last = getLastRoomCode();
     if (last && isValidRoomCode(last)) {
       setLastRoomCode(last);
@@ -338,8 +341,8 @@ export default function HomePage() {
       {/* ======================================================== */}
       {/* CREATE ROOM MODAL                                        */}
       {/* ======================================================== */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-md animate-in fade-in duration-200">
+      {isMounted && isCreateModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-md animate-in fade-in duration-200">
           <div
             className="w-full max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-in zoom-in-95 duration-200"
             role="dialog"
@@ -490,7 +493,8 @@ export default function HomePage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </main>
   );

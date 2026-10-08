@@ -7,6 +7,7 @@
 // ==========================================
 
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -47,6 +48,11 @@ export function ActiveRoomsTable() {
   const [rooms, setRooms] = useState<ActiveRoomItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Password / Quick Join Modal State
   const [joiningRoom, setJoiningRoom] = useState<ActiveRoomItem | null>(null);
@@ -427,8 +433,8 @@ export function ActiveRoomsTable() {
       {/* ======================================================== */}
       {/* JOIN ROOM MODAL (With Password prompt if locked)         */}
       {/* ======================================================== */}
-      {joiningRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-md animate-in fade-in duration-200">
+      {isMounted && joiningRoom && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-md animate-in fade-in duration-200">
           <div
             className="w-full max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-7 shadow-2xl relative animate-in zoom-in-95 duration-200"
             role="dialog"
@@ -539,7 +545,8 @@ export function ActiveRoomsTable() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
