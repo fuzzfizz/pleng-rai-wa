@@ -10,7 +10,7 @@ import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { isValidRoomCode } from "@/lib/room-code";
 import { translateThaiToEnglishLiteral } from "@/lib/translate";
-import type { RoomSettings, Song } from "@/types";
+import type { RoomSettings, Song, ChoiceOption } from "@/types";
 
 export async function POST(
   request: NextRequest,
@@ -182,6 +182,55 @@ export async function POST(
       lyrics = await translateThaiToEnglishLiteral(rawThai);
     }
 
+    // Decoy choices generation for multiple-choice mode
+    let choices: ChoiceOption[] | undefined = undefined;
+    if (settings.answerInputMode === "multiple-choice") {
+      let decoys: Song[] = [];
+      try {
+        decoys = await SongService.getRandomSongs(3, {
+          genreId: filterGenreId,
+          era: filterEra,
+          artist: filterArtist,
+          yearStart: filterYearStart,
+          yearEnd: filterYearEnd,
+          playlistId: filterPlaylistId,
+          excludeIds: [song.id, ...playedSongIds],
+        });
+      } catch (err) {
+        console.warn("Failed to fetch filtered decoys, falling back to general pool", err);
+      }
+
+      if (decoys.length < 3) {
+        const needed = 3 - decoys.length;
+        const existingIds = [song.id, ...playedSongIds, ...decoys.map((d) => d.id)];
+        try {
+          const fallbackDecoys = await SongService.getRandomSongs(needed, {
+            excludeIds: existingIds,
+          });
+          decoys = [...decoys, ...fallbackDecoys];
+        } catch (fallbackErr) {
+          console.warn("Failed to fetch fallback decoys", fallbackErr);
+        }
+      }
+
+      const rawChoices = [
+        { realId: song.id, title: song.title, artist: song.artist },
+        ...decoys.map((d) => ({ realId: d.id, title: d.title, artist: d.artist })),
+      ];
+
+      // Fisher-Yates shuffle
+      for (let i = rawChoices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rawChoices[i], rawChoices[j]] = [rawChoices[j], rawChoices[i]];
+      }
+
+      choices = rawChoices.map((c, idx) => ({
+        id: `choice_${idx}`,
+        title: c.title,
+        artist: c.artist,
+      }));
+    }
+
     // Initialize round in authoritative memory store
     const roundState = RoomStateStore.initRound(
       cleanCode,
@@ -194,6 +243,7 @@ export async function POST(
         sliceStartSec: startSec,
         sliceDurationSec: durationSec,
         lyrics,
+        choices,
       }
     );
 
@@ -214,6 +264,7 @@ export async function POST(
       sliceUrl,
       durationSec,
       lyrics,
+      choices,
       startedAt: roundState.startedAt,
     };
 
@@ -232,6 +283,7 @@ export async function POST(
       sliceUrl,
       durationSec,
       lyrics,
+      choices,
       startedAt: roundState.startedAt,
     });
   } catch (error) {

@@ -79,13 +79,13 @@ export async function POST(
       );
     }
 
-    // Verify that the caller is the current active buzzer holder OR direct answering in ai-lyrics mode
+    // Verify that the caller is the current active buzzer holder OR direct answering in non-buzzer modes
     const currentRoundState = RoomStateStore.getRoomRoundState(cleanCode);
     const isBuzzerHolder =
       currentRoundState?.roundStatus === "buzzed" &&
       currentRoundState?.buzzedPlayerId === cleanPlayerId;
     const isDirectAnswerAllowed =
-      (room.settings.gameMode === "ai-lyrics" || room.settings.gameMode === "translated-lyrics") &&
+      room.settings.gameMode !== "buzzer" &&
       currentRoundState?.roundStatus === "question_active";
 
     if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed)) {
