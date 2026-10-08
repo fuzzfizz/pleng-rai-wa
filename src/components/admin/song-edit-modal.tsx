@@ -915,3 +915,5 @@ export function SongEditModal({
     document.body
   );
 }
+
+export default SongEditModal;

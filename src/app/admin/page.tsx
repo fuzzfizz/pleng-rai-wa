@@ -26,6 +26,7 @@ import {
   Layers,
   Disc3,
   Check,
+  Pencil,
 } from "lucide-react";
 import { Genre, Song } from "@/types";
 import {
@@ -33,6 +34,7 @@ import {
   BatchDiscographyResult,
   BatchExtractedSongItem,
 } from "@/lib/ai-extractor";
+import SongEditModal from "@/components/admin/song-edit-modal";
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<"import" | "batch" | "library" | "settings">("import");
@@ -105,6 +107,7 @@ export default function AdminPage() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [playingSongId, setPlayingSongId] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
 
   // Room Cleanup State
   const [isCleaningRooms, setIsCleaningRooms] = useState(false);
@@ -1554,6 +1557,16 @@ export default function AdminPage() {
                       )}
 
                       <button
+                        type="button"
+                        onClick={() => setEditingSong(song)}
+                        className="min-h-[36px] px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        title="แก้ไขข้อมูลเพลง"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400" />
+                        <span>แก้ไข</span>
+                      </button>
+
+                      <button
                         onClick={() => handleDeleteSong(song.id, song.title)}
                         className="min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 p-2 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
                         title="ลบเพลง"
@@ -1723,6 +1736,23 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Song Edit Modal */}
+      {editingSong && (
+        <SongEditModal
+          isOpen={Boolean(editingSong)}
+          song={editingSong}
+          genres={genres}
+          apiKey={customApiKey || undefined}
+          onClose={() => setEditingSong(null)}
+          onSaved={(updatedSong) => {
+            setSongs((prev) =>
+              prev.map((s) => (s.id === updatedSong.id ? updatedSong : s))
+            );
+            setEditingSong(null);
+          }}
+        />
       )}
     </div>
   );
