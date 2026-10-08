@@ -25,11 +25,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { roomCode, displayName, existingSessionToken, existingPlayerId } = body as {
+    const { roomCode, displayName, existingSessionToken, existingPlayerId, password } = body as {
       roomCode?: unknown;
       displayName?: unknown;
       existingSessionToken?: string;
       existingPlayerId?: string;
+      password?: string;
     };
 
     if (
@@ -74,6 +75,27 @@ export async function POST(req: NextRequest) {
         { success: false, error: "เกมในห้องนี้จบลงแล้ว" },
         { status: 400 }
       );
+    }
+
+    // Verify room password if room is locked and user is not existing host
+    const roomSettings = (room.settings as any) || {};
+    const expectedPassword = roomSettings.password ? String(roomSettings.password).trim() : "";
+    const isExistingHost =
+      typeof existingSessionToken === "string" &&
+      existingSessionToken.trim() === room.host_player_id;
+
+    if (expectedPassword && !isExistingHost) {
+      const providedPassword = typeof password === "string" ? password.trim() : "";
+      if (providedPassword !== expectedPassword) {
+        return NextResponse.json(
+          {
+            success: false,
+            isLocked: true,
+            error: "รหัสผ่านห้องไม่ถูกต้อง (กรุณากรอกรหัสผ่านของห้องนี้)",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const sessionToken =

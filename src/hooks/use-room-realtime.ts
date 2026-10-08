@@ -69,6 +69,7 @@ export interface RoomRealtimeState {
   lastWrongGuess: WrongGuessRecord | null;
   wrongGuesses: WrongGuessRecord[];
   scores: Record<string, number>;
+  revealedHints: { genre?: string; year?: string; artist?: string; level: number };
   isConnected: boolean;
   isAudioPlaying: boolean;
   error: string | null;
@@ -161,6 +162,7 @@ export function createInitialRoomRealtimeState(
     lastWrongGuess: null,
     wrongGuesses: [],
     scores: {},
+    revealedHints: { level: 0 },
     isConnected: false,
     isAudioPlaying: false,
     error: null,
@@ -207,6 +209,9 @@ export function reduceRoomRealtimeEvent(
       }
       if (typeof r.current_round === "number") {
         nextState.currentRound = r.current_round;
+      }
+      if (r.revealedHints || r.roundState?.revealedHints) {
+        nextState.revealedHints = r.revealedHints || r.roundState?.revealedHints;
       }
       break;
     }
@@ -280,6 +285,7 @@ export function reduceRoomRealtimeEvent(
           nextState.lastWrongGuess = null;
           nextState.revealedSong = null;
           nextState.roundWinner = null;
+          nextState.revealedHints = { level: 0 };
           nextState.isAudioPlaying = true;
           break;
         }
@@ -414,6 +420,23 @@ export function reduceRoomRealtimeEvent(
               };
             }
           }
+          break;
+        }
+
+        case "hint_revealed": {
+          if (shouldPlay) {
+            try {
+              sfx.click();
+            } catch {}
+          }
+          const { level, hintType, hintText } = payload || {};
+          const currentHints = nextState.revealedHints || { level: 0 };
+          const updatedHints = {
+            ...currentHints,
+            level: typeof level === "number" ? level : (currentHints.level || 0) + 1,
+            ...(hintType && hintText ? { [hintType]: hintText } : {}),
+          };
+          nextState.revealedHints = updatedHints;
           break;
         }
 
@@ -651,6 +674,9 @@ export function useRoomRealtime(
       })
       .on("broadcast", { event: "room_state" }, ({ payload }) => {
         handleBroadcast("room_state", payload);
+      })
+      .on("broadcast", { event: "hint_revealed" }, ({ payload }) => {
+        handleBroadcast("hint_revealed", payload);
       });
 
     channel.subscribe(async (status) => {
@@ -897,6 +923,29 @@ export function useRoomRealtime(
     }
   }, [cleanCode, refetchState, state.myPlayer]);
 
+  // Action: requestHint
+  const requestHint = useCallback(async (): Promise<{
+    success: boolean;
+    level?: number;
+    error?: string;
+  }> => {
+    if (!state.myPlayer) return { success: false, error: "no_player" };
+    try {
+      const res = await fetch(`/api/room/${cleanCode}/hint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: state.myPlayer.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || "Failed to reveal hint" };
+      }
+      return { success: true, level: data.level };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "network_error" };
+    }
+  }, [cleanCode, state.myPlayer]);
+
   // Audio helpers
   const playAudio = useCallback(() => {
     dispatch({ type: "set_audio_playing", isPlaying: true });
@@ -922,6 +971,7 @@ export function useRoomRealtime(
     setReady,
     updateSettings,
     transferHost,
+    requestHint,
     playAudio,
     pauseAudio,
     toggleMute,

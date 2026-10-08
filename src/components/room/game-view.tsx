@@ -20,6 +20,10 @@ import {
   Search,
   Send,
   Loader2,
+  Lightbulb,
+  Tag,
+  Calendar,
+  UserCheck,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
 import type { Song, GameMode } from "@/types";
@@ -46,6 +50,8 @@ export function getGameModeLabel(mode: GameMode): string {
       return "โหมด แย่งกดกริ่ง";
     case "ai-lyrics":
       return "โหมด AI อ่านเนื้อเพลง";
+    case "translated-lyrics":
+      return "โหมด แปลไทย-อังกฤษ (Google Karaoke)";
     case "audio-slice":
     default:
       return "โหมด ตัดเสียงเสี้ยววินาที";
@@ -76,24 +82,38 @@ export function GameView({
     isHost,
     isMuted,
     isAudioPlaying,
+    revealedHints,
     buzz,
     submitAnswer,
     nextRound,
+    requestHint,
     toggleMute,
   } = roomRealtime;
 
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [isBuzzing, setIsBuzzing] = useState(false);
+  const [isRequestingHint, setIsRequestingHint] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleRequestHint = useCallback(async () => {
+    if (isRequestingHint) return;
+    setIsRequestingHint(true);
+    try {
+      await requestHint();
+    } finally {
+      setIsRequestingHint(false);
+    }
+  }, [isRequestingHint, requestHint]);
 
   // 1. Audio / TTS Playback Orchestration
   useEffect(() => {
-    // Mode: AI Lyrics
-    if (gameMode === "ai-lyrics") {
+    // Mode: AI Lyrics or Translated Lyrics
+    if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
       if (status === "question_active" && activeQuestion?.lyrics) {
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
+          lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
         });
       } else {
         ttsReader.stopSpeaking();
@@ -123,9 +143,9 @@ export function GameView({
     };
   }, []);
 
-  // Handle buzzer press with in-flight guard (disabled in AI lyrics mode)
+  // Handle buzzer press with in-flight guard (disabled in lyrics modes)
   const handleBuzzPress = useCallback(async () => {
-    if (gameMode === "ai-lyrics" || isBuzzing) return;
+    if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics" || isBuzzing) return;
     setIsBuzzing(true);
     try {
       await buzz();
@@ -372,11 +392,15 @@ export function GameView({
           <div className="w-full flex flex-col items-center justify-center gap-4">
             {/* Audio Wave / Lyrics Reading Visualization */}
             <div className="flex flex-col items-center gap-2 my-2 text-center">
-              {gameMode === "ai-lyrics" ? (
+              {gameMode === "ai-lyrics" || gameMode === "translated-lyrics" ? (
                 <div className="max-w-lg lg:max-w-2xl p-4 lg:p-6 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-amber-500/40 shadow-lg text-amber-800 dark:text-amber-200">
                   <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
                     <Radio className="w-4 h-4 animate-pulse text-amber-500" />
-                    <span>AI กำลังอ่านท่อนเนื้อเพลง</span>
+                    <span>
+                      {gameMode === "translated-lyrics"
+                        ? "🌐 Google Translate Karaoke (เนื้อเพลงแปลอังกฤษ)"
+                        : "AI กำลังอ่านท่อนเนื้อเพลง"}
+                    </span>
                   </div>
                   <p className="text-base sm:text-lg lg:text-2xl font-semibold italic text-stone-900 dark:text-white drop-shadow">
                     &ldquo;{activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}&rdquo;
@@ -406,7 +430,66 @@ export function GameView({
               )}
             </div>
 
-            {gameMode === "ai-lyrics" ? (
+            {/* Progressive Hint Bar & Host Trigger */}
+            <div className="w-full max-w-lg lg:max-w-2xl flex flex-col items-center gap-2">
+              {/* Revealed Hints Badges */}
+              {(revealedHints?.genre || revealedHints?.year || revealedHints?.artist) && (
+                <div className="flex flex-wrap items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+                  {revealedHints.genre && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
+                      <Tag className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>แนวเพลง: {revealedHints.genre}</span>
+                    </span>
+                  )}
+                  {revealedHints.year && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/15 border border-blue-500/30 text-blue-800 dark:text-blue-300">
+                      <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                      <span>{revealedHints.year}</span>
+                    </span>
+                  )}
+                  {revealedHints.artist && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-300">
+                      <UserCheck className="w-3.5 h-3.5 text-purple-500" />
+                      <span>ศิลปิน: {revealedHints.artist}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Points Available & Host Hint Action */}
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] sm:text-xs font-bold text-stone-500 dark:text-stone-400">
+                  คะแนนตอบถูกรอบนี้:{" "}
+                  <span className="text-amber-500 font-extrabold font-mono text-xs sm:text-sm">
+                    {(revealedHints?.level || 0) === 0
+                      ? "+100"
+                      : (revealedHints?.level || 0) === 1
+                      ? "+75"
+                      : (revealedHints?.level || 0) === 2
+                      ? "+50"
+                      : "+25"}
+                  </span>
+                </span>
+
+                {isHost && (revealedHints?.level || 0) < 3 && status === "question_active" && (
+                  <button
+                    type="button"
+                    onClick={handleRequestHint}
+                    disabled={isRequestingHint}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 transition cursor-pointer disabled:opacity-50 touch-manipulation"
+                  >
+                    {isRequestingHint ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+                    )}
+                    <span>ขอคำใบ้ (ขั้นที่ {(revealedHints?.level || 0) + 1}/3)</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {gameMode === "ai-lyrics" || gameMode === "translated-lyrics" ? (
               <div className="w-full max-w-lg lg:max-w-2xl bg-white/95 dark:bg-stone-900/95 border-2 border-amber-500/50 rounded-3xl p-5 sm:p-6 lg:p-7 shadow-xl flex flex-col gap-3.5 animate-in fade-in zoom-in-95 duration-200">
                 {/* Instructions cue */}
                 <p className="text-xs lg:text-sm font-semibold text-amber-700 dark:text-amber-300/90 text-center flex items-center justify-center gap-1.5">
@@ -600,7 +683,7 @@ export function GameView({
       {/* ANSWER MODAL: Opened when current player buzzes      */}
       {/* ==================================================== */}
       <AnswerModal
-        isOpen={Boolean(gameMode !== "ai-lyrics" && isMyBuzz && status === "buzzed")}
+        isOpen={Boolean(gameMode !== "ai-lyrics" && gameMode !== "translated-lyrics" && isMyBuzz && status === "buzzed")}
         onSubmitAnswer={handleSubmitAnswer}
         inputMode={answerInputMode}
         songLibrary={songLibrary}
@@ -615,7 +698,7 @@ export function GameView({
         <p>
           ห้อง: <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{roomCode}</span> •{" "}
           {status === "question_active"
-            ? gameMode === "ai-lyrics"
+            ? gameMode === "ai-lyrics" || gameMode === "translated-lyrics"
               ? "พิมพ์ชื่อเพลงและส่งคำตอบได้ทันที ใครตอบถูกคนแรกชนะ!"
               : "แตะกริ่งหรือกด Spacebar เพื่อแย่งตอบ"
             : status === "buzzed"

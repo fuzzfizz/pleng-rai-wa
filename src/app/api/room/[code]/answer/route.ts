@@ -85,7 +85,7 @@ export async function POST(
       currentRoundState?.roundStatus === "buzzed" &&
       currentRoundState?.buzzedPlayerId === cleanPlayerId;
     const isDirectAnswerAllowed =
-      room.settings.gameMode === "ai-lyrics" &&
+      (room.settings.gameMode === "ai-lyrics" || room.settings.gameMode === "translated-lyrics") &&
       currentRoundState?.roundStatus === "question_active";
 
     if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed)) {

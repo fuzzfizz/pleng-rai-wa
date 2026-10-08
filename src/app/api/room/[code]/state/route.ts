@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
+import { RoomStateStore, sanitizeRoundState } from "@/lib/room-state-store";
 import { isValidRoomCode } from "@/lib/room-code";
 
 /**
@@ -13,6 +14,13 @@ import { isValidRoomCode } from "@/lib/room-code";
 export function sanitizeRoomState(room: any): any {
   if (!room) return room;
   const sanitized = JSON.parse(JSON.stringify(room));
+
+  if (sanitized.settings && typeof sanitized.settings === "object") {
+    sanitized.settings.isLocked = Boolean(
+      sanitized.settings.password && String(sanitized.settings.password).trim().length > 0
+    );
+    delete sanitized.settings.password;
+  }
 
   if (sanitized.status !== "revealing" && sanitized.status !== "game_over") {
     sanitized.current_song_id = null;
@@ -78,6 +86,16 @@ export async function GET(
     }
 
     const sanitizedRoom = sanitizeRoomState(room);
+    const roundState = RoomStateStore.getRoomRoundState(cleanCode);
+    if (roundState) {
+      sanitizedRoom.roundState = sanitizeRoundState(roundState);
+      if (roundState.revealedHints) {
+        sanitizedRoom.revealedHints = roundState.revealedHints;
+      }
+      if (roundState.revealedHintLevel !== undefined) {
+        sanitizedRoom.revealedHintLevel = roundState.revealedHintLevel;
+      }
+    }
 
     return NextResponse.json({
       success: true,

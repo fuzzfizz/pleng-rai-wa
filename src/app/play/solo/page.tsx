@@ -23,6 +23,11 @@ import {
   Loader2,
   Disc3,
   Filter,
+  Lightbulb,
+  Tag,
+  Calendar,
+  UserCheck,
+  Languages,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { Song, GameMode, AnswerInputMode, Playlist, SongFilterConfig } from "@/types";
@@ -45,13 +50,13 @@ import { SongSourceModal, getSongFilterLabel } from "@/components/common/song-so
 // Built-in seed songs for immediate offline play
 const DEMO_SONGS: Song[] = [
   {
-    id: "demo-1",
+    id: "3c1e4d89-a37e-4eff-9cbe-cdc08ebb6a57",
     title: "วัดใจ",
     artist: "Silly Fools",
     aliases: ["wat jai", "watjai", "วัดจัย", "มีแค่ใจดวงเดียวดวงนี้", "เพลงวัดใจ"],
     releaseYear: 2004,
     era: "2000s",
-    audioUrl: "/audio/uploads/demo-1.mp3",
+    audioUrl: "https://pub-5d7ceb85b5354c3f916539f58a320c3a.r2.dev/songs/3c1e4d89-a37e-4eff-9cbe-cdc08ebb6a57/full.mp3",
     hookStartSec: 68,
     hookEndSec: 94,
     durationSec: 260,
@@ -59,13 +64,13 @@ const DEMO_SONGS: Song[] = [
     lyricsChorus: "มีแค่ใจดวงเดียวดวงนี้ จะทุ่มเทให้ถึงที่สุด จะล้มกี่ครั้งก็ไม่เคยหยุด จะไปให้สุดขอบฟ้า",
   },
   {
-    id: "demo-2",
+    id: "f077a3de-8057-4508-932a-d566f34227bd",
     title: "ซ่อนกลิ่น",
     artist: "Palmy",
     aliases: ["son klin", "sorn klin", "คงไว้ได้แค่กลิ่น", "ปาล์มมี่ ซ่อนกลิ่น", "เพลงซ่อนกลิ่น"],
     releaseYear: 2018,
     era: "2010s",
-    audioUrl: "/audio/uploads/demo-2.mp3",
+    audioUrl: "https://pub-5d7ceb85b5354c3f916539f58a320c3a.r2.dev/songs/f077a3de-8057-4508-932a-d566f34227bd/full.mp3",
     hookStartSec: 65,
     hookEndSec: 90,
     durationSec: 250,
@@ -73,13 +78,13 @@ const DEMO_SONGS: Song[] = [
     lyricsChorus: "คงไว้ได้แค่กลิ่นที่ไม่เคยเลือนลา ยังหอมดังวันเก่ายามเมื่อลมพัดมา",
   },
   {
-    id: "demo-3",
+    id: "d9bc9f47-626c-4141-9a4b-b3d3aa428012",
     title: "ขอบคุณที่รักกัน",
     artist: "Potato",
     aliases: ["kob koon tee ruk gun", "ขอบคุนที่รักกัน", "เพลงขอบคุณที่รักกัน"],
     releaseYear: 2006,
     era: "2000s",
-    audioUrl: "/audio/uploads/demo-3.mp3",
+    audioUrl: "https://pub-5d7ceb85b5354c3f916539f58a320c3a.r2.dev/songs/d9bc9f47-626c-4141-9a4b-b3d3aa428012/full.mp3",
     hookStartSec: 72,
     hookEndSec: 98,
     durationSec: 245,
@@ -100,7 +105,7 @@ function SoloPlayContent() {
   const [selectedFilter, setSelectedFilter] = useState<SongFilterConfig>({ type: "all" });
   const [isSongSourceModalOpen, setIsSongSourceModalOpen] = useState<boolean>(false);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(true);
-  const [isLoadingSongs, setIsLoadingSongs] = useState<boolean>(false);
+  const [isLoadingSongs, setIsLoadingSongs] = useState<boolean>(true);
   const [playlistNotice, setPlaylistNotice] = useState<string | null>(null);
   const defaultLibrarySongsRef = useRef<Song[]>(DEMO_SONGS);
 
@@ -116,17 +121,20 @@ function SoloPlayContent() {
   // Gameplay State
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [hintLevel, setHintLevel] = useState<number>(0);
   const [isRevealed, setIsRevealed] = useState(false);
   const [userGuess, setUserGuess] = useState("");
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Song[]>([]);
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; message: string } | null>(null);
 
-  // Audio / Buzzer State
+  // Audio / Buzzer / AI Lyrics State
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isBuzzed, setIsBuzzed] = useState(false);
   const [buzzerCountdown, setBuzzerCountdown] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isAITalking, setIsAITalking] = useState(false);
+  const [translatedLyrics, setTranslatedLyrics] = useState<string>("");
+  const [isLoadingTranslation, setIsLoadingTranslation] = useState<boolean>(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -142,10 +150,13 @@ function SoloPlayContent() {
     setIsBuzzed(false);
     setBuzzerCountdown(null);
     setIsRevealed(false);
+    setHintLevel(0);
     setUserGuess("");
     setFeedback(null);
     setAutocompleteSuggestions([]);
     setIsAITalking(false);
+    setTranslatedLyrics("");
+    setIsLoadingTranslation(false);
   };
 
   // Initial load: library songs + playlists + optional query param playlist
@@ -164,9 +175,17 @@ function SoloPlayContent() {
         if (data.success && data.songs && data.songs.length > 0) {
           librarySongs = data.songs;
           defaultLibrarySongsRef.current = data.songs;
+          if (isMounted && !queryPlaylistId?.trim()) {
+            setSongsPool(data.songs);
+            setIsLoadingSongs(false);
+          }
         }
       } catch {
         // Fallback to DEMO_SONGS
+      } finally {
+        if (isMounted && !queryPlaylistId?.trim()) {
+          setIsLoadingSongs(false);
+        }
       }
 
       // 2. Fetch playlists
@@ -244,6 +263,25 @@ function SoloPlayContent() {
       isMounted = false;
     };
   }, [user?.id, queryPlaylistId]);
+
+  // Autoplay hook audio when answer is revealed in Solo mode
+  useEffect(() => {
+    if (isRevealed && currentSong?.audioUrl) {
+      audioRef.current?.pause();
+      const audio = new Audio(currentSong.audioUrl);
+      const startSec =
+        typeof currentSong.hookStartSec === "number" && currentSong.hookStartSec > 0
+          ? currentSong.hookStartSec
+          : 0;
+      audio.currentTime = startSec;
+      audio.loop = true;
+      audioRef.current = audio;
+      setIsPlayingAudio(true);
+      audio.play().catch(() => {
+        setIsPlayingAudio(false);
+      });
+    }
+  }, [isRevealed, currentSong?.audioUrl, currentSong?.hookStartSec]);
 
   // Handler for user applying filters from SongSourceModal
   const handleApplyFilter = async (filter: SongFilterConfig) => {
@@ -383,6 +421,30 @@ function SoloPlayContent() {
 
     audio.onended = () => setIsPlayingAudio(false);
     audio.onerror = () => {
+      // Fallback: If slice route fails, play direct song audio from hook timestamp
+      if (currentSong.audioUrl && currentSong.audioUrl.startsWith("http")) {
+        try {
+          const fallbackAudio = new Audio(currentSong.audioUrl);
+          fallbackAudio.currentTime = startSec;
+          audioRef.current = fallbackAudio;
+          fallbackAudio.onended = () => setIsPlayingAudio(false);
+          fallbackAudio
+            .play()
+            .then(() => {
+              setTimeout(() => {
+                fallbackAudio.pause();
+                setIsPlayingAudio(false);
+              }, sliceDuration * 1000);
+            })
+            .catch(() => {
+              setIsPlayingAudio(false);
+              playCountdownTickSound(5);
+            });
+          return;
+        } catch {
+          // Continue to error indicator
+        }
+      }
       setIsPlayingAudio(false);
       // Play a short synth tone indicator if audio file isn't uploaded yet
       playCountdownTickSound(5);
@@ -405,8 +467,13 @@ function SoloPlayContent() {
       const audio = new Audio(currentSong.audioUrl);
       audioRef.current = audio;
       audio.onended = () => setIsPlayingAudio(false);
+      audio.onerror = () => {
+        setIsPlayingAudio(false);
+        playCountdownTickSound(3);
+      };
       audio.play().catch(() => {
         // Simulated tone if audio file is offline
+        setIsPlayingAudio(false);
         playCountdownTickSound(3);
       });
       setIsPlayingAudio(true);
@@ -465,6 +532,62 @@ function SoloPlayContent() {
     setIsAITalking(false);
   };
 
+  // Fetch translated lyrics whenever song, lyrics type or gameMode changes to translated-lyrics
+  useEffect(() => {
+    if (gameMode !== "translated-lyrics") return;
+
+    const sourceText =
+      lyricsType === "intro"
+        ? currentSong.lyricsIntro || ""
+        : currentSong.lyricsChorus || "";
+
+    if (!sourceText) {
+      setTranslatedLyrics("ไม่พบเนื้อเพลงของเพลงนี้");
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingTranslation(true);
+
+    fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: sourceText }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data.success && data.translation) {
+          setTranslatedLyrics(data.translation);
+        } else {
+          setTranslatedLyrics(sourceText);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setTranslatedLyrics(sourceText);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingTranslation(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [gameMode, currentSong.id, lyricsType, currentSong.lyricsIntro, currentSong.lyricsChorus]);
+
+  // Play Translated Lyrics in English TTS
+  const handleSpeakTranslatedLyrics = () => {
+    if (!translatedLyrics) return;
+    playClickSound();
+    setIsAITalking(true);
+    ttsReader.speakLyrics(translatedLyrics, {
+      lang: "en-US",
+      gender: voiceGender,
+      onEnd: () => setIsAITalking(false),
+      onError: () => setIsAITalking(false),
+    });
+  };
+
   // Autocomplete search
   const handleInputChange = (text: string) => {
     setUserGuess(text);
@@ -489,11 +612,12 @@ function SoloPlayContent() {
     if (result.isCorrect) {
       playCorrectSound();
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-      setScore((s) => s + 10);
+      const points = hintLevel === 0 ? 10 : hintLevel === 1 ? 7 : hintLevel === 2 ? 5 : 3;
+      setScore((s) => s + points);
       setStreak((st) => st + 1);
       setFeedback({
         isCorrect: true,
-        message: `ถูกต้อง! เพลง "${currentSong.title}" โดย ${currentSong.artist} (ตรงกับ: ${result.matchedAs})`,
+        message: `ถูกต้อง! (+${points} คะแนน) เพลง "${currentSong.title}" โดย ${currentSong.artist} (ตรงกับ: ${result.matchedAs})`,
       });
       setIsRevealed(true);
     } else {
@@ -517,6 +641,7 @@ function SoloPlayContent() {
     setIsBuzzed(false);
     setBuzzerCountdown(null);
     setIsRevealed(false);
+    setHintLevel(0);
     setUserGuess("");
     setFeedback(null);
     setAutocompleteSuggestions([]);
@@ -622,7 +747,7 @@ function SoloPlayContent() {
         )}
 
         {/* Mode Selector Tabs */}
-        <div className="grid grid-cols-3 gap-2 bg-stone-100 dark:bg-stone-900/80 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-800">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-stone-100 dark:bg-stone-900/80 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-800">
           <button
             onClick={() => {
               setGameMode("audio-slice");
@@ -662,6 +787,20 @@ function SoloPlayContent() {
           >
             <Bot className="w-3.5 h-3.5" />
             <span>AI อ่านเนื้อเพลง</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setGameMode("translated-lyrics");
+              setIsPlayingAudio(false);
+              setIsBuzzed(false);
+            }}
+            className={`min-h-[44px] lg:min-h-[50px] py-2 lg:py-2.5 px-3 lg:px-4 rounded-xl text-xs lg:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              gameMode === "translated-lyrics" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
+            }`}
+          >
+            <Languages className="w-3.5 h-3.5" />
+            <span>แปลไทย-อังกฤษ</span>
           </button>
         </div>
 
@@ -914,6 +1053,133 @@ function SoloPlayContent() {
             </div>
           )}
 
+          {/* MODE 4: Translated Lyrics (Google Translate Karaoke) */}
+          {gameMode === "translated-lyrics" && (
+            <div className="flex flex-col items-center text-center py-4 space-y-6">
+              <div>
+                <h3 className="text-xl lg:text-2xl font-bold font-serif text-stone-900 dark:text-white mb-1">
+                  🌐 โหมดแปลไทยเป็นอังกฤษ (Google Translate Karaoke)
+                </h3>
+                <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400 max-w-lg mx-auto">
+                  เนื้อเพลงไทยถูกแปลเป็นอังกฤษแบบตรงตัวคำต่อคำ (Literal Translation) ปนความกวนโอ๊ย อ่านเนื้อหรือกดฟังเสียงภาษาอังกฤษแบบสำเนียงโรบ็อตแล้วทายชื่อเพลง!
+                </p>
+              </div>
+
+              {/* Lyrics Type Switch: Intro vs Chorus */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLyricsType("intro")}
+                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
+                    lyricsType === "intro"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  🚀 ท่อนเปิด (Intro)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLyricsType("chorus")}
+                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
+                    lyricsType === "chorus"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  🎵 ท่อนฮุก (Chorus)
+                </button>
+              </div>
+
+              {/* Translated Lyrics Card */}
+              <div className="w-full max-w-xl p-5 sm:p-7 rounded-3xl bg-stone-50 dark:bg-stone-950/90 border border-amber-500/30 text-center shadow-md">
+                <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-3">
+                  <Languages className="w-4 h-4" />
+                  <span>Google Translate Literal Lyrics</span>
+                </div>
+                {isLoadingTranslation ? (
+                  <div className="flex items-center justify-center py-6 gap-2 text-stone-400 text-sm">
+                    <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
+                    <span>กำลังแปลเนื้อเพลงภาษาไทย...</span>
+                  </div>
+                ) : (
+                  <blockquote className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-serif text-stone-900 dark:text-white leading-relaxed italic">
+                    &quot;{translatedLyrics || "ไม่มีเนื้อเพลงสำหรับท่อนนี้"}&quot;
+                  </blockquote>
+                )}
+              </div>
+
+              {/* Voice Gender Switcher */}
+              <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
+                <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  โทนเสียงภาษาอังกฤษ (US English)
+                </span>
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setVoiceGender("female")}
+                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                      voiceGender === "female"
+                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    👩 หญิง (US)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceGender("male")}
+                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                      voiceGender === "male"
+                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    👨 ชาย (US)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceGender("random")}
+                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                      voiceGender === "random"
+                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    🎲 สุ่มอัตโนมัติ
+                  </button>
+                </div>
+              </div>
+
+              {/* Speak English Button */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={isAITalking ? handleStopSpeaking : handleSpeakTranslatedLyrics}
+                  disabled={isLoadingTranslation || !translatedLyrics}
+                  aria-label={isAITalking ? "หยุดพูด" : "ฟังเสียงอ่านอังกฤษ"}
+                  className={`w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
+                    isAITalking
+                      ? "bg-amber-500 text-stone-950 shadow-2xl shadow-amber-500/50 scale-105 animate-pulse"
+                      : "bg-amber-500 hover:bg-amber-400 hover:scale-105 text-stone-950 shadow-lg shadow-amber-500/25 disabled:opacity-50"
+                  }`}
+                >
+                  {isAITalking ? (
+                    <>
+                      <Square className="w-8 h-8 lg:w-10 lg:h-10 fill-stone-950 text-stone-950" />
+                      <span className="text-[11px] lg:text-xs font-bold">หยุดพูด</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-8 h-8 lg:w-10 lg:h-10 text-stone-950" />
+                      <span className="text-[11px] lg:text-xs font-bold">ฟังเสียง US</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Feedback & Song Reveal Banner */}
           {feedback && (
             <div
@@ -957,6 +1223,64 @@ function SoloPlayContent() {
         {/* Answer Input Section */}
         {!isRevealed && (
           <div className="bg-white/80 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 lg:p-8 shadow-sm dark:shadow-xl space-y-4 lg:space-y-5">
+            {/* Progressive Hint Bar */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400">
+                  คำใบ้:
+                </span>
+                {hintLevel === 0 && (
+                  <span className="text-xs text-stone-400 dark:text-stone-500 italic">
+                    ยังไม่มีการเปิดคำใบ้
+                  </span>
+                )}
+                {hintLevel >= 1 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 animate-in fade-in">
+                    <Tag className="w-3 h-3 text-emerald-500" />
+                    <span>แนวเพลง: {currentSong.genre?.nameTh || "เพลงไทยยอดนิยม"}</span>
+                  </span>
+                )}
+                {hintLevel >= 2 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 border border-blue-500/30 text-blue-800 dark:text-blue-300 animate-in fade-in">
+                    <Calendar className="w-3 h-3 text-blue-500" />
+                    <span>
+                      {currentSong.releaseYear
+                        ? `ปี ${currentSong.releaseYear}${currentSong.era ? ` (${currentSong.era})` : ""}`
+                        : `ยุค ${currentSong.era || "ไม่ระบุ"}`}
+                    </span>
+                  </span>
+                )}
+                {hintLevel >= 3 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-300 animate-in fade-in">
+                    <UserCheck className="w-3 h-3 text-purple-500" />
+                    <span>ศิลปิน: {currentSong.artist}</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400">
+                  ได้คะแนน:{" "}
+                  <span className="text-amber-500 font-extrabold font-mono">
+                    +{hintLevel === 0 ? 10 : hintLevel === 1 ? 7 : hintLevel === 2 ? 5 : 3}
+                  </span>
+                </span>
+                {hintLevel < 3 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClickSound();
+                      setHintLevel((l) => Math.min(3, l + 1));
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 transition cursor-pointer touch-manipulation"
+                  >
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+                    <span>ขอคำใบ้ (ขั้นที่ {hintLevel + 1}/3)</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Input Mode Toggle */}
             <div className="flex items-center justify-between">
               <label className="text-xs lg:text-sm font-semibold text-stone-700 dark:text-stone-300">ตอบคำถาม (ชื่อเพลง):</label>

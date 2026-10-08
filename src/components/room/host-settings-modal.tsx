@@ -68,11 +68,11 @@ export const ROUND_TIMEOUT_OPTIONS: { value: number; label: string }[] = [
 export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<RoomSettings> {
   const result: Partial<RoomSettings> = { ...draft };
 
-  if (result.gameMode && !["audio-slice", "buzzer", "ai-lyrics"].includes(result.gameMode)) {
+  if (result.gameMode && !["audio-slice", "buzzer", "ai-lyrics", "translated-lyrics"].includes(result.gameMode)) {
     result.gameMode = "audio-slice";
   }
 
-  if (result.gameMode === "ai-lyrics") {
+  if (result.gameMode === "ai-lyrics" || result.gameMode === "translated-lyrics") {
     if (!result.lyricsType || !["chorus", "intro"].includes(result.lyricsType)) {
       result.lyricsType = "intro";
     }
@@ -350,7 +350,7 @@ export function HostSettingsModal({
             <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               🎮 โหมดเกม (Game Mode)
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {/* Audio Slice */}
               <button
                 type="button"
@@ -409,7 +409,32 @@ export function HostSettingsModal({
                   {draft.gameMode === "ai-lyrics" && <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                 </div>
                 <span className="font-semibold text-sm text-stone-900 dark:text-white">AI Lyrics</span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">AI อ่านเนื้อเพลงไร้อารมณ์</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">AI อ่านเนื้อไทย</span>
+              </button>
+
+              {/* Google Translate Karaoke */}
+              <button
+                type="button"
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    gameMode: "translated-lyrics",
+                    lyricsType: prev.lyricsType || "intro",
+                    voiceGender: prev.voiceGender || "female",
+                  }))
+                }
+                className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                  draft.gameMode === "translated-lyrics"
+                    ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-base">🌐</span>
+                  {draft.gameMode === "translated-lyrics" && <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
+                </div>
+                <span className="font-semibold text-sm text-stone-900 dark:text-white">แปลอังกฤษ</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">แปลคำต่อคำสุดฮา</span>
               </button>
             </div>
           </div>
@@ -466,8 +491,8 @@ export function HostSettingsModal({
             </div>
           )}
 
-          {/* 3. Lyrics Type & Voice Gender (Shown for AI Lyrics) */}
-          {draft.gameMode === "ai-lyrics" && (
+          {/* 3. Lyrics Type & Voice Gender (Shown for AI Lyrics & Translated Lyrics) */}
+          {(draft.gameMode === "ai-lyrics" || draft.gameMode === "translated-lyrics") && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">

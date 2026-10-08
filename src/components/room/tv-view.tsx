@@ -124,10 +124,11 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
 
   // Audio / TTS playback for big TV speakers with unmount cleanup
   useEffect(() => {
-    if (gameMode === "ai-lyrics") {
+    if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
       if (status === "question_active" && activeQuestion?.lyrics && !isMuted) {
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
+          lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
         });
       } else {
         ttsReader.stopSpeaking();
@@ -157,7 +158,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     if (audioRef.current) {
       audioRef.current.muted = isMuted;
     }
-    if (gameMode === "ai-lyrics" && isMuted) {
+    if ((gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && isMuted) {
       ttsReader.stopSpeaking();
     }
   }, [isMuted, gameMode]);
@@ -430,12 +431,16 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                 })}
               </div>
 
-              {/* AI Lyrics Mode: Show speech prompt */}
-              {gameMode === "ai-lyrics" && activeQuestion?.lyrics && (
+              {/* AI Lyrics Mode / Translated Lyrics Mode: Show speech prompt */}
+              {(gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && activeQuestion?.lyrics && (
                 <div className="w-full max-w-2xl mb-6 p-6 rounded-3xl bg-stone-950/90 border border-amber-500/40 shadow-xl">
                   <div className="flex items-center justify-center gap-2 text-amber-300 text-sm font-bold uppercase tracking-wider mb-2">
                     <Radio className="w-4 h-4 animate-pulse" />
-                    <span>AI กำลังอ่านเนื้อเพลง...</span>
+                    <span>
+                      {gameMode === "translated-lyrics"
+                        ? "Google Translate Karaoke (ภาษาอังกฤษ)..."
+                        : "AI กำลังอ่านเนื้อเพลง..."}
+                    </span>
                   </div>
                   <blockquote className="text-2xl sm:text-3xl font-extrabold text-white leading-relaxed italic">
                     &quot;{activeQuestion.lyrics}&quot;
@@ -446,10 +451,16 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
               {/* Big Bold Cue Banner */}
               <div className="mt-4 animate-pulse">
                 <h2 className="text-3xl sm:text-5xl md:text-6xl font-black font-serif text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-100 to-amber-400 tracking-tight">
-                  🎵 ฟังเพลงแล้วกดกริ่งบนมือถือเพื่อตอบ!
+                  {gameMode === "translated-lyrics"
+                    ? "🌐 อ่านเนื้อแปลแล้วพิมพ์ตอบบนมือถือ!"
+                    : gameMode === "ai-lyrics"
+                    ? "🤖 ฟังเสียงอ่าน AI แล้วกดกริ่งตอบ!"
+                    : "🎵 ฟังเพลงแล้วกดกริ่งบนมือถือเพื่อตอบ!"}
                 </h2>
                 <p className="text-base sm:text-xl text-stone-300 font-semibold mt-3">
-                  ใครกดกริ่งคนแรก จะได้สิทธิ์ตอบคำถามและรับคะแนนทันที!
+                  {gameMode === "translated-lyrics"
+                    ? "ตอบได้ทันทีโดยไม่ต้องแย่งกดกริ่ง ยิ่งตอบไวยิ่งได้คะแนนเยอะ!"
+                    : "ใครกดกริ่งคนแรก จะได้สิทธิ์ตอบคำถามและรับคะแนนทันที!"}
                 </p>
               </div>
             </div>

@@ -34,6 +34,7 @@ import {
   AlertCircle,
   RotateCcw,
   Disc3,
+  Lock,
 } from "lucide-react";
 import { isValidRoomCode } from "@/lib/room-code";
 import {
@@ -45,6 +46,7 @@ import { getDeterministicAvatar } from "@/components/room/player-card";
 import { NavHeader } from "@/components/common/nav-header";
 import { useAuth } from "@/hooks/use-auth";
 import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
+import { ActiveRoomsTable } from "@/components/home/active-rooms-table";
 
 export default function HomePage() {
   const router = useRouter();
@@ -58,6 +60,8 @@ export default function HomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [hostNickname, setHostNickname] = useState("");
   const [hostAvatar, setHostAvatar] = useState(PRESET_AVATARS[0].emoji);
+  const [roomPassword, setRoomPassword] = useState("");
+  const [isPrivateRoom, setIsPrivateRoom] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -123,6 +127,10 @@ export default function HomePage() {
         body: JSON.stringify({
           hostDisplayName: hostNickname.trim(),
           hostAvatar,
+          settings: {
+            password: roomPassword.trim() || undefined,
+            isPrivate: isPrivateRoom,
+          },
         }),
       });
 
@@ -281,6 +289,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Active Rooms Public Directory */}
+      <ActiveRoomsTable />
+
       {/* 3 Game Modes Grid */}
       <section className="w-full max-w-5xl lg:max-w-6xl z-10 py-6 lg:py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -403,6 +414,44 @@ export default function HomePage() {
                     {hostNickname.length}/25
                   </span>
                 </div>
+              </div>
+
+              {/* Room Password (Optional) */}
+              <div>
+                <label
+                  htmlFor="roomPassword"
+                  className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5 flex items-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5 text-stone-500" />
+                  <span>ตั้งรหัสผ่านห้อง (ไม่บังคับ - ปล่อยว่างหากเปิดสาธารณะ)</span>
+                </label>
+                <input
+                  id="roomPassword"
+                  type="password"
+                  placeholder="เช่น 1234 (หากต้องการล็อคห้อง)"
+                  value={roomPassword}
+                  onChange={(e) => setRoomPassword(e.target.value)}
+                  disabled={isCreating}
+                  className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Private Room Checkbox */}
+              <div className="flex items-center gap-2 pt-0.5">
+                <input
+                  id="isPrivateRoom"
+                  type="checkbox"
+                  checked={isPrivateRoom}
+                  onChange={(e) => setIsPrivateRoom(e.target.checked)}
+                  disabled={isCreating}
+                  className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                />
+                <label
+                  htmlFor="isPrivateRoom"
+                  className="text-xs text-stone-600 dark:text-stone-400 cursor-pointer select-none"
+                >
+                  ห้องส่วนตัว (ไม่แสดงในตารางห้องสาธารณะบนหน้าแรก)
+                </label>
               </div>
 
               {createError && (

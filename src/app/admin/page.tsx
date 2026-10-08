@@ -23,12 +23,19 @@ import {
   Volume2,
   Zap,
   Square,
+  Layers,
+  Disc3,
+  Check,
 } from "lucide-react";
 import { Genre, Song } from "@/types";
-import { ExtractedSongMetadata } from "@/lib/ai-extractor";
+import {
+  ExtractedSongMetadata,
+  BatchDiscographyResult,
+  BatchExtractedSongItem,
+} from "@/lib/ai-extractor";
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"import" | "library" | "settings">("import");
+  const [activeTab, setActiveTab] = useState<"import" | "batch" | "library" | "settings">("import");
 
   // Import State
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,6 +47,57 @@ export default function AdminPage() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [selectedGenreId, setSelectedGenreId] = useState<string>("");
   const [importStatusMessage, setImportStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isSplitLyricsModalOpen, setIsSplitLyricsModalOpen] = useState(false);
+  const [rawFullLyrics, setRawFullLyrics] = useState("");
+
+  // Batch Discography State
+  const [batchPrompt, setBatchPrompt] = useState("");
+  const [isBatchExtracting, setIsBatchExtracting] = useState(false);
+  const [batchResult, setBatchResult] = useState<BatchDiscographyResult | null>(null);
+  const [selectedTrackIndices, setSelectedTrackIndices] = useState<Set<number>>(new Set());
+  const [batchGenreId, setBatchGenreId] = useState<string>("");
+  const [isBatchImporting, setIsBatchImporting] = useState(false);
+  const [batchImportProgress, setBatchImportProgress] = useState<{
+    current: number;
+    total: number;
+    songTitle: string;
+    status: string;
+  } | null>(null);
+  const [batchStatusMessage, setBatchStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const stopBatchImportRef = useRef(false);
+
+  const handleAutoSplitLyrics = () => {
+    if (!rawFullLyrics.trim() || !extractedData) return;
+    const lines = rawFullLyrics
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) return;
+
+    // Intro: first 2-4 lines
+    const introLines = lines.slice(0, Math.min(4, lines.length)).join("\n");
+
+    // Chorus: look for hook marker or middle
+    let chorusLines = "";
+    const hookIndex = lines.findIndex((l) => /ฮุก|hook|chorus|\*/i.test(l));
+    if (hookIndex !== -1 && lines.length > hookIndex + 1) {
+      chorusLines = lines.slice(hookIndex + 1, hookIndex + 5).join("\n");
+    } else if (lines.length > 6) {
+      const mid = Math.floor(lines.length / 2);
+      chorusLines = lines.slice(mid, mid + 4).join("\n");
+    } else {
+      chorusLines = lines.slice(Math.min(2, lines.length)).join("\n");
+    }
+
+    setExtractedData({
+      ...extractedData,
+      lyricsIntro: introLines,
+      lyricsChorus: chorusLines,
+    });
+    setIsSplitLyricsModalOpen(false);
+    setRawFullLyrics("");
+  };
 
   // Library State
   const [songs, setSongs] = useState<Song[]>([]);
@@ -242,11 +300,19 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.success && data.metadata) {
         setExtractedData(data.metadata);
-        // Auto match genre if available
-        const matched = genres.find(
-          (g) => g.slug === data.metadata.genreSlug || g.nameEn.toLowerCase() === data.metadata.genreSlug.toLowerCase()
-        );
-        if (matched) setSelectedGenreId(matched.id);
+        if (data.metadata.songFound === false) {
+          setImportStatusMessage({
+            type: "error",
+            text: `⚠️ ${data.metadata.notFoundReason || "ไม่พบเพลงตามชื่อที่ระบุ (กรุณาตรวจสอบชื่อเพลง หรือกรอกด้วยตนเอง)"}`,
+          });
+          setSelectedGenreId("");
+        } else {
+          // Auto match genre if available
+          const matched = genres.find(
+            (g) => g.slug === data.metadata.genreSlug || g.nameEn.toLowerCase() === data.metadata.genreSlug.toLowerCase()
+          );
+          setSelectedGenreId(matched ? matched.id : "");
+        }
       } else {
         setImportStatusMessage({ type: "error", text: data.error || "ไม่สามารถสกัดข้อมูลได้" });
       }
@@ -260,6 +326,14 @@ export default function AdminPage() {
   // Handle Download & Import
   const handleImport = async () => {
     if (!extractedData) return;
+    if (!extractedData.title.trim()) {
+      setImportStatusMessage({ type: "error", text: "กรุณาระบุชื่อเพลงทางการ (Title) ก่อนนำเข้า" });
+      return;
+    }
+    if (!extractedData.artist.trim()) {
+      setImportStatusMessage({ type: "error", text: "กรุณาระบุชื่อศิลปิน (Artist) ก่อนนำเข้า" });
+      return;
+    }
     setIsImporting(true);
     setImportStatusMessage(null);
     try {
@@ -334,6 +408,145 @@ export default function AdminPage() {
       s.era?.toLowerCase().includes(librarySearch.toLowerCase())
   );
 
+  // Batch Extraction Handlers
+  const handleExtractBatch = async () => {
+    if (!batchPrompt.trim()) return;
+    setIsBatchExtracting(true);
+    setBatchStatusMessage(null);
+    try {
+      const res = await fetch("/api/admin/extract/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: batchPrompt.trim(), apiKey: customApiKey || undefined }),
+      });
+      const data = await res.json();
+      if (data.success && data.result) {
+        setBatchResult(data.result);
+        const newTrackIndices = new Set<number>();
+        data.result.songs.forEach((song: BatchExtractedSongItem, idx: number) => {
+          if (!song.isDuplicate) {
+            newTrackIndices.add(idx);
+          }
+        });
+        setSelectedTrackIndices(newTrackIndices);
+      } else {
+        setBatchStatusMessage({
+          type: "error",
+          text: data.error || "เกิดข้อผิดพลาดในการดึงข้อมูลเพลงแบบ Batch",
+        });
+      }
+    } catch {
+      setBatchStatusMessage({
+        type: "error",
+        text: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์สกัดข้อมูลแบบ Batch ได้",
+      });
+    } finally {
+      setIsBatchExtracting(false);
+    }
+  };
+
+  const handleToggleTrack = (idx: number) => {
+    setSelectedTrackIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const handleSelectAllNew = () => {
+    if (!batchResult) return;
+    const newIndices = new Set<number>();
+    batchResult.songs.forEach((s, i) => {
+      if (!s.isDuplicate) newIndices.add(i);
+    });
+    setSelectedTrackIndices(newIndices);
+  };
+
+  const handleSelectAll = () => {
+    if (!batchResult) return;
+    if (selectedTrackIndices.size === batchResult.songs.length) {
+      setSelectedTrackIndices(new Set());
+    } else {
+      setSelectedTrackIndices(new Set(batchResult.songs.map((_, i) => i)));
+    }
+  };
+
+  const handleStartBatchImport = async () => {
+    if (!batchResult || selectedTrackIndices.size === 0) return;
+    setIsBatchImporting(true);
+    stopBatchImportRef.current = false;
+    setBatchStatusMessage(null);
+
+    const tracksToImport = Array.from(selectedTrackIndices)
+      .map((idx) => batchResult.songs[idx])
+      .filter(Boolean);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < tracksToImport.length; i++) {
+      if (stopBatchImportRef.current) {
+        setBatchStatusMessage({
+          type: "success",
+          text: `⏹ หยุดคิวแล้ว: นำเข้าสำเร็จ ${successCount} เพลง (ล้มเหลว/ข้าม ${failCount} เพลง)`,
+        });
+        break;
+      }
+
+      const track = tracksToImport[i];
+      setBatchImportProgress({
+        current: i + 1,
+        total: tracksToImport.length,
+        songTitle: `${track.title} - ${track.artist}`,
+        status: "กำลังค้นหา & ดาวน์โหลดไฟล์เสียง...",
+      });
+
+      try {
+        const payload = {
+          youtubeUrlOrQuery: track.youtubeSearchQuery || `${track.title} ${track.artist}`,
+          metadata: {
+            ...track,
+            genreId: batchGenreId || selectedGenreId || undefined,
+          },
+        };
+
+        const res = await fetch("/api/admin/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.success) {
+          successCount++;
+        } else {
+          failCount++;
+          console.warn(`[BatchImport] Failed to import ${track.title}:`, data.error);
+        }
+      } catch (err) {
+        failCount++;
+        console.error(`[BatchImport] Error importing ${track.title}:`, err);
+      }
+    }
+
+    setBatchImportProgress(null);
+    setIsBatchImporting(false);
+    if (!stopBatchImportRef.current) {
+      setBatchStatusMessage({
+        type: "success",
+        text: `🎉 นำเข้าเพลงแบบชุดเสร็จสมบูรณ์! สำเร็จ ${successCount} เพลง${failCount > 0 ? ` (ขัดข้อง ${failCount} เพลง)` : ""}`,
+      });
+    }
+
+    fetchSongs();
+    fetchAudioAudit();
+  };
+
+  const handleStopBatchImport = () => {
+    stopBatchImportRef.current = true;
+    setIsBatchImporting(false);
+  };
+
   return (
     <div className="min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)] flex flex-col font-sans pb-safe">
       {/* Admin Navbar */}
@@ -365,7 +578,16 @@ export default function AdminPage() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>เพิ่มเพลงด้วย AI</span>
+            <span>เพิ่มเพลงเดี่ยว</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("batch")}
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "batch" ? "bg-amber-500 text-stone-950 shadow-sm font-bold" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>ดูดเพลงชุด (Batch)</span>
           </button>
           <button
             onClick={() => setActiveTab("library")}
@@ -477,10 +699,34 @@ export default function AdminPage() {
                     </h3>
                     <p className="text-xs text-stone-500 dark:text-stone-400">AI ได้สกัดข้อมูลให้อัตโนมัติแล้ว คุณสามารถแก้ไขทุกฟิลด์ได้ตามต้องการ</p>
                   </div>
-                  <span className="bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs px-2.5 py-1 rounded-full border border-amber-500/30 font-mono">
-                    ยุค {extractedData.era}
-                  </span>
+                  {extractedData.era ? (
+                    <span className="bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs px-2.5 py-1 rounded-full border border-amber-500/30 font-mono">
+                      ยุค {extractedData.era}
+                    </span>
+                  ) : (
+                    <span className="bg-stone-500/10 text-stone-500 dark:text-stone-400 text-xs px-2.5 py-1 rounded-full border border-stone-500/20 font-mono">
+                      ยังไม่ระบุยุค
+                    </span>
+                  )}
                 </div>
+
+                {/* Warning if song was not definitively found */}
+                {extractedData.songFound === false && (
+                  <div className="p-4 rounded-2xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 text-rose-950 dark:text-rose-200 text-sm flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <span>⚠️ ไม่พบเพลงแทร็กตามชื่อที่ระบุ</span>
+                      </div>
+                      <p className="text-xs text-rose-900 dark:text-rose-300">
+                        {extractedData.notFoundReason || "คำค้นหานี้อาจเป็นชื่อวงดนตรี/อัลบั้ม หรือไม่มีเพลงนี้ในระบบ"}
+                      </p>
+                      <p className="text-xs text-stone-600 dark:text-stone-400">
+                        💡 ข้อมูลอื่น (ปีที่ปล่อยเพลง, ตำแหน่งท่อน, แนวเพลง, เนื้อเพลง) ถูกเว้นว่างไว้ทั้งหมด คุณสามารถค้นหาและกรอกข้อมูลจริงด้วยตนเองด้านล่าง
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Title */}
@@ -489,6 +735,7 @@ export default function AdminPage() {
                     <input
                       type="text"
                       value={extractedData.title}
+                      placeholder="เช่น วัดใจ (กรุณากรอกชื่อเพลง)"
                       onChange={(e) => setExtractedData({ ...extractedData, title: e.target.value })}
                       className="w-full min-h-[44px] bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-amber-500"
                     />
@@ -500,6 +747,7 @@ export default function AdminPage() {
                     <input
                       type="text"
                       value={extractedData.artist}
+                      placeholder="เช่น Silly Fools (ศิลปิน)"
                       onChange={(e) => setExtractedData({ ...extractedData, artist: e.target.value })}
                       className="w-full min-h-[44px] bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-amber-500"
                     />
@@ -510,10 +758,27 @@ export default function AdminPage() {
                     <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">ปีที่ปล่อยเพลง (Release Year)</label>
                     <input
                       type="number"
-                      value={extractedData.releaseYear || ""}
-                      onChange={(e) =>
-                        setExtractedData({ ...extractedData, releaseYear: Number(e.target.value) || 0 })
-                      }
+                      value={extractedData.releaseYear && extractedData.releaseYear > 0 ? extractedData.releaseYear : ""}
+                      placeholder="เช่น 2004 (เว้นว่างหรือกรอกเอง)"
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        setExtractedData({
+                          ...extractedData,
+                          releaseYear: val,
+                          era:
+                            val > 0
+                              ? val < 1990
+                                ? "80s"
+                                : val < 2000
+                                ? "90s"
+                                : val < 2010
+                                ? "2000s"
+                                : val < 2020
+                                ? "2010s"
+                                : "2020s"
+                              : "",
+                        });
+                      }}
                       className="w-full min-h-[44px] bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-amber-500"
                     />
                   </div>
@@ -606,7 +871,9 @@ export default function AdminPage() {
                       <span>ตำแหน่งท่อนฮุก (Hook Range ในหน่วยวินาที)</span>
                     </label>
                     <span className="text-[11px] text-stone-500 dark:text-stone-400 font-mono">
-                      ความยาวท่อนฮุก: {((extractedData.hookEndSec || 0) - (extractedData.hookStartSec || 0)).toFixed(1)} วิ
+                      {extractedData.hookEndSec && extractedData.hookEndSec > (extractedData.hookStartSec || 0)
+                        ? `ความยาวท่อนฮุก: ${(extractedData.hookEndSec - (extractedData.hookStartSec || 0)).toFixed(1)} วิ`
+                        : "ยังไม่กำหนดตำแหน่งท่อนฮุก"}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -615,9 +882,14 @@ export default function AdminPage() {
                       <input
                         type="number"
                         step="0.5"
-                        value={extractedData.hookStartSec || 0}
+                        value={
+                          extractedData.hookStartSec && extractedData.hookStartSec > 0
+                            ? extractedData.hookStartSec
+                            : (extractedData.hookStartSec === 0 && extractedData.songFound && (extractedData.hookEndSec || 0) > 0 ? 0 : "")
+                        }
+                        placeholder="0"
                         onChange={(e) =>
-                          setExtractedData({ ...extractedData, hookStartSec: Number(e.target.value) })
+                          setExtractedData({ ...extractedData, hookStartSec: Number(e.target.value) || 0 })
                         }
                         className="w-full min-h-[44px] bg-white dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl px-3 py-2 text-base sm:text-sm text-stone-900 dark:text-stone-100 font-mono mt-1"
                       />
@@ -627,39 +899,78 @@ export default function AdminPage() {
                       <input
                         type="number"
                         step="0.5"
-                        value={extractedData.hookEndSec || 0}
-                        onChange={(e) => setExtractedData({ ...extractedData, hookEndSec: Number(e.target.value) })}
+                        value={extractedData.hookEndSec && extractedData.hookEndSec > 0 ? extractedData.hookEndSec : ""}
+                        placeholder="เช่น 30"
+                        onChange={(e) => setExtractedData({ ...extractedData, hookEndSec: Number(e.target.value) || 0 })}
                         className="w-full min-h-[44px] bg-white dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl px-3 py-2 text-base sm:text-sm text-stone-900 dark:text-stone-100 font-mono mt-1"
                       />
                     </div>
                   </div>
+                  {(!extractedData.hookEndSec || extractedData.hookEndSec === 0) && (
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-2">
+                      ℹ️ หากยังไม่ทราบช่วงท่อนฮุก สามารถเว้นว่างไว้แล้วมาระบุภายหลังเมื่อทดลองฟังไฟล์เสียงได้
+                    </p>
+                  )}
                 </div>
 
                 {/* Lyrics Section (For New AI Lyrics Mode) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">
-                      🚀 เนื้อเพลงท่อนเปิด (Intro Lyrics)
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={extractedData.lyricsIntro || ""}
-                      onChange={(e) => setExtractedData({ ...extractedData, lyricsIntro: e.target.value })}
-                      placeholder="เนื้อเพลง 2-4 บรรทัดแรกของเพลง..."
-                      className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl p-3 text-base sm:text-xs text-stone-900 dark:text-stone-200 focus:outline-none focus:border-amber-500 resize-none"
-                    />
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                        เนื้อเพลงสำหรับโหมดทายเนื้อเพลง AI
+                      </span>
+                      {(!extractedData.lyricsIntro || extractedData.lyricsConfidence === "not_found") && (
+                        <span className="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold">
+                          ⚠️ AI ไม่พบเนื้อเพลง (กรุณากรอกเอง)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsSplitLyricsModalOpen(true)}
+                        className="text-xs bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+                      >
+                        <span>📋 วางเนื้อเพลงเต็มเพื่อตัดแบ่ง</span>
+                      </button>
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent('เนื้อเพลง ' + extractedData.title + ' ' + extractedData.artist)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        <span>ค้นหาใน Google</span>
+                      </a>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">
-                      🎵 เนื้อเพลงท่อนฮุก (Chorus Lyrics)
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={extractedData.lyricsChorus || ""}
-                      onChange={(e) => setExtractedData({ ...extractedData, lyricsChorus: e.target.value })}
-                      placeholder="เนื้อเพลงท่อนฮุกสำหรับให้เสียง AI อ่าน..."
-                      className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl p-3 text-base sm:text-xs text-stone-900 dark:text-stone-200 focus:outline-none focus:border-amber-500 resize-none"
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">
+                        🚀 เนื้อเพลงท่อนเปิด (Intro Lyrics)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={extractedData.lyricsIntro || ""}
+                        onChange={(e) => setExtractedData({ ...extractedData, lyricsIntro: e.target.value })}
+                        placeholder="กรอกเนื้อเพลง 2-4 บรรทัดแรก หรือกดปุ่มค้นหาใน Google ด้านบน..."
+                        className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl p-3 text-base sm:text-xs text-stone-900 dark:text-stone-200 focus:outline-none focus:border-amber-500 resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">
+                        🎵 เนื้อเพลงท่อนฮุก (Chorus Lyrics)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={extractedData.lyricsChorus || ""}
+                        onChange={(e) => setExtractedData({ ...extractedData, lyricsChorus: e.target.value })}
+                        placeholder="กรอกเนื้อเพลงท่อนฮุกสำหรับให้เสียง AI อ่าน..."
+                        className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl p-3 text-base sm:text-xs text-stone-900 dark:text-stone-200 focus:outline-none focus:border-amber-500 resize-none"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -687,6 +998,320 @@ export default function AdminPage() {
                       <>
                         <Download className="w-4 h-4" />
                         <span>ดาวน์โหลด MP3 & บันทึกเข้าคลังเพลง</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB BATCH: AI Batch Discography Importer */}
+        {activeTab === "batch" && (
+          <div className="space-y-6">
+            {/* Batch Status Notification */}
+            {batchStatusMessage && (
+              <div
+                className={`p-4 rounded-2xl flex items-start gap-3 border ${
+                  batchStatusMessage.type === "success"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300"
+                }`}
+              >
+                {batchStatusMessage.type === "success" ? (
+                  <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+                )}
+                <p className="text-sm">{batchStatusMessage.text}</p>
+              </div>
+            )}
+
+            {/* Input Card */}
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-sm backdrop-blur-md">
+              <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 mb-1 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-amber-500" />
+                <span>ดูดเพลงแบบชุด (Batch Discography)</span>
+              </h2>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mb-4">
+                กรอกชื่อศิลปิน อัลบั้ม หรือชุดเพลง เช่น &quot;Bodyslam อัลบั้ม Drive&quot; หรือ &quot;Potato 15 เพลงฮิต&quot; AI จะสร้างรายการแทร็กพร้อมเช็คเพลงซ้ำในคลังให้อัตโนมัติ
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  placeholder="เช่น Bodyslam อัลบั้ม Drive หรือ Silly Fools อัลบั้ม Mint หรือ Potato 15 เพลงฮิต"
+                  value={batchPrompt}
+                  onChange={(e) => setBatchPrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleExtractBatch()}
+                  disabled={isBatchExtracting || isBatchImporting}
+                  className="flex-1 min-h-[44px] bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-2xl px-4 py-3 text-base sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={handleExtractBatch}
+                  disabled={isBatchExtracting || isBatchImporting || !batchPrompt.trim()}
+                  className="min-h-[44px] bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 text-stone-950 font-bold px-6 py-3 rounded-2xl text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-amber-500/20"
+                >
+                  {isBatchExtracting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>กำลังสกัดรายชื่อเพลง...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>ดึงรายชื่อด้วย AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Sample Shortcuts */}
+              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-stone-200 dark:border-stone-800/60">
+                <span className="text-[11px] text-stone-500">ตัวอย่าง:</span>
+                {[
+                  "Bodyslam อัลบั้ม Drive",
+                  "Silly Fools อัลบั้ม Mint",
+                  "Potato 15 เพลงฮิต",
+                  "Loso 10 เพลงดัง",
+                  "Palmy รวมเพลงฮิต",
+                ].map((sample) => (
+                  <button
+                    key={sample}
+                    type="button"
+                    onClick={() => setBatchPrompt(sample)}
+                    disabled={isBatchExtracting || isBatchImporting}
+                    className="min-h-[36px] text-xs bg-stone-100 dark:bg-stone-950 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800/80 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+                  >
+                    {sample}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Batch Progress Banner (while importing) */}
+            {isBatchImporting && batchImportProgress && (
+              <div className="p-5 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-950 dark:text-amber-100 shadow-md flex flex-col gap-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-amber-600 dark:text-amber-400" />
+                    <span className="font-bold text-sm">
+                      กำลังนำเข้าเพลงชุด: {batchImportProgress.current} จาก {batchImportProgress.total} เพลง
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleStopBatchImport}
+                    className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold transition cursor-pointer"
+                  >
+                    ⏹ หยุดคิว
+                  </button>
+                </div>
+
+                <div className="w-full bg-stone-200 dark:bg-stone-800 h-2.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-amber-500 h-full transition-all duration-300"
+                    style={{
+                      width: `${Math.round((batchImportProgress.current / batchImportProgress.total) * 100)}%`,
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-stone-600 dark:text-stone-400 font-medium">
+                  <span className="truncate pr-2">🎵 {batchImportProgress.songTitle}</span>
+                  <span className="shrink-0">{batchImportProgress.status}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Batch Extracted Result Review Table */}
+            {batchResult && (
+              <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-sm space-y-5 animate-in fade-in">
+                {/* Header & Stats */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200 dark:border-stone-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Disc3 className="w-5 h-5 text-amber-500" />
+                      <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+                        {batchResult.artist}
+                        {batchResult.albumOrCollection ? ` - ${batchResult.albumOrCollection}` : ""}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                      เลือกเพลงที่ต้องการนำเข้าสู่คลังเพลง ระบบจะค้นหาและดาวน์โหลดไฟล์เสียงจาก YouTube อัตโนมัติ
+                    </p>
+                  </div>
+
+                  {/* Summary Badges */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
+                      ทั้งหมด {batchResult.totalExtracted} เพลง
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                      ✨ ใหม่ {batchResult.newSongsCount} เพลง
+                    </span>
+                    {batchResult.duplicatesCount > 0 && (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                        ⚠️ ซ้ำ {batchResult.duplicatesCount} เพลง
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Toolbar */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllNew}
+                      disabled={isBatchImporting}
+                      className="min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 transition cursor-pointer"
+                    >
+                      เลือกเฉพาะเพลงใหม่ ({batchResult.newSongsCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      disabled={isBatchImporting}
+                      className="min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 transition cursor-pointer"
+                    >
+                      {selectedTrackIndices.size === batchResult.songs.length
+                        ? "ยกเลิกการเลือกทั้งหมด"
+                        : "เลือกทั้งหมด"}
+                    </button>
+                  </div>
+
+                  {/* Optional Override Genre */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-stone-500 font-medium shrink-0">แนวเพลงที่นำเข้า:</span>
+                    <select
+                      value={batchGenreId}
+                      onChange={(e) => setBatchGenreId(e.target.value)}
+                      disabled={isBatchImporting}
+                      className="min-h-[36px] bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl px-3 py-1.5 text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">ตามที่ AI วิเคราะห์ (อัตโนมัติ)</option>
+                      {genres.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.nameTh} ({g.nameEn})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Tracklist Table */}
+                <div className="border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-stone-100 dark:bg-stone-950 border-b border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 font-bold uppercase text-[11px]">
+                        <tr>
+                          <th className="py-3 px-3 w-10 text-center">เลือก</th>
+                          <th className="py-3 px-2 w-8 text-center">#</th>
+                          <th className="py-3 px-4">ชื่อเพลง</th>
+                          <th className="py-3 px-3">ศิลปิน</th>
+                          <th className="py-3 px-3">ปี / ยุค</th>
+                          <th className="py-3 px-3">แนวเพลง</th>
+                          <th className="py-3 px-3">ท่อนฮุก (วิ)</th>
+                          <th className="py-3 px-3 text-right">สถานะในคลัง</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-200 dark:divide-stone-800">
+                        {batchResult.songs.map((track, idx) => {
+                          const isSelected = selectedTrackIndices.has(idx);
+                          return (
+                            <tr
+                              key={idx}
+                              onClick={() => !isBatchImporting && handleToggleTrack(idx)}
+                              className={`transition cursor-pointer ${
+                                isSelected
+                                  ? "bg-amber-500/10 dark:bg-amber-500/15"
+                                  : track.isDuplicate
+                                  ? "bg-stone-50/50 dark:bg-stone-950/40 opacity-70"
+                                  : "hover:bg-stone-50 dark:hover:bg-stone-950/50"
+                              }`}
+                            >
+                              <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleToggleTrack(idx)}
+                                  disabled={isBatchImporting}
+                                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                                />
+                              </td>
+                              <td className="py-3 px-2 text-center text-stone-400 font-mono">
+                                {idx + 1}
+                              </td>
+                              <td className="py-3 px-4 font-semibold text-stone-900 dark:text-stone-100">
+                                {track.title}
+                              </td>
+                              <td className="py-3 px-3 text-stone-600 dark:text-stone-300">
+                                {track.artist}
+                              </td>
+                              <td className="py-3 px-3 text-stone-500 dark:text-stone-400">
+                                {track.releaseYear} ({track.era})
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="px-2 py-0.5 rounded-md bg-stone-200 dark:bg-stone-800 text-[10px] font-mono text-stone-700 dark:text-stone-300">
+                                  {track.genreSlug}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-stone-500 dark:text-stone-400 font-mono text-[11px]">
+                                {track.hookStartSec}s - {track.hookEndSec}s
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                {track.isDuplicate ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    <span>มีในระบบแล้ว</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                                    <Check className="w-3 h-3" />
+                                    <span>เพลงใหม่</span>
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Bottom Actions */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBatchResult(null);
+                      setSelectedTrackIndices(new Set());
+                    }}
+                    disabled={isBatchImporting}
+                    className="min-h-[44px] px-5 py-2.5 rounded-xl text-xs font-semibold text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 transition cursor-pointer self-start sm:self-auto"
+                  >
+                    ล้างรายการ
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartBatchImport}
+                    disabled={isBatchImporting || selectedTrackIndices.size === 0}
+                    className="min-h-[44px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-sm px-6 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer w-full sm:w-auto"
+                  >
+                    {isBatchImporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>กำลังนำเข้าเพลงแบบชุด...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        <span>เริ่มนำเข้าและดาวน์โหลดเสียง ({selectedTrackIndices.size} เพลง)</span>
                       </>
                     )}
                   </button>
@@ -1052,6 +1677,53 @@ export default function AdminPage() {
           </div>
         )}
       </main>
+
+      {/* Quick Paste & Split Full Lyrics Modal */}
+      {isSplitLyricsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-stone-800">
+              <h3 className="font-bold text-sm sm:text-base text-stone-900 dark:text-white flex items-center gap-2">
+                <span>📋 วางเนื้อเพลงเต็มเพื่อตัดแบ่งท่อน</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsSplitLyricsModalOpen(false)}
+                className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              ก๊อปปี้เนื้อเพลงจาก Google หรือเว็บเนื้อเพลงมาวางทั้งหมด ระบบจะช่วยคัดเลือกท่อนเปิด (Intro 2-4 บรรทัดแรก) และท่อนฮุก (Chorus) ให้อัตโนมัติ
+            </p>
+            <textarea
+              rows={8}
+              value={rawFullLyrics}
+              onChange={(e) => setRawFullLyrics(e.target.value)}
+              placeholder="วางเนื้อเพลงทั้งหมดที่นี่..."
+              className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-2xl p-3 text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:border-amber-500"
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsSplitLyricsModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleAutoSplitLyrics}
+                disabled={!rawFullLyrics.trim()}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                แยกท่อนเปิดและฮุกทันที
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

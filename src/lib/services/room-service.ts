@@ -60,6 +60,7 @@ export class RoomService {
     const mergedSettings: RoomSettings = {
       ...DEFAULT_ROOM_SETTINGS,
       ...initialSettings,
+      hostDisplayName: hostDisplayName.trim(),
     };
 
     const { data, error } = await client
@@ -263,6 +264,54 @@ export class RoomService {
       console.warn("[RoomService] Error during cleanupStaleRooms:", err);
       return { deletedCount: 0 };
     }
+  }
+
+  /**
+   * Retrieves active public rooms for directory table on home page.
+   * Excludes ended, stale, and private rooms.
+   */
+  static async listActiveRooms(): Promise<any[]> {
+    const client = this.getClient();
+    // Auto-cleanup stale rooms older than 2 hours
+    this.cleanupStaleRooms(2).catch(() => {});
+
+    // Rooms active in the last 4 hours
+    const recentThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await client
+      .from("rooms")
+      .select("room_code, status, settings, created_at, updated_at")
+      .neq("status", "game_over")
+      .gt("updated_at", recentThreshold)
+      .order("updated_at", { ascending: false })
+      .limit(30);
+
+    if (error || !data) {
+      console.warn("[RoomService] listActiveRooms error:", error?.message);
+      return [];
+    }
+
+    // Filter out private rooms and sanitize
+    return data
+      .filter((r) => {
+        const s = (r.settings as any) || {};
+        return !s.isPrivate;
+      })
+      .map((r) => {
+        const s = (r.settings as any) || {};
+        return {
+          roomCode: r.room_code,
+          status: r.status,
+          hostDisplayName: s.hostDisplayName || "หัวหน้าห้อง",
+          hostAvatar: s.hostAvatar || "🎧",
+          gameMode: s.gameMode || "buzzer",
+          totalRounds: s.totalRounds || 10,
+          currentRound: s.currentRound || 1,
+          isLocked: Boolean(s.password && String(s.password).trim().length > 0),
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        };
+      });
   }
 }
 

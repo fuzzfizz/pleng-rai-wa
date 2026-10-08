@@ -86,6 +86,33 @@ export function RoundRevealCard({
     } catch {}
   }, [hasWinner]);
 
+  // Autoplay hook audio on reveal mount
+  useEffect(() => {
+    if (!audioRef.current || !song?.audioUrl) return;
+
+    const startSec =
+      typeof song.hookStartSec === "number" && song.hookStartSec > 0
+        ? song.hookStartSec
+        : 0;
+
+    audioRef.current.currentTime = startSec;
+    const playPromise = audioRef.current.play();
+    if (playPromise) {
+      playPromise
+        .then(() => setIsPlayingAudio(true))
+        .catch((err) => {
+          console.warn("[RoundRevealCard] Autoplay blocked by browser policy:", err);
+          setIsPlayingAudio(false);
+        });
+    }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, [song?.audioUrl, song?.hookStartSec]);
+
   // Clean up audio on unmount
   useEffect(() => {
     return () => {
@@ -125,6 +152,7 @@ export function RoundRevealCard({
         <audio
           ref={audioRef}
           src={song.audioUrl}
+          loop
           onEnded={() => setIsPlayingAudio(false)}
           onPause={() => setIsPlayingAudio(false)}
           preload="metadata"

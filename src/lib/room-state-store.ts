@@ -41,6 +41,8 @@ export interface RoomRoundState {
   scores: Record<string, number>; // Running scores by playerId, minimum score clamped to 0
   winnerPlayerId?: string | null;
   roundWinnerPlayerId?: string | null;
+  revealedHintLevel?: number; // 0 = none, 1 = genre, 2 = year, 3 = artist
+  revealedHints?: { genre?: string; year?: string; artist?: string };
   startedAt?: string;
 }
 
@@ -135,6 +137,8 @@ export class RoomStateStore {
       scores,
       winnerPlayerId: null,
       roundWinnerPlayerId: null,
+      revealedHintLevel: 0,
+      revealedHints: {},
       startedAt: new Date().toISOString(),
     };
 
@@ -245,7 +249,8 @@ export class RoomStateStore {
     const isStandardBuzzer =
       state.roundStatus === "buzzed" && state.buzzedPlayerId === playerId;
     const isDirectAnswer =
-      gameMode === "ai-lyrics" && state.roundStatus === "question_active";
+      (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") &&
+      state.roundStatus === "question_active";
 
     if (!isStandardBuzzer && !isDirectAnswer) {
       return {
@@ -308,9 +313,11 @@ export class RoomStateStore {
     });
 
     if (check.isCorrect) {
-      // +100 points on correct guess
+      // Points scaled by hint level: 0 hints = 100, 1 hint = 75, 2 hints = 50, 3 hints = 25
+      const hintLevel = state.revealedHintLevel || 0;
+      const points = hintLevel === 1 ? 75 : hintLevel === 2 ? 50 : hintLevel === 3 ? 25 : 100;
       const currentScore = state.scores[playerId] || 0;
-      const newScore = currentScore + 100;
+      const newScore = currentScore + points;
       state.scores[playerId] = newScore;
       state.roundStatus = "revealing";
       state.winnerPlayerId = playerId;
@@ -328,7 +335,7 @@ export class RoomStateStore {
         isCorrect: true,
         matchedAs: check.matchedAs,
         similarity: check.similarity,
-        scoreDelta: 100,
+        scoreDelta: points,
         newScore,
         scores: { ...state.scores },
         roundState: state,
@@ -450,6 +457,67 @@ export class RoomStateStore {
       state.roundStatus = "game_over";
     }
     return state;
+  }
+
+  /**
+   * Reveals the next progressive hint for the active question:
+   * Level 1: Genre (แนวเพลง)
+   * Level 2: Release Year & Era (ปีที่ปล่อยเพลง / ยุค)
+   * Level 3: Artist (ศิลปิน / วง)
+   */
+  static revealNextHint(code: string): {
+    success: boolean;
+    level: number;
+    hintType?: "genre" | "year" | "artist";
+    hintText?: string;
+    pointsAvailable: number;
+  } {
+    const cleanCode = code.trim().toUpperCase();
+    const state = roomRoundStates.get(cleanCode);
+    if (!state || !state.currentSong) {
+      return { success: false, level: 0, pointsAvailable: 100 };
+    }
+
+    const currentLevel = state.revealedHintLevel || 0;
+    if (currentLevel >= 3) {
+      return { success: false, level: 3, pointsAvailable: 25 };
+    }
+
+    const nextLevel = currentLevel + 1;
+    state.revealedHintLevel = nextLevel;
+
+    if (!state.revealedHints) {
+      state.revealedHints = {};
+    }
+
+    let hintType: "genre" | "year" | "artist" = "genre";
+    let hintText = "";
+
+    if (nextLevel === 1) {
+      hintType = "genre";
+      hintText = state.currentSong.genre?.nameTh || "เพลงไทยยอดนิยม";
+      state.revealedHints.genre = hintText;
+    } else if (nextLevel === 2) {
+      hintType = "year";
+      const year = state.currentSong.releaseYear;
+      const era = state.currentSong.era;
+      hintText = year ? `ปี ${year}${era ? ` (ยุค ${era})` : ""}` : `ยุค ${era || "ไม่ระบุ"}`;
+      state.revealedHints.year = hintText;
+    } else if (nextLevel === 3) {
+      hintType = "artist";
+      hintText = state.currentSong.artist || "ศิลปินไม่ระบุ";
+      state.revealedHints.artist = hintText;
+    }
+
+    const pointsAvailable = nextLevel === 1 ? 75 : nextLevel === 2 ? 50 : 25;
+
+    return {
+      success: true,
+      level: nextLevel,
+      hintType,
+      hintText,
+      pointsAvailable,
+    };
   }
 
   /**

@@ -9,6 +9,7 @@ import { SongService } from "@/lib/services/song-service";
 import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { isValidRoomCode } from "@/lib/room-code";
+import { translateThaiToEnglishLiteral } from "@/lib/translate";
 import type { RoomSettings, Song } from "@/types";
 
 export async function POST(
@@ -173,6 +174,12 @@ export async function POST(
         settings.lyricsType === "intro"
           ? song.lyricsIntro || song.lyricsChorus || ""
           : song.lyricsChorus || song.lyricsIntro || "";
+    } else if (settings.gameMode === "translated-lyrics") {
+      const rawThai =
+        settings.lyricsType === "intro"
+          ? song.lyricsIntro || song.lyricsChorus || ""
+          : song.lyricsChorus || song.lyricsIntro || "";
+      lyrics = await translateThaiToEnglishLiteral(rawThai);
     }
 
     // Initialize round in authoritative memory store

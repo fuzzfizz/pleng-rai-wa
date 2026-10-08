@@ -2,7 +2,7 @@
 // เพลงไรวะ (Pleng-Rai-Wa) - Core TypeScript Types
 // ==========================================
 
-export type GameMode = "audio-slice" | "buzzer" | "ai-lyrics";
+export type GameMode = "audio-slice" | "buzzer" | "ai-lyrics" | "translated-lyrics";
 
 export type AnswerInputMode = "autocomplete" | "free-text" | "multiple-choice";
 
@@ -37,6 +37,9 @@ export interface Song {
 }
 
 export interface ExtractedSongMetadata {
+  songFound?: boolean;
+  notFoundReason?: string;
+  lyricsConfidence?: "verified" | "not_found";
   title: string;
   artist: string;
   aliases: string[];
@@ -110,6 +113,13 @@ export interface RoomSettings {
   genreId?: string; // all or specific genre
   playlistId?: string | null; // custom playlist
   songFilter?: SongFilterConfig;
+  // Room listing & access control
+  isPrivate?: boolean;
+  password?: string;
+  hostDisplayName?: string;
+  hostAvatar?: string;
+  // Progressive hints (0 = none, 1 = genre, 2 = year, 3 = artist)
+  revealedHintLevel?: number;
 }
 
 export interface RoomState {

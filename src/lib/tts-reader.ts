@@ -9,6 +9,7 @@ export type AIVoiceGender = "male" | "female" | "random";
 
 export interface SpeakLyricsOptions {
   gender?: AIVoiceGender;
+  lang?: string;
   rate?: number;
   pitch?: number;
   volume?: number;
@@ -169,15 +170,29 @@ export function speakLyrics(
   utterance.rate = options?.rate ?? defaultRate;
   utterance.volume = options?.volume ?? 1.0;
 
-  // Look up available Thai voices from Web Speech API
-  const thaiVoices = getThaiVoices(resolvedGender);
-  const selectedVoice = options?.voice || (thaiVoices.length > 0 ? thaiVoices[0] : null);
+  const isEnglish = options?.lang?.toLowerCase().startsWith("en");
 
-  if (selectedVoice) {
-    utterance.voice = selectedVoice;
-    utterance.lang = selectedVoice.lang || "th-TH";
+  if (isEnglish) {
+    const rawVoices = window.speechSynthesis.getVoices();
+    const allVoices = rawVoices.length > 0 ? rawVoices : cachedVoices;
+    const enVoice = allVoices.find((v) => (v.lang || "").toLowerCase().startsWith("en"));
+    if (enVoice) {
+      utterance.voice = enVoice;
+      utterance.lang = enVoice.lang || "en-US";
+    } else {
+      utterance.lang = "en-US";
+    }
   } else {
-    utterance.lang = "th-TH";
+    // Look up available Thai voices from Web Speech API
+    const thaiVoices = getThaiVoices(resolvedGender);
+    const selectedVoice = options?.voice || (thaiVoices.length > 0 ? thaiVoices[0] : null);
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      utterance.lang = selectedVoice.lang || "th-TH";
+    } else {
+      utterance.lang = "th-TH";
+    }
   }
 
   // Retain active reference to prevent GC from terminating speech early

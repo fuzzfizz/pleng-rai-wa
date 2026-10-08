@@ -55,13 +55,15 @@ export function formatSettingsSummary(settings: RoomSettings): string {
       ? "โหมด: แย่งกดกริ่ง"
       : settings.gameMode === "ai-lyrics"
       ? "โหมด: AI อ่านเนื้อเพลง"
+      : settings.gameMode === "translated-lyrics"
+      ? "โหมด: แปลไทย-อังกฤษ"
       : "โหมด: ตัดเสียงเสี้ยววินาที";
 
   const roundsLabel =
     settings.totalRounds > 0 ? `${settings.totalRounds} ข้อ` : "ไม่จำกัดข้อ";
 
   const detailLabel =
-    settings.gameMode === "ai-lyrics"
+    settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics"
       ? settings.lyricsType === "intro"
         ? "ท่อนเปิด"
         : "ท่อนฮุก"

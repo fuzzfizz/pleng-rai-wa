@@ -25,8 +25,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { hostDisplayName, settings } = body as {
+    const { hostDisplayName, hostAvatar, settings } = body as {
       hostDisplayName?: unknown;
+      hostAvatar?: string;
       settings?: Partial<RoomSettings>;
     };
 
@@ -44,9 +45,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const mergedSettings: Partial<RoomSettings> = {
+      ...settings,
+      hostDisplayName: hostDisplayName.trim(),
+      hostAvatar: hostAvatar || settings?.hostAvatar || "🎧",
+    };
+
     const result = await RoomService.createRoom(
       hostDisplayName.trim(),
-      settings
+      mergedSettings
     );
 
     return NextResponse.json(

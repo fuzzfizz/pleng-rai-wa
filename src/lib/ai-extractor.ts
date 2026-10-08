@@ -6,6 +6,12 @@ import { GoogleGenAI, Type } from "@google/genai";
 // ==========================================
 
 export interface ExtractedSongMetadata {
+  /** Indicates whether a real song track was found (false if only artist name, album name, or non-existent) */
+  songFound?: boolean;
+  /** Explanation in Thai if song was not found or query was ambiguous */
+  notFoundReason?: string;
+  /** Verification status of lyrics: 'verified' (exact verbatim) | 'not_found' */
+  lyricsConfidence?: "verified" | "not_found";
   /** Official Thai or English song title */
   title: string;
   /** Singer or Band name */
@@ -28,6 +34,21 @@ export interface ExtractedSongMetadata {
   lyricsChorus: string;
   /** Clean YouTube search query (e.g. 'วัดใจ Silly Fools') */
   youtubeSearchQuery: string;
+}
+
+export interface BatchExtractedSongItem extends ExtractedSongMetadata {
+  isDuplicate?: boolean;
+  duplicateId?: string;
+}
+
+export interface BatchDiscographyResult {
+  query: string;
+  artist: string;
+  albumOrCollection?: string;
+  songs: BatchExtractedSongItem[];
+  totalExtracted: number;
+  newSongsCount: number;
+  duplicatesCount: number;
 }
 
 export const VALID_GENRE_SLUGS = [
@@ -397,6 +418,8 @@ export async function heuristicExtractSongMetadata(
     if (titleMatch || (artistMatch && aliasMatch) || aliasMatch) {
       return {
         ...song,
+        songFound: true,
+        lyricsConfidence: "verified",
         youtubeSearchQuery: song.youtubeSearchQuery || `${song.title} ${song.artist}`,
       };
     }
@@ -428,13 +451,55 @@ export async function heuristicExtractSongMetadata(
     }
   }
 
+  // Check if query is just a known artist or band name without song
+  const KNOWN_ARTISTS = [
+    "silly fools",
+    "bodyslam",
+    "palmy",
+    "big ass",
+    "zeal",
+    "loso",
+    "clash",
+    "potato",
+    "labanoon",
+    "cocktail",
+    "tilly birds",
+    "three man down",
+  ];
+  const isOnlyArtist = KNOWN_ARTISTS.some(
+    (a) =>
+      lowerClean === a ||
+      lowerClean === `วง ${a}` ||
+      lowerClean === `เพลง ${a} ของวง ${a}` ||
+      (lowerClean.includes(a) && cleanText.length < a.length + 15 && !cleanText.includes("-") && !cleanText.includes("–"))
+  );
+
+  if (isOnlyArtist) {
+    return {
+      songFound: false,
+      notFoundReason: `ไม่พบเพลงตามชื่อ "${cleanText}" (ข้อความนี้เป็นชื่อศิลปินหรือวงดนตรี กรุณาระบุชื่อเพลง)`,
+      lyricsConfidence: "not_found",
+      title: "",
+      artist: cleanText.replace(/^(เพลง|วง)\s*/i, "").trim(),
+      aliases: [],
+      releaseYear: 0,
+      genreSlug: "",
+      era: "",
+      hookStartSec: 0,
+      hookEndSec: 0,
+      lyricsIntro: "",
+      lyricsChorus: "",
+      youtubeSearchQuery: "",
+    };
+  }
+
   // Extract release year if present in text
   const yearMatch = text.match(/\b(19\d{2}|20[0-2]\d)\b/);
-  const releaseYear = yearMatch ? parseInt(yearMatch[1], 10) : 2015;
-  const era = getEraFromYear(releaseYear);
+  const releaseYear = yearMatch ? parseInt(yearMatch[1], 10) : 0;
+  const era = releaseYear > 0 ? getEraFromYear(releaseYear) : "";
 
   // Guess genre based on query keywords
-  let genreSlug: ValidGenreSlug = "pop";
+  let genreSlug: string = "";
   if (/\b(rock|ร็อก|ร็อค)\b/i.test(text)) {
     genreSlug = "rock";
   } else if (/\b(indie|อินดี้)\b/i.test(text)) {
@@ -449,24 +514,26 @@ export async function heuristicExtractSongMetadata(
     genreSlug = "90s";
   }
 
-  const aliases: string[] = [title.toLowerCase()];
-  const noSpace = title.replace(/\s+/g, "");
-  if (noSpace !== title) aliases.push(noSpace.toLowerCase());
-  if (artist !== "Various Artists") {
+  const aliases: string[] = title ? [title.toLowerCase()] : [];
+  const noSpace = title ? title.replace(/\s+/g, "") : "";
+  if (noSpace && noSpace !== title) aliases.push(noSpace.toLowerCase());
+  if (title && artist && artist !== "Various Artists") {
     aliases.push(`${title} ${artist}`.toLowerCase());
   }
 
   return {
+    songFound: true,
+    lyricsConfidence: "not_found",
     title: title || "เพลงไม่ระบุชื่อ",
     artist: artist || "ศิลปินนิรนาม",
     aliases,
     releaseYear,
     genreSlug,
     era,
-    hookStartSec: 65,
-    hookEndSec: 88,
-    lyricsIntro: `${title} - ขับร้องโดย ${artist}`,
-    lyricsChorus: `ท่อนฮุกจำง่ายของเพลง ${title} โดย ${artist}`,
+    hookStartSec: 0,
+    hookEndSec: 0,
+    lyricsIntro: "",
+    lyricsChorus: "",
     youtubeSearchQuery: `${title} ${artist}`.trim(),
   };
 }
@@ -477,54 +544,71 @@ export async function heuristicExtractSongMetadata(
 const SONG_METADATA_GEMINI_SCHEMA = {
   type: Type.OBJECT,
   properties: {
+    songFound: {
+      type: Type.BOOLEAN,
+      description:
+        "True ONLY if a real, official individual song track with this name exists. Set to false if the user input is only an artist/band name (e.g. 'Bodyslam', 'Potato'), album name, or non-existent song.",
+    },
+    notFoundReason: {
+      type: Type.STRING,
+      description:
+        "If songFound is false, explain clearly in Thai why it was not found (e.g. 'Bodyslam เป็นชื่อวงดนตรีและชื่ออัลบั้มแรก ไม่พบเพลงแทร็กชื่อ Bodyslam'). If songFound is true, leave empty string ''.",
+    },
+    lyricsConfidence: {
+      type: Type.STRING,
+      description:
+        "Strictly one of: 'verified' (100% real official verbatim lyrics known) or 'not_found' (lyrics uncertain, unknown, or song not found - DO NOT GUESS).",
+    },
     title: {
       type: Type.STRING,
-      description: "Official Thai or English song title, clean of MV / official audio noise",
+      description: "Official Thai or English song title. If songFound is false and query is only an artist/band name, return empty string ''.",
     },
     artist: {
       type: Type.STRING,
-      description: "Primary artist, singer, or band name",
+      description: "Primary artist, singer, or band name. If unknown, return empty string ''.",
     },
     aliases: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description:
-        "Alternative spellings, transliterations, romanized karaoke spellings, and common colloquial titles",
+        "Alternative spellings, transliterations, romanized karaoke spellings. If songFound is false, MUST return empty array [].",
     },
     releaseYear: {
       type: Type.INTEGER,
-      description: "Original release year as integer (e.g. 2004)",
+      description: "Original individual song track release year as integer (e.g. 2004). If songFound is false, MUST return 0.",
     },
     genreSlug: {
       type: Type.STRING,
-      description: "Genre slug strictly one of: rock, pop, indie, 90s, t-pop, country-thai, life",
+      description: "Genre slug: rock, pop, indie, 90s, t-pop, country-thai, life. If songFound is false, MUST return empty string ''.",
     },
     era: {
       type: Type.STRING,
-      description: "Era string strictly one of: 80s, 90s, 2000s, 2010s, 2020s",
+      description: "Era string: 80s, 90s, 2000s, 2010s, 2020s. If songFound is false, MUST return empty string ''.",
     },
     hookStartSec: {
       type: Type.NUMBER,
-      description: "Estimated start time of the chorus/hook in seconds (e.g. 65)",
+      description: "Estimated start time of the chorus/hook in seconds. If songFound is false, MUST return 0.",
     },
     hookEndSec: {
       type: Type.NUMBER,
-      description: "Estimated end time of the chorus/hook in seconds (e.g. 85)",
+      description: "Estimated end time of the chorus/hook in seconds. If songFound is false, MUST return 0.",
     },
     lyricsIntro: {
       type: Type.STRING,
-      description: "Opening 2-4 lines of the song in Thai",
+      description: "Opening 2-4 lines of the song in Thai. MUST BE EXACT VERBATIM REAL LYRICS. If songFound is false or uncertain, MUST return empty string ''.",
     },
     lyricsChorus: {
       type: Type.STRING,
-      description: "Chorus 2-4 lines of the song in Thai",
+      description: "Chorus 2-4 lines of the song in Thai. MUST BE EXACT VERBATIM REAL LYRICS. If songFound is false or uncertain, MUST return empty string ''.",
     },
     youtubeSearchQuery: {
       type: Type.STRING,
-      description: "Clean YouTube search query string, format: '{Official Song Title} {Artist}'",
+      description: "Clean YouTube search query string. If songFound is false, MUST return empty string ''.",
     },
   },
   required: [
+    "songFound",
+    "lyricsConfidence",
     "title",
     "artist",
     "aliases",
@@ -537,6 +621,66 @@ const SONG_METADATA_GEMINI_SCHEMA = {
     "lyricsChorus",
     "youtubeSearchQuery",
   ],
+};
+
+export const BATCH_DISCOGRAPHY_GEMINI_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    artist: {
+      type: Type.STRING,
+      description: "Name of the artist or band",
+    },
+    albumOrCollection: {
+      type: Type.STRING,
+      description: "Name of the album or collection requested (e.g. 'Drive', 'Greatest Hits')",
+    },
+    songs: {
+      type: Type.ARRAY,
+      description: "List of real official tracks",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING, description: "Official song title" },
+          artist: { type: Type.STRING, description: "Artist name" },
+          aliases: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "2-4 alternative spellings or colloquial titles",
+          },
+          releaseYear: { type: Type.INTEGER, description: "Release year as integer (e.g. 2003)" },
+          genreSlug: {
+            type: Type.STRING,
+            enum: ["rock", "pop", "indie", "90s", "t-pop", "country-thai", "life"],
+            description: "Genre slug",
+          },
+          era: {
+            type: Type.STRING,
+            enum: ["80s", "90s", "2000s", "2010s", "2020s"],
+            description: "Musical era",
+          },
+          hookStartSec: { type: Type.INTEGER, description: "Approximate hook start timestamp in seconds" },
+          hookEndSec: { type: Type.INTEGER, description: "Approximate hook end timestamp in seconds" },
+          lyricsIntro: { type: Type.STRING, description: "Intro lyrics if verified verbatim, else empty string ''" },
+          lyricsChorus: { type: Type.STRING, description: "Chorus hook lyrics if verified verbatim, else empty string ''" },
+          youtubeSearchQuery: { type: Type.STRING, description: "Clean YouTube search query" },
+        },
+        required: [
+          "title",
+          "artist",
+          "aliases",
+          "releaseYear",
+          "genreSlug",
+          "era",
+          "hookStartSec",
+          "hookEndSec",
+          "lyricsIntro",
+          "lyricsChorus",
+          "youtubeSearchQuery",
+        ],
+      },
+    },
+  },
+  required: ["artist", "songs"],
 };
 
 function isValidApiKey(key?: string): boolean {
@@ -553,22 +697,39 @@ function isValidApiKey(key?: string): boolean {
  * Builds the system prompt for Gemini song metadata extraction
  */
 function buildExtractionPrompt(queryOrUrl: string, oembedTitle?: string | null): string {
-  return `You are an expert Thai music database curator and lyrics specialist for the web quiz game "เพลงไรวะ" (Pleng-Rai-Wa).
-Your task is to identify the exact song from the provided query or URL, extract accurate metadata, and pinpoint the chorus/hook timestamps and key lyrics.
+  return `You are a strict, factual Thai music database curator for the web quiz game "เพลงไรวะ" (Pleng-Rai-Wa).
+Your task is to identify whether the user's input corresponds to a REAL official song track, extract verified metadata, and provide ONLY verified official lyrics.
 
 User Input: "${queryOrUrl}"
 ${oembedTitle ? `Resolved YouTube Video Title: "${oembedTitle}"` : ""}
 
-Instructions:
-1. Identify the official Thai or English song title (clean of tags like [Official MV], HD, 4K).
-2. Identify the primary artist or band name.
-3. Provide 4-8 alternative spellings in 'aliases' (Thai variations, romanized/karaoke spellings, colloquial names, and common typos).
-4. Identify the original release year (releaseYear integer, e.g. 2004).
-5. Assign genreSlug strictly from: 'rock', 'pop', 'indie', '90s', 't-pop', 'country-thai', 'life'.
-6. Assign era strictly from: '80s', '90s', '2000s', '2010s', '2020s'.
-7. Estimate the chorus/hook timestamps in seconds (hookStartSec and hookEndSec). The hook should typically be 15 to 30 seconds long.
-8. Provide accurate Thai lyrics for the intro (2-4 lines) and chorus (2-4 lines).
-9. Provide a clean recommended YouTube search query: "{Official Title} {Artist}".
+🚨 STRICT ANTI-HALLUCINATION GUARDRAILS & EMPTY-WHEN-NOT-FOUND RULE:
+1. NEVER INVENT, FABRICATE, OR COMPOSE RHYMING LYRICS OR DATA UNDER ANY CIRCUMSTANCES.
+2. WHEN A SONG IS NOT FOUND (e.g. query is ONLY an artist/band name like "Bodyslam", "Potato", "Silly Fools", an album name, or a non-existent song):
+   - Set songFound to false.
+   - Set notFoundReason explaining in Thai why it was not found (e.g. "Bodyslam เป็นชื่อวงดนตรีและชื่ออัลบั้มแรก ไม่พบเพลงแทร็กชื่อ Bodyslam").
+   - DO NOT GUESS OR FILL IN ANY SONG ATTRIBUTES! Return strictly:
+     * title: If the query was only an artist/band name, set title = "".
+     * artist: Fill in the artist name if recognized (e.g. "Bodyslam"), otherwise "".
+     * releaseYear: 0 (MUST NOT output album release year or guess!).
+     * era: "" (MUST be empty string).
+     * genreSlug: "" (MUST be empty string).
+     * hookStartSec: 0 (MUST be 0).
+     * hookEndSec: 0 (MUST be 0).
+     * aliases: [] (MUST be empty array).
+     * lyricsIntro: "" (MUST be empty string).
+     * lyricsChorus: "" (MUST be empty string).
+     * lyricsConfidence: "not_found".
+     * youtubeSearchQuery: "" (MUST be empty string).
+3. REAL SONG WITH UNKNOWN LYRICS: If a real song exists, but you do NOT remember its exact, official verbatim lyrics with 100% confidence:
+   - DO NOT make up words, rhymes, or poetic lines.
+   - Set lyricsIntro = "" and lyricsChorus = "".
+   - Set lyricsConfidence = "not_found".
+4. REAL SONG WITH VERIFIED DATA: Only when you are 100% certain of the real song:
+   - Set songFound = true.
+   - Set releaseYear to the real song release year.
+   - Set hookStartSec and hookEndSec to approximate chorus timestamps.
+   - If verbatim lyrics known, set lyricsIntro and lyricsChorus, and lyricsConfidence = "verified". Otherwise leave lyrics empty and lyricsConfidence = "not_found".
 
 Output MUST be valid JSON adhering strictly to the schema.`;
 }
@@ -642,6 +803,37 @@ function sanitizeExtractedMetadata(
   parsed: Record<string, unknown>,
   fallbackQuery: string
 ): ExtractedSongMetadata {
+  const songFound = typeof parsed.songFound === "boolean" ? parsed.songFound : true;
+  const notFoundReason =
+    typeof parsed.notFoundReason === "string" && parsed.notFoundReason.trim()
+      ? parsed.notFoundReason.trim()
+      : undefined;
+
+  // STRICT RULE: If song was not found, wipe all song attributes completely!
+  if (!songFound) {
+    const rawTitle = typeof parsed.title === "string" ? cleanSongTitle(parsed.title) : "";
+    const rawArtist = typeof parsed.artist === "string" ? parsed.artist.trim() : "";
+    return {
+      songFound: false,
+      notFoundReason: notFoundReason || "ไม่พบข้อมูลเพลงนี้ในระบบ",
+      lyricsConfidence: "not_found",
+      title: rawTitle && rawTitle.toLowerCase() !== rawArtist.toLowerCase() ? rawTitle : "",
+      artist: rawArtist,
+      aliases: [],
+      releaseYear: 0,
+      genreSlug: "",
+      era: "",
+      hookStartSec: 0,
+      hookEndSec: 0,
+      lyricsIntro: "",
+      lyricsChorus: "",
+      youtubeSearchQuery: "",
+    };
+  }
+
+  const lyricsConfidence =
+    parsed.lyricsConfidence === "verified" ? "verified" : "not_found";
+
   const title = typeof parsed.title === "string" && parsed.title.trim()
     ? cleanSongTitle(parsed.title)
     : cleanSongTitle(fallbackQuery);
@@ -657,32 +849,46 @@ function sanitizeExtractedMetadata(
   const aliasesSet = new Set<string>([title.toLowerCase(), ...rawAliases.map((a) => a.toLowerCase())]);
   const aliases = Array.from(aliasesSet);
 
-  const releaseYear =
+  const parsedYear =
     typeof parsed.releaseYear === "number" && !isNaN(parsed.releaseYear)
       ? parsed.releaseYear
-      : parseInt(String(parsed.releaseYear), 10) || 2015;
+      : parseInt(String(parsed.releaseYear), 10);
+  const releaseYear = parsedYear && parsedYear > 0 ? parsedYear : 0;
 
-  const rawGenre = typeof parsed.genreSlug === "string" ? parsed.genreSlug.toLowerCase().trim() : "pop";
+  const rawGenre = typeof parsed.genreSlug === "string" ? parsed.genreSlug.toLowerCase().trim() : "";
   const genreSlug: string = (VALID_GENRE_SLUGS as readonly string[]).includes(rawGenre)
     ? rawGenre
-    : "pop";
+    : "";
 
   const era = typeof parsed.era === "string" && (VALID_ERAS as readonly string[]).includes(parsed.era.toLowerCase())
     ? parsed.era.toLowerCase()
-    : getEraFromYear(releaseYear);
+    : (releaseYear > 0 ? getEraFromYear(releaseYear) : "");
 
-  const hookStartSec = Math.max(0, Number(parsed.hookStartSec) || 60);
-  const hookEndSec = Math.max(hookStartSec + 5, Number(parsed.hookEndSec) || hookStartSec + 25);
+  const parsedStart = Number(parsed.hookStartSec);
+  const parsedEnd = Number(parsed.hookEndSec);
 
-  const lyricsIntro = typeof parsed.lyricsIntro === "string" ? parsed.lyricsIntro.trim() : "";
-  const lyricsChorus = typeof parsed.lyricsChorus === "string" ? parsed.lyricsChorus.trim() : "";
+  const hookStartSec = !isNaN(parsedStart) && parsedStart >= 0 ? parsedStart : 0;
+  const hookEndSec = !isNaN(parsedEnd) && parsedEnd > hookStartSec ? parsedEnd : 0;
+
+  // If lyricsConfidence is not_found or song wasn't found, strictly blank out lyrics (zero fabrication)
+  const lyricsIntro =
+    songFound && lyricsConfidence === "verified" && typeof parsed.lyricsIntro === "string"
+      ? parsed.lyricsIntro.trim()
+      : "";
+  const lyricsChorus =
+    songFound && lyricsConfidence === "verified" && typeof parsed.lyricsChorus === "string"
+      ? parsed.lyricsChorus.trim()
+      : "";
 
   const youtubeSearchQuery =
     typeof parsed.youtubeSearchQuery === "string" && parsed.youtubeSearchQuery.trim()
       ? parsed.youtubeSearchQuery.trim()
-      : `${title} ${artist}`;
+      : `${title} ${artist}`.trim();
 
   return {
+    songFound: true,
+    notFoundReason: undefined,
+    lyricsConfidence,
     title,
     artist,
     aliases,
@@ -743,5 +949,213 @@ export async function extractSongMetadata(
       // 5. Ultimate fallback to heuristic parser
       return heuristicExtractSongMetadata(queryOrUrl);
     }
+  }
+}
+
+/**
+ * Builds the system prompt for batch discography/album extraction
+ */
+function buildBatchExtractionPrompt(prompt: string): string {
+  return `You are a strict, factual Thai music discography curator for the web quiz game "เพลงไรวะ" (Pleng-Rai-Wa).
+Your task is to extract an authentic, real tracklist with verified metadata based on the user's request.
+
+User Request: "${prompt}"
+
+🚨 STRICT FACTUAL GUARDRAILS & ACCURACY RULES:
+1. ONLY return REAL, OFFICIAL song tracks released by this artist/band. Under NO circumstances should you fabricate, hallucinate, or make up fake song names!
+2. If an album or EP is specified (e.g. "Bodyslam อัลบั้ม Drive", "Mint Silly Fools"):
+   - Extract the real tracklist of that album in canonical order.
+3. If a number of hits is requested (e.g. "Bodyslam 20 เพลงฮิต", "Potato 10 เพลงดัง"):
+   - Provide the requested number of iconic, well-known hit songs.
+4. If no album or count is specified:
+   - Provide the top 10-15 most famous songs of the artist.
+5. NEVER fabricate or compose rhyming lyrics! If you know the exact verbatim opening or chorus hook lyrics, provide them. If not 100% certain, return empty string "".
+6. Valid genreSlug MUST be one of: 'rock', 'pop', 'indie', '90s', 't-pop', 'country-thai', 'life'.
+7. Valid era MUST be one of: '80s', '90s', '2000s', '2010s', '2020s'.
+8. hookStartSec and hookEndSec must be realistic chorus start/end times in seconds (e.g. 50-80s).
+9. youtubeSearchQuery should be formatted cleanly as: "[Song Title] [Artist Name]".
+
+Output MUST strictly follow the JSON schema.`;
+}
+
+async function callBatchGeminiSdk(
+  prompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: BATCH_DISCOGRAPHY_GEMINI_SCHEMA,
+      temperature: 0.2,
+    },
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error("Gemini SDK returned empty response text for batch discography");
+  }
+  return text;
+}
+
+async function callBatchGeminiRest(
+  prompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: BATCH_DISCOGRAPHY_GEMINI_SCHEMA,
+        temperature: 0.2,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Gemini REST API failed with status ${res.status}: ${errorText}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error("Gemini REST API returned empty text candidate for batch");
+  }
+  return text;
+}
+
+export function heuristicBatchExtractSongMetadata(
+  userPrompt: string
+): BatchDiscographyResult {
+  const cleanPrompt = userPrompt.trim().toLowerCase();
+  const matchedSongs = KNOWN_THAI_SONGS.filter(
+    (s) =>
+      cleanPrompt.includes(s.artist.toLowerCase()) ||
+      cleanPrompt.includes(s.title.toLowerCase())
+  );
+
+  const fallbackArtist =
+    matchedSongs.length > 0 ? matchedSongs[0].artist : userPrompt.trim();
+
+  const songsToUse = matchedSongs.length > 0 ? matchedSongs : KNOWN_THAI_SONGS.slice(0, 5);
+
+  return {
+    query: userPrompt,
+    artist: fallbackArtist,
+    albumOrCollection: "รวมเพลงยอดนิยม",
+    songs: songsToUse.map((s) => ({
+      ...s,
+      songFound: true,
+      lyricsConfidence: "verified",
+      isDuplicate: false,
+    })),
+    totalExtracted: songsToUse.length,
+    newSongsCount: songsToUse.length,
+    duplicatesCount: 0,
+  };
+}
+
+/**
+ * Extracts a complete album or batch discography tracklist using Gemini
+ */
+export async function extractBatchDiscography(
+  userPrompt: string,
+  customApiKey?: string
+): Promise<BatchDiscographyResult> {
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+
+  if (!isValidApiKey(apiKey)) {
+    return heuristicBatchExtractSongMetadata(userPrompt);
+  }
+
+  const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+  const prompt = buildBatchExtractionPrompt(userPrompt);
+
+  let rawJson = "";
+  try {
+    rawJson = await callBatchGeminiSdk(prompt, apiKey!, modelName);
+  } catch (sdkErr) {
+    console.warn("[ai-extractor] Batch SDK failed, attempting REST fallback:", sdkErr);
+    try {
+      rawJson = await callBatchGeminiRest(prompt, apiKey!, modelName);
+    } catch (restErr) {
+      console.warn("[ai-extractor] Batch REST failed, falling back to heuristic:", restErr);
+      return heuristicBatchExtractSongMetadata(userPrompt);
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(rawJson);
+    const artist = typeof parsed.artist === "string" ? parsed.artist.trim() : userPrompt.trim();
+    const albumOrCollection =
+      typeof parsed.albumOrCollection === "string" ? parsed.albumOrCollection.trim() : undefined;
+    const rawSongs = Array.isArray(parsed.songs) ? parsed.songs : [];
+
+    const songs: BatchExtractedSongItem[] = rawSongs
+      .filter((s: any) => s && typeof s.title === "string" && s.title.trim().length > 0)
+      .map((s: any) => {
+        const title = cleanSongTitle(s.title);
+        const songArtist = typeof s.artist === "string" && s.artist.trim() ? s.artist.trim() : artist;
+        const aliases = Array.isArray(s.aliases)
+          ? s.aliases.map((a: any) => String(a).trim()).filter(Boolean)
+          : [];
+        const releaseYear = typeof s.releaseYear === "number" && s.releaseYear > 1950 ? s.releaseYear : 2010;
+        const genreSlug =
+          typeof s.genreSlug === "string" && (VALID_GENRE_SLUGS as readonly string[]).includes(s.genreSlug)
+            ? s.genreSlug
+            : "pop";
+        const era =
+          typeof s.era === "string" && (VALID_ERAS as readonly string[]).includes(s.era)
+            ? s.era
+            : getEraFromYear(releaseYear);
+        const hookStartSec = typeof s.hookStartSec === "number" ? Math.max(0, s.hookStartSec) : 45;
+        const hookEndSec = typeof s.hookEndSec === "number" && s.hookEndSec > hookStartSec ? s.hookEndSec : hookStartSec + 25;
+        const lyricsIntro = typeof s.lyricsIntro === "string" ? s.lyricsIntro.trim() : "";
+        const lyricsChorus = typeof s.lyricsChorus === "string" ? s.lyricsChorus.trim() : "";
+        const youtubeSearchQuery =
+          typeof s.youtubeSearchQuery === "string" && s.youtubeSearchQuery.trim()
+            ? s.youtubeSearchQuery.trim()
+            : `${title} ${songArtist}`.trim();
+
+        return {
+          songFound: true,
+          lyricsConfidence: lyricsIntro || lyricsChorus ? "verified" : "not_found",
+          title,
+          artist: songArtist,
+          aliases,
+          releaseYear,
+          genreSlug,
+          era,
+          hookStartSec,
+          hookEndSec,
+          lyricsIntro,
+          lyricsChorus,
+          youtubeSearchQuery,
+          isDuplicate: false,
+        };
+      });
+
+    return {
+      query: userPrompt,
+      artist,
+      albumOrCollection,
+      songs,
+      totalExtracted: songs.length,
+      newSongsCount: songs.length,
+      duplicatesCount: 0,
+    };
+  } catch (parseErr) {
+    console.error("[ai-extractor] Failed to parse batch JSON response:", parseErr);
+    return heuristicBatchExtractSongMetadata(userPrompt);
   }
 }
