@@ -212,6 +212,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
           src={activeQuestion.sliceUrl}
           preload="auto"
           playsInline
+          loop={gameMode === "buzzer" || gameMode === "audio-slice"}
           onEnded={() => {
             if (audioRef.current) {
               audioRef.current.currentTime = 0;
@@ -451,14 +452,18 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
               {/* Big Bold Cue Banner */}
               <div className="mt-4 animate-pulse">
                 <h2 className="text-3xl sm:text-5xl md:text-6xl font-black font-serif text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-100 to-amber-400 tracking-tight">
-                  {gameMode === "translated-lyrics"
+                  {gameMode === "audio-slice"
+                    ? "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
+                    : gameMode === "translated-lyrics"
                     ? "🌐 อ่านเนื้อแปลแล้วพิมพ์ตอบบนมือถือ!"
                     : gameMode === "ai-lyrics"
-                    ? "🤖 ฟังเสียงอ่าน AI แล้วกดกริ่งตอบ!"
+                    ? "🤖 ฟังเสียงอ่าน AI แล้วพิมพ์ตอบบนมือถือ!"
                     : "🎵 ฟังเพลงแล้วกดกริ่งบนมือถือเพื่อตอบ!"}
                 </h2>
                 <p className="text-base sm:text-xl text-stone-300 font-semibold mt-3">
-                  {gameMode === "translated-lyrics"
+                  {gameMode === "audio-slice"
+                    ? "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
+                    : gameMode === "translated-lyrics" || gameMode === "ai-lyrics"
                     ? "ตอบได้ทันทีโดยไม่ต้องแย่งกดกริ่ง ยิ่งตอบไวยิ่งได้คะแนนเยอะ!"
                     : "ใครกดกริ่งคนแรก จะได้สิทธิ์ตอบคำถามและรับคะแนนทันที!"}
                 </p>

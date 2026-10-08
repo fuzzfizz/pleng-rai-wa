@@ -58,6 +58,13 @@ export function getGameModeLabel(mode: GameMode): string {
   }
 }
 
+/**
+ * Determines whether a game mode uses direct answer typing instead of the buzzer button.
+ */
+export function isDirectInputMode(mode: GameMode): boolean {
+  return mode !== "buzzer";
+}
+
 export function GameView({
   roomRealtime,
   songLibrary = [],
@@ -143,9 +150,9 @@ export function GameView({
     };
   }, []);
 
-  // Handle buzzer press with in-flight guard (disabled in lyrics modes)
+  // Handle buzzer press with in-flight guard (disabled for non-buzzer modes)
   const handleBuzzPress = useCallback(async () => {
-    if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics" || isBuzzing) return;
+    if (gameMode !== "buzzer" || isBuzzing) return;
     setIsBuzzing(true);
     try {
       await buzz();
@@ -293,7 +300,7 @@ export function GameView({
           ref={audioRef}
           src={activeQuestion.sliceUrl}
           preload="auto"
-          loop={gameMode === "buzzer"}
+          loop={gameMode === "buzzer" || gameMode === "audio-slice"}
         />
       )}
 
@@ -489,12 +496,16 @@ export function GameView({
               </div>
             </div>
 
-            {gameMode === "ai-lyrics" || gameMode === "translated-lyrics" ? (
+            {gameMode !== "buzzer" ? (
               <div className="w-full max-w-lg lg:max-w-2xl bg-white/95 dark:bg-stone-900/95 border-2 border-amber-500/50 rounded-3xl p-5 sm:p-6 lg:p-7 shadow-xl flex flex-col gap-3.5 animate-in fade-in zoom-in-95 duration-200">
                 {/* Instructions cue */}
                 <p className="text-xs lg:text-sm font-semibold text-amber-700 dark:text-amber-300/90 text-center flex items-center justify-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
-                  <span>พิมพ์ชื่อเพลงและส่งคำตอบได้ทันที ใครตอบถูกคนแรกชนะ!</span>
+                  <span>
+                    {gameMode === "audio-slice"
+                      ? "ฟังเสียงเสี้ยววินาทีแล้วพิมพ์ชื่อเพลงได้ทันที ใครตอบถูกคนแรกชนะ!"
+                      : "พิมพ์ชื่อเพลงและส่งคำตอบได้ทันที ใครตอบถูกคนแรกชนะ!"}
+                  </span>
                 </p>
 
                 {/* Excluded feedback banner */}
@@ -683,7 +694,7 @@ export function GameView({
       {/* ANSWER MODAL: Opened when current player buzzes      */}
       {/* ==================================================== */}
       <AnswerModal
-        isOpen={Boolean(gameMode !== "ai-lyrics" && gameMode !== "translated-lyrics" && isMyBuzz && status === "buzzed")}
+        isOpen={Boolean(gameMode === "buzzer" && isMyBuzz && status === "buzzed")}
         onSubmitAnswer={handleSubmitAnswer}
         inputMode={answerInputMode}
         songLibrary={songLibrary}
@@ -698,7 +709,9 @@ export function GameView({
         <p>
           ห้อง: <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{roomCode}</span> •{" "}
           {status === "question_active"
-            ? gameMode === "ai-lyrics" || gameMode === "translated-lyrics"
+            ? gameMode === "audio-slice"
+              ? "ฟังเสียงเสี้ยววินาทีแล้วพิมพ์ชื่อเพลงได้ทันที ใครตอบถูกคนแรกชนะ!"
+              : gameMode === "ai-lyrics" || gameMode === "translated-lyrics"
               ? "พิมพ์ชื่อเพลงและส่งคำตอบได้ทันที ใครตอบถูกคนแรกชนะ!"
               : "แตะกริ่งหรือกด Spacebar เพื่อแย่งตอบ"
             : status === "buzzed"
