@@ -70,6 +70,27 @@ export const VALID_ERAS = ["80s", "90s", "2000s", "2010s", "2020s"] as const;
  */
 export const KNOWN_THAI_SONGS: ExtractedSongMetadata[] = [
   {
+    title: "ขอใจเธอแลกเบอร์โทร",
+    artist: "หญิงลี ศรีจุมพล",
+    aliases: [
+      "khor jai thoe laek boe tho",
+      "kho jai thoe laek boe tho",
+      "ขอใจแลกเบอร์โทร",
+      "หญิงลี ขอใจเธอแลกเบอร์โทร",
+      "บริการรับฝากหัวใจ",
+      "ท่านกำลังเข้าสู่บริการรับฝากหัวใจ",
+      "ขอใจเธอแลกเบอร์โทร หญิงลี",
+    ],
+    releaseYear: 2012,
+    genreSlug: "country-thai",
+    era: "2010s",
+    hookStartSec: 68,
+    hookEndSec: 96,
+    lyricsIntro: "แวบเดียวแค่ดู ก็ทำให้รู้ว่าเธอนะโดนหัวใจ\nอยากบอกเหลือเกิน ว่าเธอน่ารักแค่ไหน\nจริตมากไปกลัวมันไม่ดีไม่งาม",
+    lyricsChorus: "ท่านกำลังเข้าสู่บริการรับฝาก หัวใจ\nลงทะเบียนฝากไว้ตัวเอากลับไป ใจให้เก็บรักษา\nยอมจำนนเธอแล้ววันนี้แค่แรก เห็นหน้า\nฝากไว้กับฉันนะหัวใจของเธอ แลกเบอร์โทร",
+    youtubeSearchQuery: "ขอใจเธอแลกเบอร์โทร หญิงลี ศรีจุมพล",
+  },
+  {
     title: "วัดใจ",
     artist: "Silly Fools",
     aliases: ["wat jai", "watjai", "วัดจัย", "มีแค่ใจดวงเดียวดวงนี้", "silly fools วัดใจ"],
@@ -302,6 +323,32 @@ export const KNOWN_THAI_SONGS: ExtractedSongMetadata[] = [
     lyricsIntro: "กราบหลวงพ่อลงกระหม่อม เป่าคาถามหานิยม",
     lyricsChorus: "เป่าคาถาลงหน้าทอง ให้เธอคลั่งไคล้ใหลหลง ให้รักฉันคนเดียวทั้งใจ",
     youtubeSearchQuery: "นะหน้าทอง โจอี้ ภูวศิษฐ์",
+  },
+  {
+    title: "เธอเป็นแฟนฉันแล้ว",
+    artist: "กะลา",
+    aliases: ["ther pen fan chan laew", "tur pen fan chan laew", "กะลา เธอเป็นแฟนฉันแล้ว", "kala เธอเป็นแฟนฉันแล้ว"],
+    releaseYear: 2003,
+    genreSlug: "rock",
+    era: "2000s",
+    hookStartSec: 64,
+    hookEndSec: 92,
+    lyricsIntro: "ตั้งแต่วันที่ฉันได้คุยกับเธอ ตั้งแต่วันที่ฉันได้เจอกับเธอ",
+    lyricsChorus: "อย่าปล่อยให้ฉันต้องรอคอยเธออย่างนี้ อย่าปล่อยให้ฉันต้องคิดถึงเธอคนเดียว\nเธอเป็นแฟนฉันแล้ว รู้ตัวบ้างไหม",
+    youtubeSearchQuery: "เธอเป็นแฟนฉันแล้ว กะลา",
+  },
+  {
+    title: "ทรงอย่างแบด",
+    artist: "Paper Planes",
+    aliases: ["song yang bad", "bad boy", "paper planes ทรงอย่างแบด", "ทรงอย่างแบดแซดอย่างบ่อย"],
+    releaseYear: 2022,
+    genreSlug: "rock",
+    era: "2020s",
+    hookStartSec: 42,
+    hookEndSec: 68,
+    lyricsIntro: "โย้ แอบไปกดไลก์ใน story เธอช่างดูดี luxury girl",
+    lyricsChorus: "ทรงอย่างแบด แซดอย่างบ่อย เธอไม่อินกับผู้ชาย bad boy\nทรงอย่างแบด แซดอย่างบ่อย เธอไม่รักฉันก็คงต้องปล่อย",
+    youtubeSearchQuery: "ทรงอย่างแบด Paper Planes",
   },
 ];
 
@@ -694,70 +741,210 @@ function isValidApiKey(key?: string): boolean {
 }
 
 /**
+ * Represents verified lyrics retrieved from the LRCLIB open database
+ */
+export interface LrclibLyricsResult {
+  trackName: string;
+  artistName: string;
+  plainLyrics: string;
+  syncedLyrics?: string;
+  duration?: number;
+}
+
+/**
+ * Fetches verified verbatim lyrics and synchronized timestamps from LRCLIB open database
+ */
+export async function fetchLyricsFromLrclib(
+  query: string,
+  artistHint?: string
+): Promise<LrclibLyricsResult | null> {
+  const cleanQ = cleanSongTitle(query).trim();
+  if (!cleanQ) return null;
+
+  const searchQueries = [
+    artistHint ? `${cleanQ} ${artistHint}`.trim() : cleanQ,
+    cleanQ,
+  ];
+
+  for (const q of searchQueries) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      const res = await fetch(
+        `https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,
+        {
+          signal: controller.signal,
+          headers: {
+            "User-Agent": "PlengRaiWa/1.0 (https://github.com/pleng-rai-wa)",
+          },
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (!res.ok) continue;
+      const items = await res.json();
+      if (!Array.isArray(items) || items.length === 0) continue;
+
+      // Find first item with substantial plainLyrics (> 30 characters)
+      const valid = items.find(
+        (item) =>
+          typeof item.plainLyrics === "string" &&
+          item.plainLyrics.trim().length > 30
+      );
+
+      if (valid) {
+        return {
+          trackName: valid.trackName,
+          artistName: valid.artistName,
+          plainLyrics: valid.plainLyrics.trim(),
+          syncedLyrics: valid.syncedLyrics || undefined,
+          duration: typeof valid.duration === "number" ? valid.duration : undefined,
+        };
+      }
+    } catch {
+      // Continue to next query
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Calibrates chorus start timestamp using synchronized lyrics and extracted chorus text
+ */
+export function extractHookTimestampFromSyncedLyrics(
+  syncedLyrics?: string,
+  chorusText?: string
+): number | null {
+  if (!syncedLyrics || !chorusText) return null;
+  const chorusLines = chorusText
+    .split("\n")
+    .map((l) => l.trim().replace(/\s+/g, ""))
+    .filter((l) => l.length >= 4);
+
+  if (chorusLines.length === 0) return null;
+  const target = chorusLines[0];
+
+  const regex = /\[(\d{2}):(\d{2})(?:\.(\d+))?\]\s*(.*)/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(syncedLyrics)) !== null) {
+    const mins = parseInt(match[1], 10);
+    const secs = parseInt(match[2], 10);
+    const lineText = (match[4] || "").replace(/\s+/g, "");
+    if (lineText && (lineText.includes(target) || target.includes(lineText))) {
+      return mins * 60 + secs;
+    }
+  }
+  return null;
+}
+
+/**
  * Builds the system prompt for Gemini song metadata extraction
  */
-function buildExtractionPrompt(queryOrUrl: string, oembedTitle?: string | null): string {
+function buildExtractionPrompt(
+  queryOrUrl: string,
+  oembedTitle?: string | null,
+  verifiedLyrics?: string | null
+): string {
+  let lyricsInstructions = "";
+  if (verifiedLyrics) {
+    lyricsInstructions = `
+VERIFIED OFFICIAL LYRICS GROUND TRUTH:
+"""
+${verifiedLyrics}
+"""
+
+INSTRUCTIONS FOR EXTRACTING LYRICS:
+1. Extract verbatim 2-4 lines of intro (opening lines) from the text above for lyricsIntro.
+2. Extract verbatim 2-4 lines of the main chorus/hook from the text above for lyricsChorus.
+3. DO NOT alter, paraphrase, or invent words. Use exact lines from the provided ground truth text.
+4. Set lyricsConfidence = "verified".`;
+  } else {
+    lyricsInstructions = `
+🚨 ZERO-TOLERANCE ANTI-HALLUCINATION RULES FOR LYRICS:
+- No verified lyrics text is available for this song.
+- You MUST output empty string "" for both lyricsIntro and lyricsChorus.
+- Set lyricsConfidence = "not_found".
+- NEVER make up, invent, or compose rhyming lyrics (e.g. inventing 'ฝากกล่องดวงใจเอาไว้กับฉันก่อนไหมพี่ / เบอร์โทรอื่น มีอีกเป็นร้อยเป็นพันนาที').
+- If real verbatim lyrics cannot be verified from a provided text, lyrics MUST remain empty string "".`;
+  }
+
   return `You are a strict, factual Thai music database curator for the web quiz game "เพลงไรวะ" (Pleng-Rai-Wa).
 Your task is to identify whether the user's input corresponds to a REAL official song track, extract verified metadata, and provide ONLY verified official lyrics.
 
 User Input: "${queryOrUrl}"
 ${oembedTitle ? `Resolved YouTube Video Title: "${oembedTitle}"` : ""}
 
-🚨 STRICT ANTI-HALLUCINATION GUARDRAILS & EMPTY-WHEN-NOT-FOUND RULE:
-1. NEVER INVENT, FABRICATE, OR COMPOSE RHYMING LYRICS OR DATA UNDER ANY CIRCUMSTANCES.
-2. WHEN A SONG IS NOT FOUND (e.g. query is ONLY an artist/band name like "Bodyslam", "Potato", "Silly Fools", an album name, or a non-existent song):
-   - Set songFound to false.
-   - Set notFoundReason explaining in Thai why it was not found (e.g. "Bodyslam เป็นชื่อวงดนตรีและชื่ออัลบั้มแรก ไม่พบเพลงแทร็กชื่อ Bodyslam").
-   - DO NOT GUESS OR FILL IN ANY SONG ATTRIBUTES! Return strictly:
-     * title: If the query was only an artist/band name, set title = "".
-     * artist: Fill in the artist name if recognized (e.g. "Bodyslam"), otherwise "".
-     * releaseYear: 0 (MUST NOT output album release year or guess!).
-     * era: "" (MUST be empty string).
-     * genreSlug: "" (MUST be empty string).
-     * hookStartSec: 0 (MUST be 0).
-     * hookEndSec: 0 (MUST be 0).
-     * aliases: [] (MUST be empty array).
-     * lyricsIntro: "" (MUST be empty string).
-     * lyricsChorus: "" (MUST be empty string).
-     * lyricsConfidence: "not_found".
-     * youtubeSearchQuery: "" (MUST be empty string).
-3. REAL SONG WITH UNKNOWN LYRICS: If a real song exists, but you do NOT remember its exact, official verbatim lyrics with 100% confidence:
-   - DO NOT make up words, rhymes, or poetic lines.
-   - Set lyricsIntro = "" and lyricsChorus = "".
-   - Set lyricsConfidence = "not_found".
-4. REAL SONG WITH VERIFIED DATA: Only when you are 100% certain of the real song:
-   - Set songFound = true.
-   - Set releaseYear to the real song release year.
-   - Set hookStartSec and hookEndSec to approximate chorus timestamps.
-   - If verbatim lyrics known, set lyricsIntro and lyricsChorus, and lyricsConfidence = "verified". Otherwise leave lyrics empty and lyricsConfidence = "not_found".
+${lyricsInstructions}
+
+🚨 EMPTY-WHEN-NOT-FOUND RULE:
+When a song is NOT found (e.g. query is ONLY an artist/band name like "Bodyslam", "Potato", "Silly Fools", an album name, or a non-existent song):
+- Set songFound to false.
+- Set notFoundReason explaining in Thai why it was not found (e.g. "Bodyslam เป็นชื่อวงดนตรีและชื่ออัลบั้มแรก ไม่พบเพลงแทร็กชื่อ Bodyslam").
+- Return strictly:
+  * title: ""
+  * artist: Fill in the artist name if recognized, otherwise ""
+  * releaseYear: 0
+  * era: ""
+  * genreSlug: ""
+  * hookStartSec: 0
+  * hookEndSec: 0
+  * aliases: []
+  * lyricsIntro: ""
+  * lyricsChorus: ""
+  * lyricsConfidence: "not_found"
+  * youtubeSearchQuery: ""
 
 Output MUST be valid JSON adhering strictly to the schema.`;
 }
 
 /**
- * Calls Gemini using the official @google/genai SDK
+ * Calls Gemini using the official @google/genai SDK with resilient model fallback
  */
 async function callGeminiSdk(
   prompt: string,
   apiKey: string,
-  modelName: string
+  primaryModel: string
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: SONG_METADATA_GEMINI_SCHEMA,
-      temperature: 0.2,
-    },
-  });
+  const modelsToTry = Array.from(
+    new Set([primaryModel, "gemini-3.5-flash-lite", "gemini-3.5-flash"])
+  ).filter(Boolean);
 
-  const text = response.text;
-  if (!text) {
-    throw new Error("Gemini SDK returned empty response text");
+  let lastError: unknown = null;
+  for (const model of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: SONG_METADATA_GEMINI_SCHEMA,
+          temperature: 0.1,
+        },
+      });
+
+      const text = response.text;
+      if (text) {
+        return text;
+      }
+    } catch (err: any) {
+      lastError = err;
+      if (
+        err?.status === 429 ||
+        err?.status === 503 ||
+        err?.message?.includes("quota") ||
+        err?.message?.includes("Resource has been exhausted")
+      ) {
+        console.warn(`[ai-extractor] Model ${model} rate-limited or busy, trying fallback...`);
+        continue;
+      }
+      throw err;
+    }
   }
-  return text;
+
+  throw lastError || new Error("Gemini SDK returned empty response text");
 }
 
 /**
@@ -778,7 +965,7 @@ async function callGeminiRest(
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: SONG_METADATA_GEMINI_SCHEMA,
-        temperature: 0.2,
+        temperature: 0.1,
       },
     }),
   });
@@ -797,11 +984,13 @@ async function callGeminiRest(
 }
 
 /**
- * Parses and sanitizes raw JSON output from Gemini
+ * Parses and sanitizes raw JSON output from Gemini with anti-hallucination verification
  */
 function sanitizeExtractedMetadata(
   parsed: Record<string, unknown>,
-  fallbackQuery: string
+  fallbackQuery: string,
+  verifiedLyrics?: string | null,
+  syncedLyrics?: string | null
 ): ExtractedSongMetadata {
   const songFound = typeof parsed.songFound === "boolean" ? parsed.songFound : true;
   const notFoundReason =
@@ -831,8 +1020,14 @@ function sanitizeExtractedMetadata(
     };
   }
 
+  // ZERO-TOLERANCE ANTI-HALLUCINATION GUARDRAIL:
+  // If no authentic lyrics ground truth was provided, the LLM cannot be trusted to self-report "verified" lyrics.
+  // We strictly wipe lyrics to empty strings unless grounded by authentic text or curated database.
+  const isLyricsAuthentic = Boolean(verifiedLyrics && verifiedLyrics.trim().length > 30);
   const lyricsConfidence =
-    parsed.lyricsConfidence === "verified" ? "verified" : "not_found";
+    songFound && isLyricsAuthentic && parsed.lyricsConfidence === "verified"
+      ? "verified"
+      : "not_found";
 
   const title = typeof parsed.title === "string" && parsed.title.trim()
     ? cleanSongTitle(parsed.title)
@@ -867,8 +1062,8 @@ function sanitizeExtractedMetadata(
   const parsedStart = Number(parsed.hookStartSec);
   const parsedEnd = Number(parsed.hookEndSec);
 
-  const hookStartSec = !isNaN(parsedStart) && parsedStart >= 0 ? parsedStart : 0;
-  const hookEndSec = !isNaN(parsedEnd) && parsedEnd > hookStartSec ? parsedEnd : 0;
+  let hookStartSec = !isNaN(parsedStart) && parsedStart >= 0 ? parsedStart : 0;
+  let hookEndSec = !isNaN(parsedEnd) && parsedEnd > hookStartSec ? parsedEnd : 0;
 
   // If lyricsConfidence is not_found or song wasn't found, strictly blank out lyrics (zero fabrication)
   const lyricsIntro =
@@ -879,6 +1074,17 @@ function sanitizeExtractedMetadata(
     songFound && lyricsConfidence === "verified" && typeof parsed.lyricsChorus === "string"
       ? parsed.lyricsChorus.trim()
       : "";
+
+  // Calibrate hook start & end timestamps using synced lyrics if available
+  if (syncedLyrics && lyricsChorus) {
+    const calibratedStart = extractHookTimestampFromSyncedLyrics(syncedLyrics, lyricsChorus);
+    if (calibratedStart !== null && calibratedStart > 0) {
+      hookStartSec = calibratedStart;
+      if (!hookEndSec || hookEndSec <= hookStartSec) {
+        hookEndSec = hookStartSec + 25;
+      }
+    }
+  }
 
   const youtubeSearchQuery =
     typeof parsed.youtubeSearchQuery === "string" && parsed.youtubeSearchQuery.trim()
@@ -921,32 +1127,60 @@ export async function extractSongMetadata(
     return heuristicExtractSongMetadata(queryOrUrl);
   }
 
-  const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+  // 2. Check curated knowledge base for 100% human-verified instant match (0ms, zero hallucination)
+  const rawClean = cleanSongTitle(queryOrUrl).trim().toLowerCase();
+  const matchedKnown = KNOWN_THAI_SONGS.find((s) => {
+    const titleLower = s.title.toLowerCase();
+    const artistLower = s.artist.toLowerCase();
+    return (
+      rawClean === `${titleLower} ${artistLower}` ||
+      rawClean === `${artistLower} ${titleLower}` ||
+      rawClean === titleLower ||
+      s.aliases.some((a) => rawClean === a.toLowerCase() || rawClean.includes(a.toLowerCase()))
+    );
+  });
 
-  // 2. If query is a YouTube URL, fetch oEmbed title to provide rich context to Gemini
+  if (matchedKnown) {
+    return {
+      ...matchedKnown,
+      songFound: true,
+      lyricsConfidence: "verified",
+      youtubeSearchQuery: matchedKnown.youtubeSearchQuery || `${matchedKnown.title} ${matchedKnown.artist}`,
+    };
+  }
+
+  const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+
+  // 3. If query is a YouTube URL, fetch oEmbed title to provide rich context to Gemini
   let oembedTitle: string | null = null;
   if (/^https?:\/\//i.test(queryOrUrl.trim())) {
     oembedTitle = await fetchYouTubeOEmbedTitle(queryOrUrl.trim());
   }
 
-  const prompt = buildExtractionPrompt(queryOrUrl, oembedTitle);
+  // 4. Query LRCLIB for verified ground truth lyrics
+  const searchTarget = oembedTitle ? cleanSongTitle(oembedTitle) : cleanSongTitle(queryOrUrl);
+  const lrclibLyrics = await fetchLyricsFromLrclib(searchTarget);
+  const verifiedLyricsText = lrclibLyrics?.plainLyrics || null;
+  const syncedLyricsText = lrclibLyrics?.syncedLyrics || null;
 
-  // 3. Try official @google/genai SDK
+  const prompt = buildExtractionPrompt(queryOrUrl, oembedTitle, verifiedLyricsText);
+
+  // 5. Try official @google/genai SDK
   try {
     const rawJsonText = await callGeminiSdk(prompt, apiKey!, modelName);
     const parsed = JSON.parse(rawJsonText);
-    return sanitizeExtractedMetadata(parsed, queryOrUrl);
+    return sanitizeExtractedMetadata(parsed, queryOrUrl, verifiedLyricsText, syncedLyricsText);
   } catch (sdkError) {
     console.warn("[ai-extractor] Google GenAI SDK failed, attempting REST fallback:", sdkError);
 
-    // 4. Try REST fallback
+    // 6. Try REST fallback
     try {
       const restJsonText = await callGeminiRest(prompt, apiKey!, modelName);
       const parsed = JSON.parse(restJsonText);
-      return sanitizeExtractedMetadata(parsed, queryOrUrl);
+      return sanitizeExtractedMetadata(parsed, queryOrUrl, verifiedLyricsText, syncedLyricsText);
     } catch (restError) {
       console.warn("[ai-extractor] Gemini REST fallback failed, using heuristic parser:", restError);
-      // 5. Ultimate fallback to heuristic parser
+      // 7. Ultimate fallback to heuristic parser
       return heuristicExtractSongMetadata(queryOrUrl);
     }
   }

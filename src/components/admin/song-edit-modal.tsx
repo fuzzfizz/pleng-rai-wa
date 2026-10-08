@@ -22,6 +22,9 @@ import {
   Clock,
   FileText,
   Tag,
+  Search,
+  Scissors,
+  ExternalLink,
 } from "lucide-react";
 import type { Song, Genre, ExtractedSongMetadata } from "@/types";
 
@@ -67,6 +70,11 @@ export function SongEditModal({
   // Save State
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Lyrics Splitter & Helper State
+  const [isSplitterOpen, setIsSplitterOpen] = useState(false);
+  const [fullLyricsInput, setFullLyricsInput] = useState("");
+  const [lyricsNotice, setLyricsNotice] = useState<string | null>(null);
 
   // Audio Preview State
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -116,6 +124,9 @@ export function SongEditModal({
       setAiError(null);
       setAiSuccess(false);
       setSaveError(null);
+      setLyricsNotice(null);
+      setIsSplitterOpen(false);
+      setFullLyricsInput("");
     }
   }, [song, isOpen]);
 
@@ -355,6 +366,15 @@ export function SongEditModal({
         updated.add("lyricsChorus");
       }
 
+      // Show lyrics confidence notice
+      if (metadata.lyricsConfidence === "verified" && (metadata.lyricsIntro || metadata.lyricsChorus)) {
+        setLyricsNotice("✅ เนื้อเพลงถูกตรวจสอบจากฐานข้อมูลเนื้อเพลงต้นฉบับ (LRCLIB)");
+      } else if (!metadata.lyricsIntro && !metadata.lyricsChorus) {
+        setLyricsNotice("⚠️ ไม่พบเนื้อเพลงต้นฉบับที่ตรวจสอบแล้ว — กรุณากรอกเอง หรือค้นหาจาก Google");
+      } else {
+        setLyricsNotice(null);
+      }
+
       setAiUpdatedFields(updated);
       setAiSuccess(true);
     } catch (err) {
@@ -363,6 +383,52 @@ export function SongEditModal({
     } finally {
       setIsAiLoading(false);
     }
+  };
+
+  // Lyrics Splitter: auto-split full lyrics into intro + chorus
+  const handleSplitLyrics = () => {
+    const text = fullLyricsInput.trim();
+    if (!text) return;
+
+    const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+    if (lines.length === 0) return;
+
+    // Intro: first 2-4 lines
+    const introLines = lines.slice(0, Math.min(4, lines.length));
+    setLyricsIntro(introLines.join("\n"));
+
+    // Find chorus: look for repeated sections or second verse block
+    // Heuristic: find first blank-line-separated block after the first block
+    const allLines = text.split("\n").map((l) => l.trim());
+    const blocks: string[][] = [];
+    let currentBlock: string[] = [];
+    for (const line of allLines) {
+      if (line.length === 0) {
+        if (currentBlock.length > 0) {
+          blocks.push(currentBlock);
+          currentBlock = [];
+        }
+      } else {
+        currentBlock.push(line);
+      }
+    }
+    if (currentBlock.length > 0) blocks.push(currentBlock);
+
+    // If we have 3+ blocks, the chorus is often block 3 (after verse1, pre-chorus)
+    // If 2 blocks, chorus = block 2
+    // If 1 block, take the last 2-4 lines
+    let chorusLines: string[];
+    if (blocks.length >= 3) {
+      chorusLines = blocks[2].slice(0, 4);
+    } else if (blocks.length === 2) {
+      chorusLines = blocks[1].slice(0, 4);
+    } else {
+      const half = Math.max(1, Math.floor(lines.length / 2));
+      chorusLines = lines.slice(half, half + 4);
+    }
+    setLyricsChorus(chorusLines.join("\n"));
+    setIsSplitterOpen(false);
+    setFullLyricsInput("");
   };
 
   // Save handler
@@ -833,10 +899,76 @@ export function SongEditModal({
 
           {/* Section 4: Lyrics */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-amber-500" />
-              <span>เนื้อเพลง</span>
-            </h3>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-amber-500" />
+                <span>เนื้อเพลง</span>
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSplitterOpen(!isSplitterOpen)}
+                  className="text-[11px] bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 px-2 py-1 rounded-lg border border-stone-200 dark:border-stone-700 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+                >
+                  <Scissors className="w-3 h-3" />
+                  <span>วางเนื้อเพลงเต็มเพื่อตัดแบ่ง</span>
+                </button>
+                <a
+                  href={`https://www.google.com/search?q=${encodeURIComponent("เนื้อเพลง " + (title || song.title) + " " + (artist || song.artist))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <Search className="w-3 h-3" />
+                  <span>ค้นหาใน Google</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                </a>
+              </div>
+            </div>
+
+            {/* Lyrics Confidence Notice */}
+            {lyricsNotice && (
+              <div className={`text-[11px] px-3 py-2 rounded-xl border ${
+                lyricsNotice.startsWith("✅")
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400"
+              }`}>
+                {lyricsNotice}
+              </div>
+            )}
+
+            {/* Inline Lyrics Splitter */}
+            {isSplitterOpen && (
+              <div className="p-3 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-2xl space-y-2">
+                <label className="text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                  📋 วางเนื้อเพลงทั้งหมดที่นี่ แล้วระบบจะตัดแบ่ง Intro / Chorus ให้อัตโนมัติ
+                </label>
+                <textarea
+                  rows={6}
+                  placeholder="วางเนื้อเพลงเต็มจาก Google / Siamzone / Sanook ที่นี่..."
+                  value={fullLyricsInput}
+                  onChange={(e) => setFullLyricsInput(e.target.value)}
+                  className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-xl p-2.5 text-xs text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none transition-colors resize-y leading-relaxed"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsSplitterOpen(false); setFullLyricsInput(""); }}
+                    className="text-[11px] px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSplitLyrics}
+                    disabled={!fullLyricsInput.trim()}
+                    className="text-[11px] px-3 py-1.5 rounded-lg bg-amber-500 text-stone-950 font-bold cursor-pointer disabled:opacity-50 hover:bg-amber-400 transition-colors"
+                  >
+                    <span>✂️ ตัดแบ่ง Intro + Chorus</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Intro Lyrics */}
             <div>
