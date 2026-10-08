@@ -122,6 +122,18 @@ export async function POST(req: NextRequest) {
         existingSessionToken.trim() === room.host_player_id) ||
       playerId === room.host_player_id;
 
+    // Update live playerCount in room settings if a new player joins
+    const currentSettings = (room.settings as any) || {};
+    const isReconnecting =
+      (typeof existingPlayerId === "string" && existingPlayerId.trim().length > 0) ||
+      (typeof existingSessionToken === "string" && existingSessionToken.trim().length > 0);
+
+    let updatedCount = typeof currentSettings.playerCount === "number" ? currentSettings.playerCount : 1;
+    if (!isHost && !isReconnecting) {
+      updatedCount = Math.max(1, updatedCount + 1);
+      await RoomService.updateRoomSettings(cleanCode, { playerCount: updatedCount }).catch(() => {});
+    }
+
     return NextResponse.json(
       {
         success: true,
@@ -133,7 +145,10 @@ export async function POST(req: NextRequest) {
           id: room.id,
           roomCode: room.room_code,
           status: room.status,
-          settings: room.settings,
+          settings: {
+            ...currentSettings,
+            playerCount: updatedCount,
+          },
         },
       },
       { status: 200 }

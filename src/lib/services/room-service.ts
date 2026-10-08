@@ -55,12 +55,13 @@ export class RoomService {
     const roomCode = generateRoomCode();
 
     // Auto-cleanup stale/abandoned rooms in the background (fire-and-forget, non-blocking)
-    this.cleanupStaleRooms(24).catch(() => {});
+    this.cleanupStaleRooms().catch(() => {});
 
     const mergedSettings: RoomSettings = {
       ...DEFAULT_ROOM_SETTINGS,
       ...initialSettings,
       hostDisplayName: hostDisplayName.trim(),
+      playerCount: 1,
     };
 
     const { data, error } = await client
@@ -229,17 +230,52 @@ export class RoomService {
   }
 
   /**
-   * Automatically cleans up inactive / abandoned rooms from database.
-   * - Rooms with status 'game_over' older than 2 hours.
-   * - Abandoned rooms with no activity older than olderThanHours (default 24h).
+   * Delete a room immediately by room code (e.g., when host leaves or dissolves room).
    */
-  static async cleanupStaleRooms(olderThanHours = 24): Promise<{ deletedCount: number }> {
+  static async deleteRoomByCode(code: string): Promise<boolean> {
+    if (!code || typeof code !== "string") return false;
+    const cleanCode = code.trim().toUpperCase();
+    const client = this.getClient();
+    const { error } = await client.from("rooms").delete().eq("room_code", cleanCode);
+    if (error) {
+      console.warn("[RoomService] Failed to delete room:", cleanCode, error.message);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Automatically cleans up inactive / abandoned rooms from database in near real-time.
+   * - Ended rooms ('game_over') older than 10 minutes.
+   * - Abandoned lobby rooms ('lobby') with no activity older than 20 minutes.
+   * - Inactive in-game rooms with no updates older than 40 minutes.
+   */
+  static async cleanupStaleRooms(optionsOrHours?: number | {
+    endedMinutes?: number;
+    lobbyMinutes?: number;
+    inactiveMinutes?: number;
+  }): Promise<{ deletedCount: number }> {
     try {
       const client = this.getClient();
-      const staleThreshold = new Date(Date.now() - olderThanHours * 60 * 60 * 1000).toISOString();
-      const endedThreshold = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      let endedMins = 10;
+      let lobbyMins = 20;
+      let inactiveMins = 40;
 
-      // 1. Delete ended rooms older than 2 hours
+      if (typeof optionsOrHours === "number") {
+        inactiveMins = optionsOrHours * 60;
+        lobbyMins = optionsOrHours * 60;
+        endedMins = Math.min(120, optionsOrHours * 60);
+      } else if (optionsOrHours && typeof optionsOrHours === "object") {
+        if (optionsOrHours.endedMinutes !== undefined) endedMins = optionsOrHours.endedMinutes;
+        if (optionsOrHours.lobbyMinutes !== undefined) lobbyMins = optionsOrHours.lobbyMinutes;
+        if (optionsOrHours.inactiveMinutes !== undefined) inactiveMins = optionsOrHours.inactiveMinutes;
+      }
+
+      const endedThreshold = new Date(Date.now() - endedMins * 60 * 1000).toISOString();
+      const lobbyThreshold = new Date(Date.now() - lobbyMins * 60 * 1000).toISOString();
+      const inactiveThreshold = new Date(Date.now() - inactiveMins * 60 * 1000).toISOString();
+
+      // 1. Delete ended rooms older than 10 minutes
       const { data: endedRooms } = await client
         .from("rooms")
         .delete()
@@ -247,18 +283,30 @@ export class RoomService {
         .lt("updated_at", endedThreshold)
         .select("id");
 
-      // 2. Delete abandoned rooms with no activity older than olderThanHours
+      // 2. Delete abandoned lobby rooms with no updates for 20 minutes
+      const { data: lobbyRooms } = await client
+        .from("rooms")
+        .delete()
+        .eq("status", "lobby")
+        .lt("updated_at", lobbyThreshold)
+        .select("id");
+
+      // 3. Delete any stale rooms with no activity older than 40 minutes
       const { data: staleRooms, error } = await client
         .from("rooms")
         .delete()
-        .lt("updated_at", staleThreshold)
+        .lt("updated_at", inactiveThreshold)
         .select("id");
 
       if (error) {
         console.warn("[RoomService] Warning during cleanupStaleRooms:", error.message);
       }
 
-      const totalDeleted = (endedRooms?.length || 0) + (staleRooms?.length || 0);
+      const totalDeleted =
+        (endedRooms?.length || 0) +
+        (lobbyRooms?.length || 0) +
+        (staleRooms?.length || 0);
+
       return { deletedCount: totalDeleted };
     } catch (err) {
       console.warn("[RoomService] Error during cleanupStaleRooms:", err);
@@ -268,15 +316,17 @@ export class RoomService {
 
   /**
    * Retrieves active public rooms for directory table on home page.
+   * Cleans up stale/ended rooms synchronously before query so table is always 100% fresh.
    * Excludes ended, stale, and private rooms.
    */
   static async listActiveRooms(): Promise<any[]> {
     const client = this.getClient();
-    // Auto-cleanup stale rooms older than 2 hours
-    this.cleanupStaleRooms(2).catch(() => {});
 
-    // Rooms active in the last 4 hours
-    const recentThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    // Opportunistic cleanup: Purge dead rooms immediately before listing
+    await this.cleanupStaleRooms().catch(() => {});
+
+    // Rooms active in the last 40 minutes
+    const recentThreshold = new Date(Date.now() - 40 * 60 * 1000).toISOString();
 
     const { data, error } = await client
       .from("rooms")
@@ -305,6 +355,7 @@ export class RoomService {
           hostDisplayName: s.hostDisplayName || "หัวหน้าห้อง",
           hostAvatar: s.hostAvatar || "🎧",
           gameMode: s.gameMode || "buzzer",
+          playerCount: typeof s.playerCount === "number" ? Math.max(1, s.playerCount) : 1,
           totalRounds: s.totalRounds || 10,
           currentRound: s.currentRound || 1,
           isLocked: Boolean(s.password && String(s.password).trim().length > 0),

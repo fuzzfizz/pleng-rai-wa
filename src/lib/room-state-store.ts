@@ -532,6 +532,10 @@ export class RoomStateStore {
     return this.resetRoom(code);
   }
 
+  static deleteRoom(code: string): boolean {
+    return this.resetRoom(code);
+  }
+
   /**
    * Clears all room states (useful for tests).
    */

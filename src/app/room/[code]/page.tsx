@@ -203,11 +203,44 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   // Realtime hook initialization
   const roomRealtime = useRoomRealtime(cleanCode, initialPlayer);
 
-  // Leave room action
+  // Leave room action (triggers real-time leave & room dissolution if host)
   const handleLeave = useCallback(() => {
+    if (storedSession?.playerId) {
+      try {
+        fetch(`/api/room/${cleanCode}/leave`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerId: storedSession.playerId,
+            isHost: Boolean(storedSession.isHost),
+          }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch (err) {
+        console.warn("Error leaving room:", err);
+      }
+    }
     clearPlayerSession(cleanCode);
     router.push("/");
-  }, [cleanCode, router]);
+  }, [cleanCode, storedSession, router]);
+
+  // Send leave signal on tab close / window unload
+  useEffect(() => {
+    const onUnload = () => {
+      if (storedSession?.playerId && typeof navigator !== "undefined" && navigator.sendBeacon) {
+        const payload = JSON.stringify({
+          playerId: storedSession.playerId,
+          isHost: Boolean(storedSession.isHost),
+        });
+        const blob = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon(`/api/room/${cleanCode}/leave`, blob);
+      }
+    };
+    window.addEventListener("pagehide", onUnload);
+    return () => {
+      window.removeEventListener("pagehide", onUnload);
+    };
+  }, [cleanCode, storedSession?.playerId, storedSession?.isHost]);
 
   // Guest join submission handler
   const handleGuestJoin = async (e?: React.FormEvent) => {

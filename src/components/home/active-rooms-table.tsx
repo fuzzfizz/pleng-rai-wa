@@ -34,6 +34,7 @@ export interface ActiveRoomItem {
   gameMode: string;
   totalRounds: number;
   currentRound: number;
+  playerCount?: number;
   isLocked: boolean;
   createdAt: string;
   updatedAt: string;
@@ -255,6 +256,7 @@ export function ActiveRoomsTable() {
                 <tr className="border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 text-xs font-semibold bg-stone-50/50 dark:bg-stone-950/30">
                   <th className="py-3 px-4 sm:px-5">รหัสห้อง</th>
                   <th className="py-3 px-3 sm:px-4">หัวหน้าห้อง</th>
+                  <th className="py-3 px-3 sm:px-4">ผู้เล่น</th>
                   <th className="py-3 px-3 sm:px-4">โหมดการเล่น</th>
                   <th className="py-3 px-3 sm:px-4">สถานะ</th>
                   <th className="py-3 px-4 sm:px-5 text-right">เข้าร่วม</th>
@@ -293,6 +295,14 @@ export function ActiveRoomsTable() {
                             {room.hostDisplayName}
                           </span>
                         </div>
+                      </td>
+
+                      {/* Player Count */}
+                      <td className="py-3.5 px-3 sm:px-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                          <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>{room.playerCount || 1} คน</span>
+                        </span>
                       </td>
 
                       {/* Game Mode */}

@@ -440,6 +440,13 @@ export function reduceRoomRealtimeEvent(
           break;
         }
 
+        case "room_dissolved": {
+          nextState.error = payload?.reason || "หัวหน้าห้องออกจากห้องแล้ว ห้องถูกยุบเรียบร้อย";
+          nextState.status = "game_over";
+          nextState.isAudioPlaying = false;
+          break;
+        }
+
         default:
           break;
       }

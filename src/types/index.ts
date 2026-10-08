@@ -120,6 +120,8 @@ export interface RoomSettings {
   hostAvatar?: string;
   // Progressive hints (0 = none, 1 = genre, 2 = year, 3 = artist)
   revealedHintLevel?: number;
+  // Live player count in room
+  playerCount?: number;
 }
 
 export interface RoomState {
