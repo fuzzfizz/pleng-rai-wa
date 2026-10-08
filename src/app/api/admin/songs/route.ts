@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSongs, deleteSong } from "@/lib/services/song-service";
+import { getSongs, deleteSong, updateSong } from "@/lib/services/song-service";
+import type { Song } from "@/types";
 import { deleteAudioFromR2 } from "@/lib/r2";
 import path from "path";
 import fs from "fs/promises";
@@ -58,3 +59,64 @@ export async function DELETE(req: NextRequest) {
     );
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      id,
+      title,
+      artist,
+      aliases,
+      releaseYear,
+      genreId,
+      era,
+      hookStartSec,
+      hookEndSec,
+      durationSec,
+      lyricsIntro,
+      lyricsChorus,
+      audioUrl,
+    } = body;
+
+    if (!id || typeof id !== "string" || !id.trim()) {
+      return NextResponse.json(
+        { error: "ต้องระบุ id ของเพลงที่ต้องการแก้ไข" },
+        { status: 400 }
+      );
+    }
+
+    const updates: Partial<Song> = {};
+    if (title !== undefined) updates.title = title;
+    if (artist !== undefined) updates.artist = artist;
+    if (aliases !== undefined) updates.aliases = Array.isArray(aliases) ? aliases : [];
+    if (releaseYear !== undefined) {
+      updates.releaseYear = releaseYear !== null && releaseYear !== "" ? Number(releaseYear) : undefined;
+    }
+    if (genreId !== undefined) updates.genreId = genreId || undefined;
+    if (era !== undefined) updates.era = era || undefined;
+    if (hookStartSec !== undefined) {
+      updates.hookStartSec = hookStartSec !== null && hookStartSec !== "" ? Number(hookStartSec) : undefined;
+    }
+    if (hookEndSec !== undefined) {
+      updates.hookEndSec = hookEndSec !== null && hookEndSec !== "" ? Number(hookEndSec) : undefined;
+    }
+    if (durationSec !== undefined) {
+      updates.durationSec = durationSec !== null && durationSec !== "" ? Number(durationSec) : undefined;
+    }
+    if (lyricsIntro !== undefined) updates.lyricsIntro = lyricsIntro;
+    if (lyricsChorus !== undefined) updates.lyricsChorus = lyricsChorus;
+    if (audioUrl !== undefined) updates.audioUrl = audioUrl;
+
+    const updatedSong = await updateSong(id, updates);
+
+    return NextResponse.json({ success: true, song: updatedSong }, { status: 200 });
+  } catch (error: any) {
+    console.error("Update song error:", error);
+    return NextResponse.json(
+      { error: error.message || "เกิดข้อผิดพลาดในการแก้ไขเพลง" },
+      { status: 500 }
+    );
+  }
+}
+
