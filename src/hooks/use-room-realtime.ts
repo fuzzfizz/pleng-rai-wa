@@ -19,13 +19,14 @@ import {
   loadPlayerSession,
   savePlayerSession,
 } from "@/lib/session-storage";
-import type { Player, RoomSettings, Song, GameMode } from "@/types";
+import type { Player, RoomSettings, Song, GameMode, ChoiceOption } from "@/types";
 
 export interface ActiveQuestion {
   sliceUrl?: string;
   durationSec?: number;
   lyrics?: string;
   startedAt?: string;
+  choices?: ChoiceOption[];
 }
 
 export interface BuzzedPlayer {
@@ -284,6 +285,7 @@ export function reduceRoomRealtimeEvent(
             durationSec: payload?.durationSec,
             lyrics: payload?.lyrics,
             startedAt: payload?.startedAt || new Date().toISOString(),
+            choices: payload?.choices,
           };
           nextState.buzzedPlayer = null;
           nextState.wrongGuesses = [];
@@ -355,7 +357,7 @@ export function reduceRoomRealtimeEvent(
         }
 
         case "round_reveal": {
-          if (shouldPlay) {
+          if (shouldPlay && payload?.winnerPlayerId) {
             try {
               sfx.correct();
             } catch {}
@@ -363,12 +365,14 @@ export function reduceRoomRealtimeEvent(
           nextState.status = "revealing";
           nextState.buzzedPlayer = null;
           nextState.revealedSong = payload?.song || null;
-          nextState.roundWinner = {
-            playerId: payload?.winnerPlayerId,
-            displayName: payload?.winnerDisplayName || "ผู้ชนะ",
-            answerText: payload?.answerText || "",
-            scoreDelta: typeof payload?.scoreDelta === "number" ? payload.scoreDelta : 100,
-          };
+          nextState.roundWinner = payload?.winnerPlayerId
+            ? {
+                playerId: payload.winnerPlayerId,
+                displayName: payload.winnerDisplayName || "ผู้ชนะ",
+                answerText: payload.answerText || "",
+                scoreDelta: typeof payload.scoreDelta === "number" ? payload.scoreDelta : 100,
+              }
+            : null;
           if (payload?.scores && typeof payload.scores === "object") {
             nextState.scores = { ...nextState.scores, ...payload.scores };
           }
@@ -976,6 +980,23 @@ export function useRoomRealtime(
     }
   }, [cleanCode, state.myPlayer]);
 
+  // Action: skipRound
+  const skipRound = useCallback(async (): Promise<boolean> => {
+    if (!state.roomCode) return false;
+    try {
+      const res = await fetch(`/api/room/${state.roomCode}/skip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: state.myPlayer?.id }),
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch (err) {
+      console.error("Error skipping round:", err);
+      return false;
+    }
+  }, [state.roomCode, state.myPlayer?.id]);
+
   // Audio helpers
   const playAudio = useCallback(() => {
     dispatch({ type: "set_audio_playing", isPlaying: true });
@@ -996,6 +1017,7 @@ export function useRoomRealtime(
     buzz,
     submitAnswer,
     nextRound,
+    skipRound,
     resetToLobby,
     setReady,
     updateSettings,

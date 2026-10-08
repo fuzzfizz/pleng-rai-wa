@@ -96,6 +96,15 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
     result.roundTimeoutSec = isNaN(val) || val < 0 ? 15 : val;
   }
 
+  if (result.answerInputMode && !["autocomplete", "free-text", "multiple-choice"].includes(result.answerInputMode)) {
+    result.answerInputMode = "autocomplete";
+  }
+
+  if (result.maxWrongGuesses !== undefined) {
+    const val = Number(result.maxWrongGuesses);
+    result.maxWrongGuesses = isNaN(val) || val < 0 ? 1 : val;
+  }
+
   if (result.playlistId !== undefined) {
     if (result.playlistId === null) {
       result.playlistId = null;
@@ -686,7 +695,7 @@ export function HostSettingsModal({
             <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               ✍️ รูปแบบการส่งคำตอบ (Answer Input Mode)
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => setDraft((prev) => ({ ...prev, answerInputMode: "autocomplete" }))}
@@ -726,10 +735,61 @@ export function HostSettingsModal({
                   พิมพ์ชื่อเพลงแบบไม่มีตัวเลือกช่วย ท้าทายความแม่นยำ
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setDraft((prev) => ({ ...prev, answerInputMode: "multiple-choice" }))}
+                className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                  draft.answerInputMode === "multiple-choice"
+                    ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                    : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm text-stone-900 dark:text-white">Multiple Choice (ปรนัย 4 ตัวเลือก)</span>
+                  {draft.answerInputMode === "multiple-choice" && (
+                    <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  )}
+                </div>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                  สุ่มเพลงหลอก 3 เพลง รวมเพลงจริงเป็น 4 ช้อยส์ กดตอบได้ทันใจ
+                </span>
+              </button>
             </div>
           </div>
 
-          {/* 7. Host Transfer Section */}
+          {/* 7. Allowed Wrong Guesses */}
+          <div>
+            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
+              ❌ จำนวนครั้งที่ตอบผิดได้ต่อข้อ (Allowed Wrong Guesses)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { value: 1, label: "1 ครั้ง (ค่าเริ่มต้น)" },
+                { value: 2, label: "2 ครั้ง" },
+                { value: 3, label: "3 ครั้ง" },
+                { value: 0, label: "ไม่จำกัด" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, maxWrongGuesses: opt.value }))}
+                  className={`p-3 rounded-2xl border text-center text-xs font-bold transition cursor-pointer ${
+                    (draft.maxWrongGuesses ?? 1) === opt.value
+                      ? "bg-amber-500 text-stone-950 border-amber-500 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1.5 italic">
+              *หมายเหตุ: ในโหมดกดกริ่ง (Buzzer) จะให้ตอบได้ 1 ครั้งต่อการกด เพื่อเปิดโอกาสให้ผู้อื่นแย่งกดตอบ
+            </p>
+          </div>
+
+          {/* 8. Host Transfer Section */}
           <div className="pt-4 border-t border-stone-200 dark:border-stone-800/80">
             <label className="block text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
               <UserCheck className="w-4 h-4" />
