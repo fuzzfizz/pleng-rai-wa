@@ -23,8 +23,9 @@ import {
   KeyRound,
   AlertCircle,
   Loader2,
+  Trash2,
 } from "lucide-react";
-import { savePlayerSession } from "@/lib/session-storage";
+import { savePlayerSession, loadPlayerSession, clearPlayerSession } from "@/lib/session-storage";
 import { useAuth } from "@/hooks/use-auth";
 
 export interface ActiveRoomItem {
@@ -104,6 +105,63 @@ export function ActiveRoomsTable() {
     setJoiningRoom(room);
     setJoinPassword("");
     setJoinError(null);
+  };
+
+  const [deletingRoomCode, setDeletingRoomCode] = useState<string | null>(null);
+
+  // Checks if a room can be deleted by this user (either host or room is abandoned with 0 players)
+  const isRoomDeletable = useCallback((room: ActiveRoomItem): boolean => {
+    // 1. Abandoned room with 0 players
+    if ((room.playerCount ?? 0) <= 0) return true;
+
+    if (typeof window === "undefined") return false;
+
+    try {
+      // 2. Check localStorage player session
+      const session = loadPlayerSession(room.roomCode);
+      if (session?.isHost) return true;
+
+      // 3. Check sessionStorage host flag or session
+      const hostFlag = window.sessionStorage.getItem(`pleng_host_${room.roomCode}`);
+      if (hostFlag === "true" || hostFlag === "1") return true;
+
+      const rawSession = window.sessionStorage.getItem(`pleng_session_${room.roomCode}`);
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession);
+        if (parsed?.isHost) return true;
+      }
+    } catch {}
+
+    return false;
+  }, []);
+
+  // Quick action: Delete/Dissolve room immediately
+  const handleDeleteRoom = async (room: ActiveRoomItem) => {
+    if (deletingRoomCode) return;
+    const confirmDelete = window.confirm(`คุณต้องการลบห้อง ${room.roomCode} ใช่หรือไม่?`);
+    if (!confirmDelete) return;
+
+    setDeletingRoomCode(room.roomCode);
+    try {
+      await fetch(`/api/room/${room.roomCode}/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isHost: true }),
+      });
+      clearPlayerSession(room.roomCode);
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.removeItem(`pleng_host_${room.roomCode}`);
+          window.sessionStorage.removeItem(`pleng_session_${room.roomCode}`);
+        } catch {}
+      }
+      setRooms((prev) => prev.filter((r) => r.roomCode !== room.roomCode));
+      await fetchActiveRooms(true);
+    } catch (err) {
+      console.warn("[ActiveRoomsTable] Failed to delete room:", err);
+    } finally {
+      setDeletingRoomCode(null);
+    }
   };
 
   // Execute Join API call
@@ -319,14 +377,32 @@ export function ActiveRoomsTable() {
                     {/* Bottom row: Mode badge & Join CTA */}
                     <div className="flex items-center justify-between pt-1 border-t border-stone-100/60 dark:border-stone-800/40">
                       <div>{getModeBadge(room.gameMode)}</div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenJoin(room)}
-                        className="min-h-[44px] px-4 py-2 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <span>เข้าเล่น</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {isMounted && isRoomDeletable(room) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRoom(room)}
+                            disabled={deletingRoomCode === room.roomCode}
+                            className="min-h-[44px] px-3 py-2 rounded-xl font-bold text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            title="ลบห้องนี้ออกจากระบบทันที"
+                          >
+                            {deletingRoomCode === room.roomCode ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                            )}
+                            <span>ลบห้อง</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenJoin(room)}
+                          className="min-h-[44px] px-4 py-2 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>เข้าเล่น</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -409,16 +485,34 @@ export function ActiveRoomsTable() {
                           )}
                         </td>
 
-                        {/* Action Button */}
+                        {/* Action Buttons */}
                         <td className="py-3.5 px-4 sm:px-5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenJoin(room)}
-                            className="min-h-[38px] px-3.5 py-1.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <span>เข้าเล่น</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {isMounted && isRoomDeletable(room) && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRoom(room)}
+                                disabled={deletingRoomCode === room.roomCode}
+                                className="min-h-[38px] px-3 py-1.5 rounded-xl font-bold text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                title="ลบห้องนี้ออกจากระบบทันที"
+                              >
+                                {deletingRoomCode === room.roomCode ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                )}
+                                <span>ลบห้อง</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenJoin(room)}
+                              className="min-h-[38px] px-3.5 py-1.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <span>เข้าเล่น</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

@@ -258,7 +258,7 @@ export class RoomService {
     try {
       const client = this.getClient();
       let endedMins = 10;
-      let lobbyMins = 20;
+      let lobbyMins = 5;
       let inactiveMins = 40;
 
       if (typeof optionsOrHours === "number") {
@@ -283,7 +283,7 @@ export class RoomService {
         .lt("updated_at", endedThreshold)
         .select("id");
 
-      // 2. Delete abandoned lobby rooms with no updates for 20 minutes
+      // 2. Delete abandoned lobby rooms with no updates for 5 minutes
       const { data: lobbyRooms } = await client
         .from("rooms")
         .delete()
@@ -341,28 +341,38 @@ export class RoomService {
       return [];
     }
 
-    // Filter out private rooms and sanitize
-    return data
-      .filter((r) => {
-        const s = (r.settings as any) || {};
-        return !s.isPrivate;
-      })
-      .map((r) => {
-        const s = (r.settings as any) || {};
-        return {
-          roomCode: r.room_code,
-          status: r.status,
-          hostDisplayName: s.hostDisplayName || "หัวหน้าห้อง",
-          hostAvatar: s.hostAvatar || "🎧",
-          gameMode: s.gameMode || "buzzer",
-          playerCount: typeof s.playerCount === "number" ? Math.max(1, s.playerCount) : 1,
-          totalRounds: s.totalRounds || 10,
-          currentRound: s.currentRound || 1,
-          isLocked: Boolean(s.password && String(s.password).trim().length > 0),
-          createdAt: r.created_at,
-          updatedAt: r.updated_at,
-        };
+    const activeRooms: any[] = [];
+    for (const r of data) {
+      const s = (r.settings as any) || {};
+      const count = typeof s.playerCount === "number" ? Math.max(0, s.playerCount) : 1;
+
+      // Filter out empty rooms and purge them immediately from DB
+      if (count <= 0) {
+        this.deleteRoomByCode(r.room_code).catch(() => {});
+        continue;
+      }
+
+      // Filter out private rooms
+      if (s.isPrivate) {
+        continue;
+      }
+
+      activeRooms.push({
+        roomCode: r.room_code,
+        status: r.status,
+        hostDisplayName: s.hostDisplayName || "หัวหน้าห้อง",
+        hostAvatar: s.hostAvatar || "🎧",
+        gameMode: s.gameMode || "buzzer",
+        playerCount: count,
+        totalRounds: s.totalRounds || 10,
+        currentRound: s.currentRound || 1,
+        isLocked: Boolean(s.password && String(s.password).trim().length > 0),
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
       });
+    }
+
+    return activeRooms;
   }
 }
 

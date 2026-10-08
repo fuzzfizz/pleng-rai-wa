@@ -6,7 +6,7 @@
 // Session Restoration & Realtime Orchestration
 // ==========================================
 
-import React, { use, useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import React, { use, useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -203,44 +203,87 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   // Realtime hook initialization
   const roomRealtime = useRoomRealtime(cleanCode, initialPlayer);
 
-  // Leave room action (triggers real-time leave & room dissolution if host)
-  const handleLeave = useCallback(() => {
+  // Ref to prevent duplicate leave requests
+  const hasLeftRef = useRef(false);
+
+  // Keep a ref of storedSession so sendLeaveSignal always accesses the latest value
+  // without triggering re-runs of effects or unmount cleanups during initial hydration.
+  const storedSessionRef = useRef<PlayerSession | null>(storedSession);
+  useEffect(() => {
+    storedSessionRef.current = storedSession;
     if (storedSession?.playerId) {
+      hasLeftRef.current = false;
+    }
+  }, [storedSession]);
+
+  // Reliable leave signal dispatcher using sendBeacon or keepalive fetch
+  const sendLeaveSignal = useCallback(() => {
+    if (hasLeftRef.current) return;
+    const session = storedSessionRef.current;
+    if (!session?.playerId) return;
+
+    hasLeftRef.current = true;
+
+    const payload = JSON.stringify({
+      playerId: session.playerId,
+      isHost: Boolean(session.isHost),
+    });
+
+    let beaconSent = false;
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      try {
+        const blob = new Blob([payload], { type: "application/json" });
+        beaconSent = navigator.sendBeacon(`/api/room/${cleanCode}/leave`, blob);
+      } catch {
+        beaconSent = false;
+      }
+    }
+
+    if (!beaconSent && typeof window !== "undefined") {
       try {
         fetch(`/api/room/${cleanCode}/leave`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            playerId: storedSession.playerId,
-            isHost: Boolean(storedSession.isHost),
-          }),
+          body: payload,
           keepalive: true,
         }).catch(() => {});
-      } catch (err) {
-        console.warn("Error leaving room:", err);
-      }
+      } catch {}
     }
-    clearPlayerSession(cleanCode);
-    router.push("/");
-  }, [cleanCode, storedSession, router]);
 
-  // Send leave signal on tab close / window unload
+    clearPlayerSession(cleanCode);
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(`pleng_host_${cleanCode}`);
+        window.sessionStorage.removeItem(`pleng_session_${cleanCode}`);
+      } catch {}
+    }
+  }, [cleanCode]);
+
+  // Leave room action (triggers real-time leave & room dissolution if host)
+  const handleLeave = useCallback(() => {
+    sendLeaveSignal();
+    router.push("/");
+  }, [sendLeaveSignal, router]);
+
+  // Listen for browser back navigation (popstate), tab close (pagehide), and component unmount
   useEffect(() => {
-    const onUnload = () => {
-      if (storedSession?.playerId && typeof navigator !== "undefined" && navigator.sendBeacon) {
-        const payload = JSON.stringify({
-          playerId: storedSession.playerId,
-          isHost: Boolean(storedSession.isHost),
-        });
-        const blob = new Blob([payload], { type: "application/json" });
-        navigator.sendBeacon(`/api/room/${cleanCode}/leave`, blob);
-      }
+    const handlePopState = () => {
+      sendLeaveSignal();
     };
-    window.addEventListener("pagehide", onUnload);
+    const handlePageHide = () => {
+      sendLeaveSignal();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("pagehide", handlePageHide);
+
     return () => {
-      window.removeEventListener("pagehide", onUnload);
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("pagehide", handlePageHide);
+      // Trigger leave signal when component unmounts (client-side route change or back)
+      sendLeaveSignal();
     };
-  }, [cleanCode, storedSession?.playerId, storedSession?.isHost]);
+  }, [sendLeaveSignal]);
 
   // Guest join submission handler
   const handleGuestJoin = async (e?: React.FormEvent) => {
@@ -284,6 +327,8 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
       };
 
       savePlayerSession(cleanCode, newSession);
+      storedSessionRef.current = newSession;
+      hasLeftRef.current = false;
       if (typeof window !== "undefined") {
         try {
           window.sessionStorage.setItem("pleng_avatar", selectedAvatar);

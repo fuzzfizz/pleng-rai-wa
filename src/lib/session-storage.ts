@@ -115,6 +115,10 @@ export function clearPlayerSession(roomCode: string): void {
     if (lastRoom === cleanCode) {
       window.localStorage.removeItem(STORAGE_KEY_LAST_ROOM);
     }
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.removeItem(`${STORAGE_KEY_PREFIX}${cleanCode}`);
+      window.sessionStorage.removeItem(`pleng_host_${cleanCode}`);
+    }
   } catch (err) {
     console.warn("[session-storage] Failed to clear player session:", err);
   }
