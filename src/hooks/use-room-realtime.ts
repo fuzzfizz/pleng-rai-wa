@@ -11,6 +11,11 @@ import { supabase } from "@/lib/supabase";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { soundEffects } from "@/lib/sound-effects";
 import {
+  isMasterMuted,
+  toggleMasterMute,
+  subscribeMasterVolume,
+} from "@/lib/audio-volume";
+import {
   loadPlayerSession,
   savePlayerSession,
 } from "@/lib/session-storage";
@@ -506,7 +511,14 @@ export function useRoomRealtime(
   const channelRef = useRef<any>(null);
   const lastEventRef = useRef<{ key: string; time: number } | null>(null);
   const myPlayerRef = useRef<Player | null>(state.myPlayer);
-  const [isMutedState, setIsMutedState] = useState(() => soundEffects.isMuted());
+  const [isMutedState, setIsMutedState] = useState(() => isMasterMuted());
+
+  // Keep mute state in sync with master volume changes
+  useEffect(() => {
+    return subscribeMasterVolume((vol) => {
+      setIsMutedState(vol === 0);
+    });
+  }, []);
 
   // Keep myPlayerRef synchronized for reconnect presence tracking
   useEffect(() => {
@@ -974,9 +986,8 @@ export function useRoomRealtime(
   }, []);
 
   const toggleMute = useCallback(() => {
-    const current = soundEffects.isMuted();
-    soundEffects.setMuted(!current);
-    setIsMutedState(!current);
+    const muted = toggleMasterMute();
+    setIsMutedState(muted);
   }, []);
 
   return {

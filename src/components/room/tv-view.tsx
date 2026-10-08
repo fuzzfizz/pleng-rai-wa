@@ -34,6 +34,7 @@ import { getDeterministicAvatar } from "./player-card";
 import { buildRoomJoinUrl } from "./qr-code-modal";
 import { formatWrongGuessMessage, RESUME_AUDIO_CUE } from "./wrong-guess-banner";
 import { PodiumView, getSortedPodiumPlayers } from "./podium-view";
+import { getMasterVolume, subscribeMasterVolume } from "@/lib/audio-volume";
 
 export interface TVViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -129,6 +130,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
           lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
+          volume: getMasterVolume(),
         });
       } else {
         ttsReader.stopSpeaking();
@@ -139,6 +141,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     }
 
     if (status === "question_active" && activeQuestion?.sliceUrl && audioRef.current) {
+      audioRef.current.volume = getMasterVolume();
       if (isAudioPlaying) {
         audioRef.current.play().catch(() => {});
       } else {
@@ -153,14 +156,22 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     };
   }, [status, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying, gameMode, isMuted]);
 
-  // Audio and TTS mute sync
+  // Audio and TTS volume & mute sync
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isMuted;
+      audioRef.current.volume = getMasterVolume();
     }
+    const unsub = subscribeMasterVolume((vol) => {
+      if (audioRef.current) {
+        audioRef.current.volume = vol;
+        audioRef.current.muted = vol === 0;
+      }
+    });
     if ((gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && isMuted) {
       ttsReader.stopSpeaking();
     }
+    return unsub;
   }, [isMuted, gameMode]);
 
   // Countdown timer during buzzer phase

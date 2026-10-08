@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { ProfileModal } from "@/components/auth/profile-modal";
-import { ThemeToggle } from "@/components/common/theme-toggle";
+import { SettingsMenu } from "@/components/common/settings-menu";
 import { soundEffects } from "@/lib/sound-effects";
 
 export interface NavHeaderProps {
@@ -147,10 +147,10 @@ export function NavHeader({
           </nav>
         )}
 
-        {/* Right Auth Area & Theme Toggle */}
+        {/* Right Auth Area & Settings Menu */}
         <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-3.5">
-          {/* Theme Toggle Button */}
-          <ThemeToggle />
+          {/* Settings Menu (Theme & Master Volume) */}
+          <SettingsMenu />
 
           {isLoading ? (
             // Loading Skeleton

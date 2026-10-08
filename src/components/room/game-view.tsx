@@ -34,6 +34,8 @@ import { AnswerModal } from "./answer-modal";
 import { WrongGuessBanner } from "./wrong-guess-banner";
 import { RoundRevealCard } from "./round-reveal-card";
 import { getDeterministicAvatar } from "./player-card";
+import { getMasterVolume, subscribeMasterVolume } from "@/lib/audio-volume";
+import { SettingsMenu } from "@/components/common/settings-menu";
 
 export interface GameViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -113,7 +115,18 @@ export function GameView({
     }
   }, [isRequestingHint, requestHint]);
 
-  // 1. Audio / TTS Playback Orchestration
+  // 1. Master Volume Synchronization
+  useEffect(() => {
+    const applyVolume = (vol: number) => {
+      if (audioRef.current) {
+        audioRef.current.volume = vol;
+      }
+    };
+    applyVolume(getMasterVolume());
+    return subscribeMasterVolume(applyVolume);
+  }, []);
+
+  // 1.5. Audio / TTS Playback Orchestration
   useEffect(() => {
     // Mode: AI Lyrics or Translated Lyrics
     if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
@@ -121,6 +134,7 @@ export function GameView({
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
           lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
+          volume: getMasterVolume(),
         });
       } else {
         ttsReader.stopSpeaking();
@@ -130,6 +144,7 @@ export function GameView({
 
     // Mode: Audio Slice or Buzzer with audio slice URL
     if (status === "question_active" && activeQuestion?.sliceUrl && audioRef.current) {
+      audioRef.current.volume = getMasterVolume();
       if (isAudioPlaying) {
         audioRef.current.play().catch((err) => {
           console.warn("[GameView] Audio play error (browser autoplay policy):", err);
@@ -297,7 +312,12 @@ export function GameView({
       {/* Hidden Audio Player for question slice */}
       {activeQuestion?.sliceUrl && (
         <audio
-          ref={audioRef}
+          ref={(el) => {
+            audioRef.current = el;
+            if (el) {
+              el.volume = getMasterVolume();
+            }
+          }}
           src={activeQuestion.sliceUrl}
           preload="auto"
           loop={gameMode === "buzzer" || gameMode === "audio-slice"}
@@ -345,20 +365,9 @@ export function GameView({
             })}
           </div>
 
-          {/* Audio Mute & Exit Button */}
+          {/* Settings Menu & Exit Button */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={toggleMute}
-              aria-label={isMuted ? "เปิดเสียงเอฟเฟกต์" : "ปิดเสียงเอฟเฟกต์"}
-              className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl border flex items-center justify-center transition touch-manipulation cursor-pointer ${
-                isMuted
-                  ? "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
-                  : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 shadow-sm"
-              }`}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
+            <SettingsMenu />
 
             {onLeaveRoom && (
               <button
