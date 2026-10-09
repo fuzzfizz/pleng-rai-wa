@@ -2,7 +2,7 @@
 
 // ==========================================
 // เพลงไรวะ (Pleng-Rai-Wa) - Unified Settings Menu
-// Combines Light/Dark Theme Switcher & Master Volume Control
+// Combines Light/Dark Theme Switcher & Dual Master and SFX Volume Controls
 // Styled with Vinyl Cafe & Warm Lo-Fi Aesthetic
 // ==========================================
 
@@ -14,6 +14,8 @@ import {
   Volume2,
   Volume1,
   VolumeX,
+  Bell,
+  BellOff,
   X,
   Music,
 } from "lucide-react";
@@ -22,12 +24,85 @@ import { soundEffects } from "@/lib/sound-effects";
 import {
   getMasterVolume,
   setMasterVolume,
+  isMasterMuted,
   toggleMasterMute,
   subscribeMasterVolume,
+  getSfxVolume,
+  setSfxVolume,
+  isSfxMuted,
+  toggleSfxMute,
+  subscribeSfxVolume,
 } from "@/lib/audio-volume";
 
 export interface SettingsMenuProps {
   className?: string;
+}
+
+/**
+ * Helper to fetch initial volume states synchronously.
+ */
+export function getInitialSettingsVolumeState() {
+  return {
+    masterVolume: Math.round(getMasterVolume() * 100),
+    isMasterMuted: isMasterMuted(),
+    sfxVolume: Math.round(getSfxVolume() * 100),
+    isSfxMuted: isSfxMuted(),
+  };
+}
+
+/**
+ * Helper to clamp and dispatch master volume slider change.
+ */
+export function handleMasterSliderChange(val: number): number {
+  const clamped = Math.max(0, Math.min(100, Math.round(val)));
+  setMasterVolume(clamped / 100);
+  return clamped;
+}
+
+/**
+ * Helper to clamp and dispatch SFX volume slider change.
+ */
+export function handleSfxSliderChange(val: number): number {
+  const clamped = Math.max(0, Math.min(100, Math.round(val)));
+  setSfxVolume(clamped / 100);
+  return clamped;
+}
+
+/**
+ * Helper to toggle master mute with audio feedback.
+ */
+export function handleToggleMasterMuteAction(): { isMuted: boolean; volume: number } {
+  try {
+    soundEffects.click();
+  } catch {}
+  toggleMasterMute();
+  return {
+    isMuted: isMasterMuted(),
+    volume: Math.round(getMasterVolume() * 100),
+  };
+}
+
+/**
+ * Helper to toggle SFX mute with audio feedback.
+ */
+export function handleToggleSfxMuteAction(): { isMuted: boolean; sfxVolume: number } {
+  try {
+    soundEffects.click();
+  } catch {}
+  const muted = toggleSfxMute();
+  return {
+    isMuted: muted,
+    sfxVolume: Math.round(getSfxVolume() * 100),
+  };
+}
+
+/**
+ * Helper to trigger test SFX chime.
+ */
+export function handleTestSfxAudio(): void {
+  try {
+    soundEffects.correct();
+  } catch {}
 }
 
 export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.Element {
@@ -35,17 +110,29 @@ export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.E
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [volume, setVolume] = useState<number>(70);
+  const [sfxVolume, setSfxVolumeState] = useState<number>(70);
+  const [isSfxMutedState, setIsSfxMutedState] = useState<boolean>(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
     setVolume(Math.round(getMasterVolume() * 100));
+    setSfxVolumeState(Math.round(getSfxVolume() * 100));
+    setIsSfxMutedState(isSfxMuted());
 
-    const unsubscribe = subscribeMasterVolume((newVol) => {
+    const unsubscribeMaster = subscribeMasterVolume((newVol) => {
       setVolume(Math.round(newVol * 100));
     });
 
-    return unsubscribe;
+    const unsubscribeSfx = subscribeSfxVolume((newVol, muted) => {
+      setSfxVolumeState(Math.round(newVol * 100));
+      setIsSfxMutedState(muted);
+    });
+
+    return () => {
+      unsubscribeMaster();
+      unsubscribeSfx();
+    };
   }, []);
 
   // Close dropdown on outside click or Escape key
@@ -83,21 +170,22 @@ export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.E
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     setVolume(val);
-    setMasterVolume(val / 100);
+    handleMasterSliderChange(val);
   };
 
   const handleToggleMute = () => {
-    try {
-      soundEffects.click();
-    } catch {}
-    toggleMasterMute();
-    setVolume(Math.round(getMasterVolume() * 100));
+    const res = handleToggleMasterMuteAction();
+    setVolume(res.volume);
+  };
+
+  const handleToggleSfxMute = () => {
+    const res = handleToggleSfxMuteAction();
+    setIsSfxMutedState(res.isMuted);
+    setSfxVolumeState(res.sfxVolume);
   };
 
   const handleTestAudio = () => {
-    try {
-      soundEffects.click();
-    } catch {}
+    handleTestSfxAudio();
   };
 
   if (!mounted) {
@@ -110,7 +198,8 @@ export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.E
     );
   }
 
-  const isMuted = volume === 0;
+  const isMuted = volume === 0 || isMasterMuted();
+  const isSfxMutedComputed = isSfxMutedState || sfxVolume === 0;
   const isDark = resolvedTheme === "dark";
 
   return (
@@ -154,7 +243,7 @@ export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.E
               type="button"
               onClick={() => setIsOpen(false)}
               aria-label="ปิดเมนูตั้งค่า"
-              className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -174,7 +263,7 @@ export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.E
                   } catch {}
                   setTheme("light");
                 }}
-                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-2 min-h-[44px] py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   !isDark
                     ? "bg-white text-amber-600 shadow-sm border border-stone-200/80"
                     : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
@@ -191,7 +280,7 @@ export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.E
                   } catch {}
                   setTheme("dark");
                 }}
-                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-2 min-h-[44px] py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   isDark
                     ? "bg-stone-800 text-amber-400 shadow-sm border border-stone-700/80"
                     : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
@@ -203,63 +292,127 @@ export function SettingsMenu({ className = "" }: SettingsMenuProps): React.JSX.E
             </div>
           </div>
 
-          {/* Section 2: Master Volume Control */}
-          <div className="pt-3 flex flex-col gap-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
-                🔊 ระดับเสียงรวม{" "}
-                <span className="font-normal text-[11px] text-stone-400">(Master Volume)</span>
+          {/* Section 2: Audio Volume Controls (Master & SFX) */}
+          <div className="pt-3 flex flex-col gap-3.5">
+            <div className="flex items-center justify-between pb-1 border-b border-stone-200/60 dark:border-stone-800/60">
+              <span className="text-xs font-bold text-stone-700 dark:text-stone-300">
+                🎛️ ตั้งค่าระดับเสียง
               </span>
-              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                {volume}%
+              <span className="text-[11px] text-stone-400 font-normal">
+                (Audio Volume)
               </span>
             </div>
 
-            {/* Slider & Mute Row */}
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={handleToggleMute}
-                aria-label={isMuted ? "เปิดเสียง" : "ปิดเสียง"}
-                title={isMuted ? "เปิดเสียง" : "ปิดเสียง (Mute)"}
-                className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition cursor-pointer shrink-0"
-              >
-                {isMuted ? (
-                  <VolumeX className="w-4 h-4 text-rose-500" />
-                ) : volume < 50 ? (
-                  <Volume1 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                )}
-              </button>
+            {/* Row 1: 🔊 เสียงรวม / เพลง (Master Volume) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                  🔊 เสียงรวม / เพลง{" "}
+                  <span className="font-normal text-[11px] text-stone-400">(Master)</span>
+                </span>
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                  {volume}%
+                </span>
+              </div>
 
-              <div className="relative flex-1 flex items-center">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={volume}
-                  onChange={handleSliderChange}
-                  className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
-                  style={{
-                    background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${volume}%, ${
-                      isDark ? "#292524" : "#e7e5e4"
-                    } ${volume}%, ${isDark ? "#292524" : "#e7e5e4"} 100%)`,
-                  }}
-                  aria-label="แถบปรับระดับเสียงรวม"
-                />
+              {/* Slider & Mute Row */}
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  aria-label={isMuted ? "เปิดเสียงรวม" : "ปิดเสียงรวม"}
+                  title={isMuted ? "เปิดเสียงรวม" : "ปิดเสียงรวม (Mute)"}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition cursor-pointer shrink-0"
+                >
+                  {isMuted ? (
+                    <VolumeX className="w-4 h-4 text-rose-500" />
+                  ) : volume < 50 ? (
+                    <Volume1 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  )}
+                </button>
+
+                <div className="relative flex-1 flex items-center">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={volume}
+                    onChange={handleSliderChange}
+                    className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
+                    style={{
+                      background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${volume}%, ${
+                        isDark ? "#292524" : "#e7e5e4"
+                      } ${volume}%, ${isDark ? "#292524" : "#e7e5e4"} 100%)`,
+                    }}
+                    aria-label="แถบปรับระดับเสียงรวม"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Test Audio Button */}
+            {/* Row 2: 🔔 เสียงเอฟเฟกต์ (Sound Effects / SFX) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                  🔔 เสียงเอฟเฟกต์{" "}
+                  <span className="font-normal text-[11px] text-stone-400">(SFX)</span>
+                </span>
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                  {sfxVolume}%
+                </span>
+              </div>
+
+              {/* Slider & Mute Row */}
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleToggleSfxMute}
+                  aria-label={isSfxMutedComputed ? "เปิดเสียงเอฟเฟกต์" : "ปิดเสียงเอฟเฟกต์"}
+                  title={isSfxMutedComputed ? "เปิดเสียงเอฟเฟกต์" : "ปิดเสียงเอฟเฟกต์ (Mute SFX)"}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition cursor-pointer shrink-0"
+                >
+                  {isSfxMutedComputed ? (
+                    <BellOff className="w-4 h-4 text-rose-500" />
+                  ) : (
+                    <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  )}
+                </button>
+
+                <div className="relative flex-1 flex items-center">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={sfxVolume}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setSfxVolumeState(val);
+                      setSfxVolume(val / 100);
+                    }}
+                    className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
+                    style={{
+                      background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${sfxVolume}%, ${
+                        isDark ? "#292524" : "#e7e5e4"
+                      } ${sfxVolume}%, ${isDark ? "#292524" : "#e7e5e4"} 100%)`,
+                    }}
+                    aria-label="แถบปรับระดับเสียงเอฟเฟกต์"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Test Button: 🎵 ทดสอบเสียงเอฟเฟกต์ (Test SFX) */}
             <button
               type="button"
               onClick={handleTestAudio}
-              className="w-full mt-1 py-2 px-3 rounded-xl bg-stone-100 dark:bg-stone-800/80 hover:bg-amber-500/15 text-stone-700 dark:text-stone-300 hover:text-amber-700 dark:hover:text-amber-400 border border-stone-200 dark:border-stone-800 text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer"
+              className="w-full mt-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-stone-100 dark:bg-stone-800/80 hover:bg-amber-500/15 text-stone-700 dark:text-stone-300 hover:text-amber-700 dark:hover:text-amber-400 border border-stone-200 dark:border-stone-800 text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer shadow-sm"
             >
-              <Music className="w-3.5 h-3.5 text-amber-500" />
-              <span>🎵 ทดสอบเสียง</span>
+              <Music className="w-4 h-4 text-amber-500" />
+              <span>🎵 ทดสอบเสียงเอฟเฟกต์</span>
             </button>
           </div>
         </div>
