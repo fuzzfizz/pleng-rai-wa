@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import type { Song } from "@/types";
+import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 
 export interface RoundWinnerInfo {
   playerId: string;
@@ -96,6 +97,8 @@ export function RoundRevealCard({
         : 0;
 
     audioRef.current.currentTime = startSec;
+    audioRef.current.volume = getMasterVolume();
+    audioRef.current.muted = isMasterMuted();
     const playPromise = audioRef.current.play();
     if (playPromise) {
       playPromise
@@ -112,6 +115,17 @@ export function RoundRevealCard({
       }
     };
   }, [song?.audioUrl, song?.hookStartSec]);
+
+  // Sync audio element volume with master volume in real-time
+  useEffect(() => {
+    const unsubscribe = subscribeMasterVolume((newVol) => {
+      if (audioRef.current) {
+        audioRef.current.volume = Math.max(0, Math.min(1, newVol));
+        audioRef.current.muted = newVol === 0;
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Clean up audio on unmount
   useEffect(() => {
@@ -135,6 +149,8 @@ export function RoundRevealCard({
       ) {
         audioRef.current.currentTime = song.hookStartSec;
       }
+      audioRef.current.volume = getMasterVolume();
+      audioRef.current.muted = isMasterMuted();
       audioRef.current
         .play()
         .then(() => setIsPlayingAudio(true))

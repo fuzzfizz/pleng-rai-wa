@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { soundEffects, getAudioContext } from "@/lib/sound-effects";
+import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 
 export interface ThreeVinylCanvasProps {
   isPlaying?: boolean;
@@ -14,7 +15,6 @@ export interface ThreeVinylCanvasProps {
 
 const PRIMARY_STREAM_URL = "https://radio.loficafe.net/listen/studying/radio.mp3";
 const FALLBACK_STREAM_URL = "https://boxradio-edge-00.streamafrica.net/lofi";
-const TARGET_STREAM_VOLUME = 0.38;
 const FADE_IN_DURATION_MS = 1200;
 const FADE_OUT_DURATION_MS = 600;
 
@@ -34,19 +34,24 @@ function fadeAudioVolume(
     animRef.current = null;
   }
 
+  const clampedTarget = Math.max(0, Math.min(1, targetVol));
   const startTime = performance.now();
-  audio.volume = Math.max(0, Math.min(1, startVol));
+  const clampedStart = Math.max(0, Math.min(1, startVol));
+  audio.volume = clampedStart;
+  audio.muted = clampedStart === 0;
 
   const tick = (now: number) => {
     const elapsed = now - startTime;
     const progress = Math.min(1, elapsed / durationMs);
-    const newVol = startVol + (targetVol - startVol) * progress;
+    const newVol = clampedStart + (clampedTarget - clampedStart) * progress;
     audio.volume = Math.max(0, Math.min(1, newVol));
+    audio.muted = audio.volume === 0;
 
     if (progress < 1) {
       animRef.current = requestAnimationFrame(tick);
     } else {
       animRef.current = null;
+      audio.muted = clampedTarget === 0;
       onComplete?.();
     }
   };
@@ -503,6 +508,17 @@ export function ThreeVinylCanvas({
   const fadeAnimRef = useRef<number | null>(null);
   const synthRef = useRef<{ stop: () => void } | null>(null);
 
+  // Sync with master volume in real-time
+  useEffect(() => {
+    const unsubscribe = subscribeMasterVolume((newVol) => {
+      if (audioRef.current) {
+        audioRef.current.volume = Math.max(0, Math.min(1, newVol));
+        audioRef.current.muted = newVol === 0;
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Track button press transient offset for tactile physical click
   const buttonPressYRef = useRef(0);
 
@@ -559,13 +575,15 @@ export function ThreeVinylCanvas({
           if (audioRef.current && audioRef.current.src.includes("loficafe")) {
             audioRef.current.src = FALLBACK_STREAM_URL;
             audioRef.current.load();
+            audioRef.current.volume = getMasterVolume();
+            audioRef.current.muted = isMasterMuted();
             const p = audioRef.current.play();
             if (p !== undefined) {
               p.then(() => {
                 fadeAudioVolume(
                   audioRef.current!,
                   0,
-                  TARGET_STREAM_VOLUME,
+                  getMasterVolume(),
                   FADE_IN_DURATION_MS,
                   fadeAnimRef
                 );
@@ -584,7 +602,8 @@ export function ThreeVinylCanvas({
         }
       }
 
-      audio.volume = 0;
+      audio.volume = getMasterVolume();
+      audio.muted = isMasterMuted();
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise
@@ -592,7 +611,7 @@ export function ThreeVinylCanvas({
             fadeAudioVolume(
               audio!,
               0,
-              TARGET_STREAM_VOLUME,
+              getMasterVolume(),
               FADE_IN_DURATION_MS,
               fadeAnimRef
             );
@@ -602,13 +621,15 @@ export function ThreeVinylCanvas({
             if (audio) {
               audio.src = FALLBACK_STREAM_URL;
               audio.load();
+              audio.volume = getMasterVolume();
+              audio.muted = isMasterMuted();
               const p2 = audio.play();
               if (p2 !== undefined) {
                 p2.then(() => {
                   fadeAudioVolume(
                     audio!,
                     0,
-                    TARGET_STREAM_VOLUME,
+                    getMasterVolume(),
                     FADE_IN_DURATION_MS,
                     fadeAnimRef
                   );

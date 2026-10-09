@@ -40,6 +40,12 @@ import {
   isMuted as isSfxMuted,
   setMuted as setSfxMuted,
 } from "@/lib/sound-effects";
+import {
+  getMasterVolume,
+  isMasterMuted,
+  subscribeMasterVolume,
+  toggleMasterMute,
+} from "@/lib/audio-volume";
 import { ttsReader, type AIVoiceGender } from "@/lib/tts-reader";
 import { checkAnswer, searchSongAutocomplete } from "@/lib/answer-checker";
 import { PlaylistService } from "@/lib/services/playlist-service";
@@ -139,6 +145,18 @@ function SoloPlayContent() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Sync audio element volume with master volume in real-time
+  useEffect(() => {
+    const unsubscribe = subscribeMasterVolume((newVol) => {
+      if (audioRef.current) {
+        audioRef.current.volume = Math.max(0, Math.min(1, newVol));
+        audioRef.current.muted = newVol === 0;
+      }
+      setIsMuted(newVol === 0);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const currentSong = songsPool[currentSongIndex] || songsPool[0] || DEMO_SONGS[0];
 
   // Helper to reset round sounds & answers
@@ -161,7 +179,7 @@ function SoloPlayContent() {
 
   // Initial load: library songs + playlists + optional query param playlist
   useEffect(() => {
-    setIsMuted(isSfxMuted());
+    setIsMuted(isMasterMuted());
     let isMounted = true;
 
     async function initialize() {
@@ -275,6 +293,8 @@ function SoloPlayContent() {
           : 0;
       audio.currentTime = startSec;
       audio.loop = true;
+      audio.volume = getMasterVolume();
+      audio.muted = isMasterMuted();
       audioRef.current = audio;
       setIsPlayingAudio(true);
       audio.play().catch(() => {
@@ -401,9 +421,12 @@ function SoloPlayContent() {
 
   // Sound Mute Toggle
   const toggleMute = () => {
-    const next = !isMuted;
-    setSfxMuted(next);
-    setIsMuted(next);
+    const isNowMuted = toggleMasterMute();
+    setIsMuted(isNowMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = isNowMuted;
+      audioRef.current.volume = isNowMuted ? 0 : getMasterVolume();
+    }
   };
 
   // Play Audio Slice
@@ -416,6 +439,8 @@ function SoloPlayContent() {
     const sliceUrl = `/api/audio/slice?id=${currentSong.id}&start=${startSec}&duration=${sliceDuration}`;
 
     const audio = new Audio(sliceUrl);
+    audio.volume = getMasterVolume();
+    audio.muted = isMasterMuted();
     audioRef.current = audio;
     setIsPlayingAudio(true);
 
@@ -426,6 +451,8 @@ function SoloPlayContent() {
         try {
           const fallbackAudio = new Audio(currentSong.audioUrl);
           fallbackAudio.currentTime = startSec;
+          fallbackAudio.volume = getMasterVolume();
+          fallbackAudio.muted = isMasterMuted();
           audioRef.current = fallbackAudio;
           fallbackAudio.onended = () => setIsPlayingAudio(false);
           fallbackAudio
@@ -465,6 +492,8 @@ function SoloPlayContent() {
     } else {
       playClickSound();
       const audio = new Audio(currentSong.audioUrl);
+      audio.volume = getMasterVolume();
+      audio.muted = isMasterMuted();
       audioRef.current = audio;
       audio.onended = () => setIsPlayingAudio(false);
       audio.onerror = () => {
