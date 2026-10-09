@@ -52,6 +52,12 @@ import { PlaylistService } from "@/lib/services/playlist-service";
 import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { SongSourceModal, getSongFilterLabel } from "@/components/common/song-source-modal";
+import {
+  formatTime,
+  getInitialHookPosition,
+  clampSeekTime,
+  getVinylAnimationClass,
+} from "@/components/room/round-reveal-card";
 
 // Built-in seed songs for immediate offline play
 const DEMO_SONGS: Song[] = [
@@ -141,6 +147,8 @@ function SoloPlayContent() {
   const [isAITalking, setIsAITalking] = useState(false);
   const [translatedLyrics, setTranslatedLyrics] = useState<string>("");
   const [isLoadingTranslation, setIsLoadingTranslation] = useState<boolean>(false);
+  const [revealCurrentTime, setRevealCurrentTime] = useState<number>(0);
+  const [revealDuration, setRevealDuration] = useState<number>(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -168,6 +176,8 @@ function SoloPlayContent() {
     setIsBuzzed(false);
     setBuzzerCountdown(null);
     setIsRevealed(false);
+    setRevealCurrentTime(0);
+    setRevealDuration(0);
     setHintLevel(0);
     setUserGuess("");
     setFeedback(null);
@@ -287,21 +297,70 @@ function SoloPlayContent() {
     if (isRevealed && currentSong?.audioUrl) {
       audioRef.current?.pause();
       const audio = new Audio(currentSong.audioUrl);
-      const startSec =
-        typeof currentSong.hookStartSec === "number" && currentSong.hookStartSec > 0
-          ? currentSong.hookStartSec
-          : 0;
+      const startSec = getInitialHookPosition(currentSong.hookStartSec);
       audio.currentTime = startSec;
+      setRevealCurrentTime(startSec);
       audio.loop = true;
       audio.volume = getMasterVolume();
       audio.muted = isMasterMuted();
+      audio.ontimeupdate = () => {
+        setRevealCurrentTime(audio.currentTime);
+      };
+      audio.onloadedmetadata = () => {
+        if (!isNaN(audio.duration) && audio.duration > 0) {
+          setRevealDuration(audio.duration);
+        }
+      };
+      audio.ondurationchange = () => {
+        if (!isNaN(audio.duration) && audio.duration > 0) {
+          setRevealDuration(audio.duration);
+        }
+      };
+      audio.onplay = () => setIsPlayingAudio(true);
+      audio.onpause = () => setIsPlayingAudio(false);
+      audio.onended = () => setIsPlayingAudio(false);
       audioRef.current = audio;
       setIsPlayingAudio(true);
       audio.play().catch(() => {
         setIsPlayingAudio(false);
       });
+
+      return () => {
+        audio.pause();
+        audio.ontimeupdate = null;
+        audio.onloadedmetadata = null;
+        audio.ondurationchange = null;
+        audio.onplay = null;
+        audio.onpause = null;
+        audio.onended = null;
+      };
     }
   }, [isRevealed, currentSong?.audioUrl, currentSong?.hookStartSec]);
+
+  // Handle seeking in solo reveal player
+  const handleRevealSeek = (newTime: number) => {
+    const clamped = clampSeekTime(newTime, revealDuration || 100);
+    setRevealCurrentTime(clamped);
+    if (audioRef.current) {
+      audioRef.current.currentTime = clamped;
+    }
+  };
+
+  // Handle play/pause toggle in solo reveal player
+  const handleToggleRevealAudio = () => {
+    if (!audioRef.current) return;
+    if (isPlayingAudio) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioRef.current.volume = getMasterVolume();
+      audioRef.current.muted = isMasterMuted();
+      audioRef.current
+        .play()
+        .then(() => setIsPlayingAudio(true))
+        .catch(() => setIsPlayingAudio(false));
+    }
+  };
 
   // Handler for user applying filters from SongSourceModal
   const handleApplyFilter = async (filter: SongFilterConfig) => {
@@ -670,6 +729,8 @@ function SoloPlayContent() {
     setIsBuzzed(false);
     setBuzzerCountdown(null);
     setIsRevealed(false);
+    setRevealCurrentTime(0);
+    setRevealDuration(0);
     setHintLevel(0);
     setUserGuess("");
     setFeedback(null);
@@ -1227,20 +1288,93 @@ function SoloPlayContent() {
             </div>
           )}
 
-          {/* Answer Revealed Card */}
+          {/* Answer Revealed Card with Spinning Vinyl & Scrubbable Seek Bar */}
           {isRevealed && (
-            <div className="mt-4 p-4 lg:p-5 rounded-2xl bg-stone-50 dark:bg-stone-950/80 border border-amber-500/30 flex items-center justify-between">
-              <div>
-                <div className="text-[11px] lg:text-xs text-amber-700 dark:text-amber-400 font-semibold mb-0.5">เฉลยเพลงนี้:</div>
-                <h4 className="text-base lg:text-xl font-bold font-serif text-stone-900 dark:text-white">{currentSong.title}</h4>
-                <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400">
-                  {currentSong.artist} • ปี {currentSong.releaseYear || "ไม่ระบุ"}
-                </p>
+            <div className="mt-4 p-5 lg:p-6 rounded-2xl bg-stone-50 dark:bg-stone-950/80 border-2 border-amber-500/40 shadow-lg flex flex-col md:flex-row items-center gap-5 justify-between">
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto flex-1 min-w-0">
+                {/* Spinning Vinyl Record Disc */}
+                <div
+                  className={`w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-full bg-stone-900 border-4 border-stone-700 shadow-xl relative flex items-center justify-center overflow-hidden shrink-0 select-none animate-[spin_6s_linear_infinite] ${getVinylAnimationClass(
+                    isPlayingAudio
+                  )}`}
+                  aria-hidden="true"
+                >
+                  {/* Concentric vinyl groove rings */}
+                  <div className="absolute inset-2 rounded-full border border-stone-800" />
+                  <div className="absolute inset-4 rounded-full border border-stone-800/80" />
+                  <div className="absolute inset-6 rounded-full border border-stone-800/60" />
+                  <div className="absolute inset-0 bg-gradient-to-tr from-white/5 via-transparent to-white/10 pointer-events-none" />
+
+                  {/* Center sticker label */}
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-500 flex items-center justify-center shadow-md relative">
+                    <Disc3 className="w-5 h-5 text-stone-950/80" />
+                    {/* Center spindle hole */}
+                    <div className="absolute w-2 h-2 rounded-full bg-stone-950 shadow-inner" />
+                  </div>
+                </div>
+
+                {/* Song Info & Interactive Scrubbable Seek Bar */}
+                <div className="text-center sm:text-left flex-1 min-w-0 w-full">
+                  <div className="text-[11px] lg:text-xs text-amber-700 dark:text-amber-400 font-semibold mb-0.5">
+                    เฉลยเพลงนี้:
+                  </div>
+                  <h4 className="text-base sm:text-lg lg:text-xl font-bold font-serif text-stone-900 dark:text-white truncate">
+                    {currentSong.title}
+                  </h4>
+                  <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 truncate">
+                    {currentSong.artist} • ปี {currentSong.releaseYear || "ไม่ระบุ"}
+                  </p>
+
+                  {/* Seek Bar & Audio Controls */}
+                  {currentSong?.audioUrl && (
+                    <div className="mt-3 p-2.5 sm:p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 flex items-center gap-3 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={handleToggleRevealAudio}
+                        aria-label={isPlayingAudio ? "หยุดเสียงเพลง" : "เล่นเสียงเพลง"}
+                        className={`inline-flex items-center justify-center w-9 h-9 min-w-[36px] min-h-[36px] rounded-xl text-xs font-bold transition shadow-sm active:scale-95 touch-manipulation cursor-pointer shrink-0 ${
+                          isPlayingAudio
+                            ? "bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/30"
+                            : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/20"
+                        }`}
+                      >
+                        {isPlayingAudio ? (
+                          <Pause className="w-4 h-4 fill-white text-white" />
+                        ) : (
+                          <Play className="w-4 h-4 fill-stone-950 text-stone-950 ml-0.5" />
+                        )}
+                      </button>
+
+                      <div className="flex-1 flex flex-col gap-1 min-w-[140px]">
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-mono">
+                          <span className="font-bold text-amber-600 dark:text-amber-400">
+                            {formatTime(revealCurrentTime)}
+                          </span>
+                          <span className="text-stone-500 dark:text-stone-400">
+                            {revealDuration > 0 ? formatTime(revealDuration) : "--:--"}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max={revealDuration > 0 ? revealDuration : 100}
+                          step="0.5"
+                          value={Math.min(revealCurrentTime, revealDuration > 0 ? revealDuration : 100)}
+                          onChange={(e) => handleRevealSeek(parseFloat(e.target.value))}
+                          onInput={(e) => handleRevealSeek(parseFloat((e.target as HTMLInputElement).value))}
+                          aria-label="แถบเลื่อนเวลาเพลง"
+                          className="w-full accent-amber-500 cursor-pointer h-2 bg-stone-200 dark:bg-stone-800 rounded-lg appearance-none touch-manipulation"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Next Song Button */}
               <button
                 onClick={handleNextSong}
-                className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs lg:text-sm px-4 lg:px-5 py-2.5 lg:py-3 min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-amber-500/20"
+                className="w-full md:w-auto bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs lg:text-sm px-5 py-3 min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-amber-500/20 shrink-0"
               >
                 <span>เพลงถัดไป</span>
                 <ArrowRight className="w-4 h-4" />
