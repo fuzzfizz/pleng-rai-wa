@@ -86,7 +86,16 @@ export async function GET(
     }
 
     const sanitizedRoom = sanitizeRoomState(room);
-    const roundState = RoomStateStore.getRoomRoundState(cleanCode);
+    let roundState = RoomStateStore.getRoomRoundState(cleanCode);
+    if (
+      !roundState &&
+      (room.status === "question_active" ||
+        room.status === "buzzed" ||
+        room.status === "revealing")
+    ) {
+      roundState = await RoomStateStore.ensureRoundState(cleanCode, room);
+    }
+
     if (roundState) {
       sanitizedRoom.roundState = sanitizeRoundState(roundState);
       if (roundState.revealedHints) {

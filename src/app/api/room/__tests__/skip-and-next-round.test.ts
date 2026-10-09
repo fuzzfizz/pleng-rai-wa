@@ -14,6 +14,7 @@ vi.mock("@/lib/services/room-service", () => ({
     getRoomByCode: vi.fn(),
     updateRoomStatus: vi.fn(),
     updateRoomRound: vi.fn(),
+    updateRoomRoundState: vi.fn().mockResolvedValue({}),
   },
   DEFAULT_ROOM_SETTINGS: {
     gameMode: "audio-slice",

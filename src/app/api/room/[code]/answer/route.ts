@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
-import { RoomStateStore } from "@/lib/room-state-store";
+import { RoomStateStore, type RoundStatus } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { isValidRoomCode } from "@/lib/room-code";
 
@@ -79,19 +79,33 @@ export async function POST(
       );
     }
 
-    // Verify that the caller is the current active buzzer holder OR direct answering in non-buzzer modes OR surrendering
-    const currentRoundState = RoomStateStore.getRoomRoundState(cleanCode);
+    // Ensure active round state is rehydrated in case this is a fresh serverless instance
+    const currentRoundState = await RoomStateStore.ensureRoundState(cleanCode, room);
+
     const isSurrender = cleanAnswerText === "(ยอมแพ้)";
+    const effectiveGameMode =
+      currentRoundState?.gameMode ||
+      room.settings?.gameMode ||
+      "buzzer";
+    const effectiveRoundStatus =
+      currentRoundState?.roundStatus ||
+      (room.status as RoundStatus) ||
+      "question_active";
+    const effectiveBuzzedPlayerId =
+      currentRoundState?.buzzedPlayerId ||
+      room.settings?.round_state?.buzzedPlayerId ||
+      null;
+
     const isBuzzerHolder =
-      currentRoundState?.roundStatus === "buzzed" &&
-      currentRoundState?.buzzedPlayerId === cleanPlayerId;
+      effectiveRoundStatus === "buzzed" &&
+      effectiveBuzzedPlayerId === cleanPlayerId;
     const isDirectAnswerAllowed =
-      room.settings.gameMode !== "buzzer" &&
-      currentRoundState?.roundStatus === "question_active";
+      effectiveGameMode !== "buzzer" &&
+      effectiveRoundStatus === "question_active";
     const isSurrenderAllowed =
       isSurrender &&
-      (currentRoundState?.roundStatus === "question_active" ||
-        currentRoundState?.roundStatus === "buzzed");
+      (effectiveRoundStatus === "question_active" ||
+        effectiveRoundStatus === "buzzed");
 
     if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed && !isSurrenderAllowed)) {
       return NextResponse.json(
@@ -166,6 +180,14 @@ export async function POST(
           reason: "buzzer_timeout",
         };
 
+        if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+          RoomService.updateRoomRoundState(
+            cleanCode,
+            RoomStateStore.serializeRoundState(result.roundState),
+            result.roundState.roundStatus
+          ).catch((err) => console.warn("[AnswerRoute] Failed to sync timeout state:", err));
+        }
+
         RealtimeBroadcastService.broadcast(
           cleanCode,
           "wrong_guess",
@@ -200,8 +222,16 @@ export async function POST(
     }
 
     if (result.isCorrect) {
-      // 1. Correct Answer: update DB status to 'revealing'
+      // 1. Correct Answer: update DB status to 'revealing' and sync round state
       await RoomService.updateRoomStatus(cleanCode, "revealing");
+
+      if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+        RoomService.updateRoomRoundState(
+          cleanCode,
+          RoomStateStore.serializeRoundState(result.roundState),
+          "revealing"
+        ).catch((err) => console.warn("[AnswerRoute] Failed to sync reveal state:", err));
+      }
 
       const revealPayload = {
         winnerPlayerId: cleanPlayerId,
@@ -232,10 +262,20 @@ export async function POST(
         song: result.fullSong,
       });
     } else {
-      // 2. Wrong Answer
+      // 2. Wrong Answer: update DB with new round state and status
+      const nextStatus = result.roundState?.roundStatus || "question_active";
+      if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+        RoomService.updateRoomRoundState(
+          cleanCode,
+          RoomStateStore.serializeRoundState(result.roundState),
+          nextStatus
+        ).catch(() => RoomService.updateRoomStatus(cleanCode, nextStatus));
+      } else {
+        RoomService.updateRoomStatus(cleanCode, nextStatus).catch(() => {});
+      }
+
       // Check if all players answered wrong -> roundStatus transitioned to 'revealing' with no winner
       if (result.roundState?.roundStatus === "revealing") {
-        await RoomService.updateRoomStatus(cleanCode, "revealing");
 
         const revealPayload = {
           winnerPlayerId: null,

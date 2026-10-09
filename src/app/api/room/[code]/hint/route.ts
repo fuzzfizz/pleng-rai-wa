@@ -49,6 +49,9 @@ export async function POST(
         ? playerId.trim()
         : undefined;
 
+    // Ensure round state is rehydrated if running on a fresh serverless instance
+    await RoomStateStore.ensureRoundState(cleanCode, room);
+
     const result = RoomStateStore.revealNextHint(cleanCode, cleanPlayerId);
     if (!result.success) {
       return NextResponse.json(
@@ -61,6 +64,14 @@ export async function POST(
         },
         { status: 400 }
       );
+    }
+
+    const state = RoomStateStore.getRoomRoundState(cleanCode);
+    if (state) {
+      RoomService.updateRoomRoundState(
+        cleanCode,
+        RoomStateStore.serializeRoundState(state)
+      ).catch((err) => console.warn("[RoomHint] Failed to persist hint state to DB:", err));
     }
 
     const hintPayload = {

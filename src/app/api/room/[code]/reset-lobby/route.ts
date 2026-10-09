@@ -35,11 +35,12 @@ export async function POST(
       );
     }
 
-    // 1. Update room status in DB / memory back to "lobby" and reset played_song_ids = []
+    // 1. Update room status in DB / memory back to "lobby", clear roundState, and reset played_song_ids = []
     const updatedRoom = await RoomService.updateRoomRound(cleanCode, {
       status: "lobby",
       playedSongIds: [],
       currentSongId: null,
+      roundState: null,
     });
 
     // 2. Reset round state in RoomStateStore (resets round to 0, scores to 0, current question to null, buzzed player to null)

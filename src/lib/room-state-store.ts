@@ -5,6 +5,7 @@
 
 import type { Song, RoomSettings, GameMode, ChoiceOption } from "@/types";
 import { checkAnswer } from "@/lib/answer-checker";
+import { SongService, mapGenreFromRow } from "@/lib/services/song-service";
 
 export type RoundStatus =
   | "idle"
@@ -85,14 +86,201 @@ const roomRoundStates =
   globalForRoomState.__roomRoundStates ?? new Map<string, RoomRoundState>();
 globalForRoomState.__roomRoundStates = roomRoundStates;
 
+/**
+ * Safely converts a raw DB song row or partial object to domain Song.
+ */
+export function toSongDomain(raw: any): Song {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Invalid song raw object");
+  }
+  return {
+    id: raw.id,
+    title: raw.title,
+    artist: raw.artist,
+    aliases: Array.isArray(raw.aliases) ? raw.aliases : [],
+    releaseYear: raw.releaseYear ?? raw.release_year ?? undefined,
+    genreId: raw.genreId ?? raw.genre_id ?? undefined,
+    genre: raw.genre ?? (raw.genres ? mapGenreFromRow(raw.genres) : undefined),
+    era: raw.era ?? undefined,
+    audioUrl: raw.audioUrl ?? raw.audio_url,
+    hookStartSec: raw.hookStartSec ?? raw.hook_start_sec ?? 0,
+    hookEndSec: raw.hookEndSec ?? raw.hook_end_sec ?? 0,
+    durationSec: raw.durationSec ?? raw.duration_sec ?? 0,
+    lyricsIntro: raw.lyricsIntro ?? raw.lyrics_intro ?? undefined,
+    lyricsChorus: raw.lyricsChorus ?? raw.lyrics_chorus ?? undefined,
+    metadata: raw.metadata ?? {},
+    createdAt: raw.createdAt ?? raw.created_at,
+  };
+}
+
 export class RoomStateStore {
   /**
-   * Retrieves active round state for room code.
+   * Retrieves active round state for room code from in-memory cache.
    */
   static getRoomRoundState(code: string): RoomRoundState | undefined {
     if (!code || typeof code !== "string") return undefined;
     const cleanCode = code.trim().toUpperCase();
     return roomRoundStates.get(cleanCode);
+  }
+
+  /**
+   * Serializes active round state for persistence in rooms.settings.round_state.
+   * Strips secret song data so DB row doesn't leak secrets in settings JSON.
+   */
+  static serializeRoundState(state: RoomRoundState): any {
+    return {
+      currentRound: state.currentRound,
+      totalRounds: state.totalRounds,
+      roundStatus: state.roundStatus,
+      gameMode: state.gameMode,
+      buzzedPlayerId: state.buzzedPlayerId ?? null,
+      buzzedPlayerName: state.buzzedPlayerName ?? null,
+      buzzedAt: state.buzzedAt ?? null,
+      buzzDeadline: state.buzzDeadline ?? null,
+      excludedPlayerIds: [...state.excludedPlayerIds],
+      wrongGuesses: [...state.wrongGuesses],
+      scores: { ...state.scores },
+      winnerPlayerId: state.winnerPlayerId ?? null,
+      roundWinnerPlayerId: state.roundWinnerPlayerId ?? null,
+      revealedHintLevel: state.revealedHintLevel ?? 0,
+      revealedHints: { ...(state.revealedHints || {}) },
+      playerHintLevels: { ...(state.playerHintLevels || {}) },
+      sliceUrl: state.sliceUrl,
+      sliceStartSec: state.sliceStartSec,
+      sliceDurationSec: state.sliceDurationSec,
+      lyrics: state.lyrics,
+      choices: state.choices,
+      startedAt: state.startedAt,
+    };
+  }
+
+  /**
+   * Rehydrates or synchronizes round state from Supabase room record when
+   * executing across different serverless function instances or cold starts.
+   */
+  static async ensureRoundState(
+    code: string,
+    room: any,
+    song?: Song
+  ): Promise<RoomRoundState | undefined> {
+    if (!code || typeof code !== "string" || !room) return undefined;
+    const cleanCode = code.trim().toUpperCase();
+    const existing = roomRoundStates.get(cleanCode);
+
+    const dbRoundState =
+      typeof room.settings?.round_state === "object" && room.settings.round_state !== null
+        ? room.settings.round_state
+        : undefined;
+
+    // If existing in-memory state has currentSong, sync any newer buzzer / status from DB if applicable
+    if (existing && existing.currentSong) {
+      if (dbRoundState) {
+        if (dbRoundState.buzzedPlayerId && !existing.buzzedPlayerId) {
+          existing.buzzedPlayerId = dbRoundState.buzzedPlayerId;
+          existing.buzzedPlayerName = dbRoundState.buzzedPlayerName;
+          existing.buzzedAt = dbRoundState.buzzedAt;
+          existing.buzzDeadline = dbRoundState.buzzDeadline;
+          existing.roundStatus =
+            (room.status as RoundStatus) || dbRoundState.roundStatus || "buzzed";
+        }
+        if (dbRoundState.scores && Object.keys(dbRoundState.scores).length > 0) {
+          existing.scores = { ...dbRoundState.scores, ...existing.scores };
+        }
+        if (Array.isArray(dbRoundState.excludedPlayerIds)) {
+          for (const id of dbRoundState.excludedPlayerIds) {
+            if (!existing.excludedPlayerIds.includes(id)) {
+              existing.excludedPlayerIds.push(id);
+            }
+          }
+        }
+      }
+      return existing;
+    }
+
+    // Otherwise, rehydrate from room / DB
+    let resolvedSong: Song | undefined = song;
+    if (!resolvedSong && room.songs) {
+      try {
+        const rawSong = Array.isArray(room.songs) ? room.songs[0] : room.songs;
+        if (rawSong && rawSong.title) {
+          resolvedSong = toSongDomain(rawSong);
+        }
+      } catch (err) {
+        console.warn("[RoomStateStore] Failed to map room.songs:", err);
+      }
+    }
+
+    if (!resolvedSong && room.current_song_id) {
+      try {
+        const fetchedSong = await SongService.getSongById(room.current_song_id);
+        if (fetchedSong) {
+          resolvedSong = fetchedSong;
+        }
+      } catch (err) {
+        console.warn("[RoomStateStore] Failed to fetch song by current_song_id:", err);
+      }
+    }
+
+    if (!resolvedSong) {
+      // Cannot rehydrate a round without a song (e.g. lobby mode)
+      return undefined;
+    }
+
+    const roundStatus: RoundStatus =
+      (room.status === "buzzed" ||
+       room.status === "question_active" ||
+       room.status === "revealing" ||
+       room.status === "game_over")
+        ? (room.status as RoundStatus)
+        : (dbRoundState?.roundStatus || "question_active");
+
+    const reconstructed: RoomRoundState = {
+      roomCode: cleanCode,
+      currentRound: typeof dbRoundState?.currentRound === "number"
+        ? dbRoundState.currentRound
+        : (Array.isArray(room.played_song_ids) ? room.played_song_ids.length : 1),
+      totalRounds: typeof dbRoundState?.totalRounds === "number"
+        ? dbRoundState.totalRounds
+        : (room.settings?.totalRounds || 10),
+      roundStatus,
+      gameMode: room.settings?.gameMode || dbRoundState?.gameMode || "buzzer",
+      settings: room.settings,
+      currentSong: resolvedSong,
+      sliceUrl:
+        dbRoundState?.sliceUrl ||
+        `/api/audio/slice?id=${encodeURIComponent(resolvedSong.id)}&start=${resolvedSong.hookStartSec || 0}&duration=${room.settings?.sliceDurationSec || 2.0}`,
+      sliceStartSec: dbRoundState?.sliceStartSec ?? resolvedSong.hookStartSec ?? 0,
+      sliceDurationSec: dbRoundState?.sliceDurationSec ?? room.settings?.sliceDurationSec ?? 2.0,
+      lyrics: dbRoundState?.lyrics,
+      choices: dbRoundState?.choices,
+      playerWrongCounts: dbRoundState?.playerWrongCounts || {},
+      buzzedPlayerId: dbRoundState?.buzzedPlayerId ?? null,
+      buzzedPlayerName: dbRoundState?.buzzedPlayerName ?? null,
+      buzzedAt: dbRoundState?.buzzedAt ?? null,
+      buzzDeadline: dbRoundState?.buzzDeadline ?? null,
+      excludedPlayerIds: Array.isArray(dbRoundState?.excludedPlayerIds)
+        ? [...dbRoundState.excludedPlayerIds]
+        : [],
+      wrongGuesses: Array.isArray(dbRoundState?.wrongGuesses)
+        ? [...dbRoundState.wrongGuesses]
+        : [],
+      scores:
+        typeof dbRoundState?.scores === "object" && dbRoundState?.scores !== null
+          ? { ...dbRoundState.scores }
+          : {},
+      winnerPlayerId: dbRoundState?.winnerPlayerId ?? null,
+      roundWinnerPlayerId: dbRoundState?.roundWinnerPlayerId ?? null,
+      revealedHintLevel:
+        typeof dbRoundState?.revealedHintLevel === "number"
+          ? dbRoundState.revealedHintLevel
+          : 0,
+      revealedHints: dbRoundState?.revealedHints || {},
+      playerHintLevels: dbRoundState?.playerHintLevels || {},
+      startedAt: dbRoundState?.startedAt || new Date().toISOString(),
+    };
+
+    roomRoundStates.set(cleanCode, reconstructed);
+    return reconstructed;
   }
 
   /**

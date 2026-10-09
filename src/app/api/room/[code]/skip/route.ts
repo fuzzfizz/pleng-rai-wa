@@ -55,6 +55,9 @@ export async function POST(
       );
     }
 
+    // Ensure round state is rehydrated if running on a fresh serverless instance
+    await RoomStateStore.ensureRoundState(cleanCode, room);
+
     const state = RoomStateStore.getRoomRoundState(cleanCode);
     if (
       !state ||
@@ -75,6 +78,14 @@ export async function POST(
     }
 
     await RoomService.updateRoomStatus(cleanCode, "revealing");
+
+    if (skipResult.roundState && typeof RoomService.updateRoomRoundState === "function") {
+      RoomService.updateRoomRoundState(
+        cleanCode,
+        RoomStateStore.serializeRoundState(skipResult.roundState),
+        "revealing"
+      ).catch((err) => console.warn("[SkipRoute] Failed to sync round state:", err));
+    }
 
     // Broadcast round_reveal event indicating skipped question
     await RealtimeBroadcastService.broadcast(cleanCode, "round_reveal", {

@@ -200,7 +200,7 @@ export class RoomService {
   }
 
   /**
-   * Updates round-related room properties (current_song_id, played_song_ids, status).
+   * Updates round-related room properties (current_song_id, played_song_ids, status, roundState).
    */
   static async updateRoomRound(
     code: string,
@@ -208,6 +208,7 @@ export class RoomService {
       currentSongId?: string | null;
       playedSongIds?: string[];
       status?: string;
+      roundState?: any;
     }
   ): Promise<any> {
     if (!code || typeof code !== "string") throw new Error("Invalid room code");
@@ -217,6 +218,60 @@ export class RoomService {
     if (updates.currentSongId !== undefined) payload.current_song_id = updates.currentSongId;
     if (updates.playedSongIds !== undefined) payload.played_song_ids = updates.playedSongIds;
     if (updates.status !== undefined) payload.status = updates.status;
+
+    if (updates.roundState !== undefined) {
+      const current = await this.getRoomByCode(cleanCode);
+      const currentSettings =
+        typeof current?.settings === "object" && current?.settings !== null
+          ? current.settings
+          : {};
+      payload.settings = {
+        ...currentSettings,
+        round_state: updates.roundState,
+      } as unknown as Json;
+    }
+
+    const { data, error } = await client
+      .from("rooms")
+      .update(payload)
+      .eq("room_code", cleanCode)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Fast update of room round state (and optionally status) in rooms.settings.round_state.
+   */
+  static async updateRoomRoundState(
+    code: string,
+    roundState: any,
+    status?: string
+  ): Promise<any> {
+    if (!code || typeof code !== "string") throw new Error("Invalid room code");
+    const cleanCode = code.trim().toUpperCase();
+    const client = this.getClient();
+    const current = await this.getRoomByCode(cleanCode);
+    if (!current) throw new Error("Room not found");
+
+    const currentSettings =
+      typeof current.settings === "object" && current.settings !== null
+        ? current.settings
+        : {};
+
+    const updatedSettings = {
+      ...currentSettings,
+      round_state: roundState,
+    };
+
+    const payload: RoomUpdate = {
+      settings: updatedSettings as unknown as Json,
+    };
+    if (status !== undefined) {
+      payload.status = status;
+    }
 
     const { data, error } = await client
       .from("rooms")

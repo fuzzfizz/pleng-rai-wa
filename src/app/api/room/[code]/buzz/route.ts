@@ -75,6 +75,9 @@ export async function POST(
     const cleanPlayerId = playerId.trim();
     const cleanDisplayName = displayName.trim();
 
+    // Ensure round state is rehydrated if running on a fresh serverless instance
+    await RoomStateStore.ensureRoundState(cleanCode, room);
+
     // Attempt atomic FCFS buzzer lock
     const buzzResult = RoomStateStore.buzz(
       cleanCode,
@@ -103,6 +106,16 @@ export async function POST(
     }
 
     const roundState = buzzResult.roundState!;
+
+    // Persist buzzer lock to Supabase so subsequent /answer requests on any lambda know who buzzed
+    await RoomService.updateRoomRoundState(
+      cleanCode,
+      RoomStateStore.serializeRoundState(roundState),
+      "buzzed"
+    ).catch((err) => {
+      console.warn("[BuzzerRoute] Failed to persist buzzer state to DB:", err);
+    });
+
     const broadcastPayload = {
       playerId: roundState.buzzedPlayerId,
       displayName: roundState.buzzedPlayerName,

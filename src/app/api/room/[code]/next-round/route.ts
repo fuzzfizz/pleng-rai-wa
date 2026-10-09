@@ -247,12 +247,13 @@ export async function POST(
       }
     );
 
-    // Update database room row
+    // Update database room row with serialized round state for serverless rehydration
     const updatedPlayedSongs = [...playedSongIds, song.id];
     await RoomService.updateRoomRound(cleanCode, {
       currentSongId: song.id,
       playedSongIds: updatedPlayedSongs,
       status: "question_active",
+      roundState: RoomStateStore.serializeRoundState(roundState),
     });
 
     // Broadcast round_start event to all room participants
