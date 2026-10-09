@@ -34,7 +34,7 @@ import { getDeterministicAvatar } from "./player-card";
 import { buildRoomJoinUrl } from "./qr-code-modal";
 import { formatWrongGuessMessage, RESUME_AUDIO_CUE } from "./wrong-guess-banner";
 import { PodiumView, getSortedPodiumPlayers } from "./podium-view";
-import { getMasterVolume, subscribeMasterVolume } from "@/lib/audio-volume";
+import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 
 export interface TVViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -130,7 +130,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   // Audio / TTS playback for big TV speakers with unmount cleanup
   useEffect(() => {
     if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
-      if (status === "question_active" && activeQuestion?.lyrics && !isMuted) {
+      if (status === "question_active" && activeQuestion?.lyrics && !isMuted && !isMasterMuted() && getMasterVolume() > 0) {
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
           lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
@@ -146,6 +146,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
 
     if (status === "question_active" && activeQuestion?.sliceUrl && audioRef.current) {
       audioRef.current.volume = getMasterVolume();
+      audioRef.current.muted = isMuted || isMasterMuted() || getMasterVolume() === 0;
       if (isAudioPlaying) {
         audioRef.current.play().catch(() => {});
       } else {
@@ -163,16 +164,16 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   // Audio and TTS volume & mute sync
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.muted = isMuted;
       audioRef.current.volume = getMasterVolume();
+      audioRef.current.muted = isMuted || isMasterMuted() || audioRef.current.volume === 0;
     }
     const unsub = subscribeMasterVolume((vol) => {
       if (audioRef.current) {
         audioRef.current.volume = vol;
-        audioRef.current.muted = vol === 0;
+        audioRef.current.muted = vol === 0 || isMuted || isMasterMuted();
       }
     });
-    if ((gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && isMuted) {
+    if ((gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && (isMuted || isMasterMuted() || getMasterVolume() === 0)) {
       ttsReader.stopSpeaking();
     }
     return unsub;
@@ -223,7 +224,13 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
       {/* Hidden audio element for TV speakers */}
       {activeQuestion?.sliceUrl && (
         <audio
-          ref={audioRef}
+          ref={(el) => {
+            audioRef.current = el;
+            if (el) {
+              el.volume = getMasterVolume();
+              el.muted = isMuted || isMasterMuted() || el.volume === 0;
+            }
+          }}
           src={activeQuestion.sliceUrl}
           preload="auto"
           playsInline

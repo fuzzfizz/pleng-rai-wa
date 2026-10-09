@@ -10,6 +10,7 @@ import {
   STORAGE_KEY_PREV_VOLUME,
 } from "../audio-volume";
 import { soundEffects } from "../sound-effects";
+import { ttsReader } from "../tts-reader";
 
 describe("audio-volume synchronization", () => {
   let mockStorage: Record<string, string>;
@@ -214,4 +215,121 @@ describe("audio-volume synchronization", () => {
 
     unsubs.forEach((unsub) => unsub());
   });
+
+  it("halts and prevents TTS playback when master volume is muted or 0", () => {
+    const mockCancel = vi.fn();
+    const mockSpeak = vi.fn();
+
+    (globalThis as any).window.speechSynthesis = {
+      cancel: mockCancel,
+      speak: mockSpeak,
+      speaking: false,
+      paused: false,
+      getVoices: vi.fn(() => []),
+      onvoiceschanged: null,
+    };
+    (globalThis as any).SpeechSynthesisUtterance = class {
+      text: string;
+      constructor(text: string) {
+        this.text = text;
+      }
+    };
+
+    // Case 1: Master volume is 0
+    setMasterVolume(0);
+    expect(isMasterMuted()).toBe(true);
+
+    ttsReader.speakLyrics("ใจสั่งมา - เสก โลโซ");
+    expect(mockSpeak).not.toHaveBeenCalled();
+    expect(mockCancel).toHaveBeenCalled();
+
+    mockCancel.mockClear();
+    mockSpeak.mockClear();
+
+    // Case 2: Master volume is active (> 0)
+    setMasterVolume(0.8);
+    expect(isMasterMuted()).toBe(false);
+
+    ttsReader.speakLyrics("ใจสั่งมา - เสก โลโซ");
+    expect(mockSpeak).toHaveBeenCalled();
+
+    // Case 3: Master volume is turned to 0 while speaking
+    setMasterVolume(0);
+    expect(mockCancel).toHaveBeenCalled();
+  });
+
+  it("ensures procedural ambient synth respects mute state and dynamic volume adjustments", async () => {
+    const gainNodes: any[] = [];
+    const mockCtx = {
+      currentTime: 10,
+      destination: {},
+      createGain: vi.fn(() => {
+        const node = {
+          gain: {
+            value: 1,
+            setValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            linearRampToValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            exponentialRampToValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            cancelScheduledValues: vi.fn(),
+          },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        gainNodes.push(node);
+        return node;
+      }),
+      createBiquadFilter: vi.fn(() => ({
+        type: "lowpass",
+        frequency: { setValueAtTime: vi.fn() },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      })),
+      createOscillator: vi.fn(() => ({
+        type: "sine",
+        frequency: { setValueAtTime: vi.fn() },
+        connect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+      })),
+    };
+
+    const soundEffectsModule = await import("../sound-effects");
+    vi.spyOn(soundEffectsModule, "getAudioContext").mockReturnValue(mockCtx as any);
+
+    const { createProceduralAmbientSynth } = await import(
+      "../../components/common/three-vinyl-canvas"
+    );
+
+    // Case 1: Start muted -> target gain should stay at silence (0.0001)
+    const mutedSynth = createProceduralAmbientSynth(0, true);
+    expect(mutedSynth).not.toBeNull();
+    const masterGain1 = gainNodes[0];
+    expect(masterGain1.gain.value).toBe(0.0001);
+    mutedSynth?.stop();
+
+    // Case 2: Start with volume 0.8 -> target gain ramps to 0.8 * 0.18 = 0.144
+    gainNodes.length = 0;
+    const activeSynth = createProceduralAmbientSynth(0.8, false);
+    expect(activeSynth).not.toBeNull();
+    const masterGain2 = gainNodes[0];
+    expect(masterGain2.gain.value).toBeCloseTo(0.144, 3);
+
+    // Dynamic mute via setVolume
+    activeSynth?.setVolume(0, true);
+    expect(masterGain2.gain.value).toBe(0.0001);
+
+    // Dynamic unmute and scale
+    activeSynth?.setVolume(0.5, false);
+    expect(masterGain2.gain.value).toBeCloseTo(0.09, 3);
+
+    activeSynth?.stop();
+  });
 });
+
+

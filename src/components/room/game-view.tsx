@@ -38,7 +38,7 @@ import { AnswerModal } from "./answer-modal";
 import { WrongGuessBanner } from "./wrong-guess-banner";
 import { RoundRevealCard } from "./round-reveal-card";
 import { getDeterministicAvatar } from "./player-card";
-import { getMasterVolume, subscribeMasterVolume } from "@/lib/audio-volume";
+import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 import { SettingsMenu } from "@/components/common/settings-menu";
 
 export interface GameViewProps {
@@ -89,6 +89,8 @@ export function replayAudio(
 ): boolean {
   if (!audioEl) return false;
   audioEl.currentTime = 0;
+  audioEl.volume = getMasterVolume();
+  audioEl.muted = isMasterMuted() || audioEl.volume === 0;
   try {
     const playPromise = audioEl.play();
     if (playPromise && typeof playPromise.catch === "function") {
@@ -353,7 +355,8 @@ export function GameView({
   useEffect(() => {
     const applyVolume = (vol: number) => {
       if (audioRef.current) {
-        audioRef.current.volume = vol;
+        audioRef.current.volume = Math.max(0, Math.min(1, vol));
+        audioRef.current.muted = vol === 0 || isMasterMuted();
       }
     };
     applyVolume(getMasterVolume());
@@ -364,7 +367,7 @@ export function GameView({
   useEffect(() => {
     // Mode: AI Lyrics or Translated Lyrics
     if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
-      if (status === "question_active" && activeQuestion?.lyrics) {
+      if (status === "question_active" && activeQuestion?.lyrics && !isMasterMuted() && getMasterVolume() > 0) {
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
           lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
@@ -379,6 +382,7 @@ export function GameView({
     // Mode: Audio Slice or Buzzer with audio slice URL
     if (status === "question_active" && activeQuestion?.sliceUrl && audioRef.current) {
       audioRef.current.volume = getMasterVolume();
+      audioRef.current.muted = isMasterMuted() || getMasterVolume() === 0;
       if (isAudioPlaying) {
         audioRef.current.play().catch((err) => {
           console.warn("[GameView] Audio play error (browser autoplay policy):", err);
@@ -567,6 +571,7 @@ export function GameView({
             audioRef.current = el;
             if (el) {
               el.volume = getMasterVolume();
+              el.muted = isMasterMuted() || el.volume === 0;
             }
           }}
           src={activeQuestion.sliceUrl}

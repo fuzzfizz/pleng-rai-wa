@@ -5,6 +5,12 @@
  * Reads Thai lyrics in deadpan robotic style for guessing games with male/female voice switching.
  */
 
+import {
+  isMasterMuted,
+  getMasterVolume,
+  subscribeMasterVolume,
+} from "./audio-volume";
+
 export type AIVoiceGender = "male" | "female" | "random";
 
 export interface SpeakLyricsOptions {
@@ -23,12 +29,19 @@ export interface SpeakLyricsOptions {
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 let cachedVoices: SpeechSynthesisVoice[] = [];
 
-// Initialize voices listener if in browser environment
-if (typeof window !== "undefined" && "speechSynthesis" in window) {
-  cachedVoices = window.speechSynthesis.getVoices();
-  window.speechSynthesis.onvoiceschanged = () => {
+// Initialize voices listener and master volume subscriber if in browser environment
+if (typeof window !== "undefined") {
+  if ("speechSynthesis" in window) {
     cachedVoices = window.speechSynthesis.getVoices();
-  };
+    window.speechSynthesis.onvoiceschanged = () => {
+      cachedVoices = window.speechSynthesis.getVoices();
+    };
+  }
+  subscribeMasterVolume((vol) => {
+    if (vol === 0 || isMasterMuted()) {
+      stopSpeaking();
+    }
+  });
 }
 
 /**
@@ -139,6 +152,16 @@ export function speakLyrics(
 
   const cleanText = text.trim();
   if (!cleanText) {
+    options?.onEnd?.();
+    return;
+  }
+
+  // If master volume is muted or explicitly 0, halt speaking and return
+  if (
+    options?.volume === 0 ||
+    (typeof window !== "undefined" && (isMasterMuted() || getMasterVolume() === 0))
+  ) {
+    stopSpeaking();
     options?.onEnd?.();
     return;
   }

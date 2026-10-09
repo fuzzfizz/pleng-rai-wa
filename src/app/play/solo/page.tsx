@@ -158,9 +158,9 @@ function SoloPlayContent() {
     const unsubscribe = subscribeMasterVolume((newVol) => {
       if (audioRef.current) {
         audioRef.current.volume = Math.max(0, Math.min(1, newVol));
-        audioRef.current.muted = newVol === 0;
+        audioRef.current.muted = newVol === 0 || isMasterMuted();
       }
-      setIsMuted(newVol === 0);
+      setIsMuted(newVol === 0 || isMasterMuted());
     });
     return () => unsubscribe();
   }, []);

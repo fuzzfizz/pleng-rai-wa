@@ -147,7 +147,7 @@ export function RoundRevealCard({
 
     audioRef.current.currentTime = startSec;
     audioRef.current.volume = getMasterVolume();
-    audioRef.current.muted = isMasterMuted();
+    audioRef.current.muted = isMasterMuted() || getMasterVolume() === 0;
     const playPromise = audioRef.current.play();
     if (playPromise) {
       playPromise
@@ -170,7 +170,7 @@ export function RoundRevealCard({
     const unsubscribe = subscribeMasterVolume((newVol) => {
       if (audioRef.current) {
         audioRef.current.volume = Math.max(0, Math.min(1, newVol));
-        audioRef.current.muted = newVol === 0;
+        audioRef.current.muted = newVol === 0 || isMasterMuted();
       }
     });
     return () => unsubscribe();
@@ -213,7 +213,7 @@ export function RoundRevealCard({
         setCurrentTime(startSec);
       }
       audioRef.current.volume = getMasterVolume();
-      audioRef.current.muted = isMasterMuted();
+      audioRef.current.muted = isMasterMuted() || getMasterVolume() === 0;
       audioRef.current
         .play()
         .then(() => setIsPlayingAudio(true))
@@ -229,7 +229,13 @@ export function RoundRevealCard({
       {/* Audio element for full hook playback and seeking */}
       {song?.audioUrl && (
         <audio
-          ref={audioRef}
+          ref={(el) => {
+            audioRef.current = el;
+            if (el) {
+              el.volume = getMasterVolume();
+              el.muted = isMasterMuted() || el.volume === 0;
+            }
+          }}
           src={song.audioUrl}
           loop
           onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}

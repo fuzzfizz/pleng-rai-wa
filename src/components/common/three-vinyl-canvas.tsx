@@ -21,6 +21,14 @@ const FADE_OUT_DURATION_MS = 600;
 /**
  * Smoothly animates HTMLAudioElement volume between startVol and targetVol.
  */
+export interface AmbientSynthController {
+  stop: () => void;
+  setVolume: (volume: number, muted: boolean) => void;
+}
+
+/**
+ * Smoothly animates HTMLAudioElement volume between startVol and targetVol.
+ */
 function fadeAudioVolume(
   audio: HTMLAudioElement,
   startVol: number,
@@ -34,13 +42,32 @@ function fadeAudioVolume(
     animRef.current = null;
   }
 
-  const clampedTarget = Math.max(0, Math.min(1, targetVol));
+  const effectiveMuted = isMasterMuted();
+  const effectiveTarget = effectiveMuted ? 0 : targetVol;
+  const clampedTarget = Math.max(0, Math.min(1, effectiveTarget));
+  const clampedStart = Math.max(0, Math.min(1, effectiveMuted ? 0 : startVol));
   const startTime = performance.now();
-  const clampedStart = Math.max(0, Math.min(1, startVol));
+
   audio.volume = clampedStart;
-  audio.muted = clampedStart === 0;
+  audio.muted = effectiveMuted || clampedStart === 0;
+
+  if (clampedStart === clampedTarget) {
+    audio.volume = clampedTarget;
+    audio.muted = effectiveMuted || clampedTarget === 0;
+    onComplete?.();
+    return;
+  }
 
   const tick = (now: number) => {
+    // Abort and silence immediately if master was muted during fade animation
+    if (isMasterMuted()) {
+      audio.volume = 0;
+      audio.muted = true;
+      animRef.current = null;
+      onComplete?.();
+      return;
+    }
+
     const elapsed = now - startTime;
     const progress = Math.min(1, elapsed / durationMs);
     const newVol = clampedStart + (clampedTarget - clampedStart) * progress;
@@ -61,17 +88,26 @@ function fadeAudioVolume(
 
 /**
  * Procedural Web Audio ambient lo-fi synth chord loop used as an offline fallback
- * if the radio stream cannot connect.
+ * if the radio stream cannot connect. Strictly honors master volume and mute status.
  */
-function createProceduralAmbientSynth(): { stop: () => void } | null {
+export function createProceduralAmbientSynth(
+  initialVol: number = getMasterVolume(),
+  initialMuted: boolean = isMasterMuted()
+): AmbientSynthController | null {
   try {
     const ctx = getAudioContext();
     if (!ctx) return null;
 
     let isPlaying = true;
+    let currentVol = initialVol;
+    let currentMuted = initialMuted || initialVol <= 0.001;
+
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.001, ctx.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 1.2);
+    const targetGain = currentMuted ? 0.0001 : currentVol * 0.18;
+    masterGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    if (!currentMuted && targetGain > 0.0001) {
+      masterGain.gain.linearRampToValueAtTime(targetGain, ctx.currentTime + 1.2);
+    }
     masterGain.connect(ctx.destination);
 
     const filter = ctx.createBiquadFilter();
@@ -96,23 +132,26 @@ function createProceduralAmbientSynth(): { stop: () => void } | null {
       const notes = progressions[chordStep % progressions.length];
       chordStep++;
 
-      notes.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        osc.type = idx % 2 === 0 ? "sine" : "triangle";
-        osc.frequency.setValueAtTime(freq, now);
+      // When muted or volume is essentially zero, skip oscillator creation to guarantee silence and save CPU
+      if (!currentMuted && currentVol > 0.001) {
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          osc.type = idx % 2 === 0 ? "sine" : "triangle";
+          osc.frequency.setValueAtTime(freq, now);
 
-        const noteGain = ctx.createGain();
-        noteGain.gain.setValueAtTime(0.0001, now);
-        noteGain.gain.linearRampToValueAtTime(0.03, now + 0.6);
-        noteGain.gain.setValueAtTime(0.03, now + 2.4);
-        noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.2);
+          const noteGain = ctx.createGain();
+          noteGain.gain.setValueAtTime(0.0001, now);
+          noteGain.gain.linearRampToValueAtTime(0.03, now + 0.6);
+          noteGain.gain.setValueAtTime(0.03, now + 2.4);
+          noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.2);
 
-        osc.connect(noteGain);
-        noteGain.connect(filter);
+          osc.connect(noteGain);
+          noteGain.connect(filter);
 
-        osc.start(now);
-        osc.stop(now + 3.3);
-      });
+          osc.start(now);
+          osc.stop(now + 3.3);
+        });
+      }
 
       timerId = setTimeout(playChord, 2800);
     };
@@ -133,6 +172,17 @@ function createProceduralAmbientSynth(): { stop: () => void } | null {
               filter.disconnect();
             } catch {}
           }, 700);
+        } catch {}
+      },
+      setVolume: (volume: number, muted: boolean) => {
+        currentVol = Math.max(0, Math.min(1, volume));
+        currentMuted = muted || currentVol <= 0.001;
+        try {
+          const now = ctx.currentTime;
+          masterGain.gain.cancelScheduledValues(now);
+          const target = currentMuted ? 0.0001 : currentVol * 0.18;
+          masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+          masterGain.gain.linearRampToValueAtTime(target, now + 0.08);
         } catch {}
       },
     };
@@ -506,14 +556,22 @@ export function ThreeVinylCanvas({
   // Audio player state & refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fadeAnimRef = useRef<number | null>(null);
-  const synthRef = useRef<{ stop: () => void } | null>(null);
+  const synthRef = useRef<AmbientSynthController | null>(null);
 
-  // Sync with master volume in real-time
+  // Sync with master volume in real-time across both HTMLAudio and procedural synth fallback
   useEffect(() => {
     const unsubscribe = subscribeMasterVolume((newVol) => {
+      const isMuted = newVol === 0 || isMasterMuted();
+      if (fadeAnimRef.current !== null) {
+        cancelAnimationFrame(fadeAnimRef.current);
+        fadeAnimRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.volume = Math.max(0, Math.min(1, newVol));
-        audioRef.current.muted = newVol === 0;
+        audioRef.current.muted = isMuted;
+      }
+      if (synthRef.current) {
+        synthRef.current.setVolume(newVol, isMuted);
       }
     });
     return () => unsubscribe();
@@ -559,7 +617,7 @@ export function ThreeVinylCanvas({
 
       // 2. Offline fallback check
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        synthRef.current = createProceduralAmbientSynth();
+        synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
         return;
       }
 
@@ -588,11 +646,11 @@ export function ThreeVinylCanvas({
                   fadeAnimRef
                 );
               }).catch(() => {
-                synthRef.current = createProceduralAmbientSynth();
+                synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
               });
             }
           } else {
-            synthRef.current = createProceduralAmbientSynth();
+            synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
           }
         });
       } else {
@@ -634,7 +692,7 @@ export function ThreeVinylCanvas({
                     fadeAnimRef
                   );
                 }).catch(() => {
-                  synthRef.current = createProceduralAmbientSynth();
+                  synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
                 });
               }
             }
