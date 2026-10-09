@@ -25,6 +25,9 @@ import {
   Calendar,
   UserCheck,
   Flag,
+  RotateCcw,
+  Play,
+  Pause,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
 import type { Song, GameMode } from "@/types";
@@ -69,6 +72,57 @@ export function isDirectInputMode(mode: GameMode): boolean {
   return mode !== "buzzer";
 }
 
+/**
+ * Determines whether the audio snippet should loop automatically.
+ * In audio-slice mode, it plays only once on round start and does not loop.
+ */
+export function shouldLoopAudio(mode: GameMode): boolean {
+  return mode === "buzzer";
+}
+
+/**
+ * Replays audio from the beginning (currentTime = 0).
+ */
+export function replayAudio(
+  audioEl: HTMLAudioElement | null,
+  setIsAudioPlaying?: (playing: boolean) => void
+): boolean {
+  if (!audioEl) return false;
+  audioEl.currentTime = 0;
+  try {
+    const playPromise = audioEl.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch((err) => console.warn("[GameView] Audio replay error:", err));
+    }
+  } catch {}
+  setIsAudioPlaying?.(true);
+  return true;
+}
+
+/**
+ * Toggles playback: pauses if currently playing, or replays from start if stopped/ended.
+ */
+export function toggleOrReplayAudio(
+  audioEl: HTMLAudioElement | null,
+  isPlaying: boolean,
+  setIsAudioPlaying?: (playing: boolean) => void
+): boolean {
+  if (!audioEl) return false;
+  if (isPlaying) {
+    audioEl.pause();
+    setIsAudioPlaying?.(false);
+    return false;
+  }
+  return replayAudio(audioEl, setIsAudioPlaying);
+}
+
+/**
+ * Determines whether the player is allowed to submit an answer this round.
+ */
+export function canSubmitAnswer(isExcludedFromBuzz: boolean): boolean {
+  return !isExcludedFromBuzz;
+}
+
 export function GameView({
   roomRealtime,
   songLibrary = [],
@@ -93,7 +147,8 @@ export function GameView({
     myPlayer,
     isHost,
     isMuted,
-    isAudioPlaying,
+    isAudioPlaying: realtimeIsAudioPlaying,
+    setIsAudioPlaying: realtimeSetIsAudioPlaying,
     revealedHints,
     buzz,
     submitAnswer,
@@ -101,7 +156,33 @@ export function GameView({
     skipRound,
     requestHint,
     toggleMute,
+    playAudio,
+    pauseAudio,
   } = roomRealtime;
+
+  const [isAudioPlaying, setIsAudioPlaying] = useState(Boolean(realtimeIsAudioPlaying));
+
+  useEffect(() => {
+    setIsAudioPlaying(Boolean(realtimeIsAudioPlaying));
+  }, [realtimeIsAudioPlaying]);
+
+  const handleSetIsAudioPlaying = useCallback(
+    (playing: boolean) => {
+      setIsAudioPlaying(playing);
+      if (realtimeSetIsAudioPlaying) {
+        realtimeSetIsAudioPlaying(playing);
+      } else if (playing) {
+        playAudio?.();
+      } else {
+        pauseAudio?.();
+      }
+    },
+    [realtimeSetIsAudioPlaying, playAudio, pauseAudio]
+  );
+
+  const handleToggleOrReplayAudio = useCallback(() => {
+    toggleOrReplayAudio(audioRef.current, isAudioPlaying, handleSetIsAudioPlaying);
+  }, [isAudioPlaying, handleSetIsAudioPlaying]);
 
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
@@ -216,6 +297,7 @@ export function GameView({
   // Handle answer submission
   const handleSubmitAnswer = useCallback(
     async (answerText: string) => {
+      if (!canSubmitAnswer(isExcludedFromBuzz)) return;
       setIsSubmittingAnswer(true);
       try {
         await submitAnswer(answerText);
@@ -223,7 +305,7 @@ export function GameView({
         setIsSubmittingAnswer(false);
       }
     },
-    [submitAnswer]
+    [submitAnswer, isExcludedFromBuzz]
   );
 
   const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
@@ -255,12 +337,13 @@ export function GameView({
 
   const handleSelectSuggestion = useCallback(
     (title: string) => {
+      if (!canSubmitAnswer(isExcludedFromBuzz)) return;
       setDirectAnswer(title);
       setShowSuggestions(false);
       setHighlightedIndex(-1);
       handleSubmitAnswer(title);
     },
-    [handleSubmitAnswer]
+    [handleSubmitAnswer, isExcludedFromBuzz]
   );
 
   const handleChoiceSubmit = useCallback(
@@ -372,7 +455,8 @@ export function GameView({
           }}
           src={activeQuestion.sliceUrl}
           preload="auto"
-          loop={gameMode === "buzzer" || gameMode === "audio-slice"}
+          loop={shouldLoopAudio(gameMode)}
+          onEnded={() => handleSetIsAudioPlaying(false)}
         />
       )}
 
@@ -475,25 +559,48 @@ export function GameView({
                   </p>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 h-10 lg:h-12 px-4 lg:px-6 py-2 bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 rounded-full shadow-sm">
-                  <Music className="w-4 h-4 text-amber-500 mr-1" />
-                  <span className="text-xs lg:text-sm font-bold text-stone-600 dark:text-stone-400 mr-2">
-                    {isAudioPlaying ? "กำลังเปิดเสียงตัวอย่าง..." : "เพลงหยุดชั่วคราว"}
-                  </span>
-                  {[0.4, 0.9, 0.6, 1.0, 0.7, 0.3, 0.8].map((scale, i) => (
-                    <span
-                      key={i}
-                      className={`w-1 rounded-full transition-all duration-300 ${
-                        isAudioPlaying
-                          ? "bg-gradient-to-t from-amber-500 to-orange-400 animate-pulse"
-                          : "bg-stone-300 dark:bg-stone-700 h-2"
-                      }`}
-                      style={{
-                        height: isAudioPlaying ? `${Math.round(scale * 24)}px` : "6px",
-                        animationDelay: `${i * 120}ms`,
-                      }}
-                    />
-                  ))}
+                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                  <div className="flex items-center gap-1.5 h-10 lg:h-12 px-4 lg:px-6 py-2 bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 rounded-full shadow-sm">
+                    <Music className="w-4 h-4 text-amber-500 mr-1 shrink-0" />
+                    <span className="text-xs lg:text-sm font-bold text-stone-600 dark:text-stone-400 mr-2">
+                      {isAudioPlaying ? "กำลังเปิดเสียงตัวอย่าง..." : "เพลงหยุดชั่วคราว"}
+                    </span>
+                    {[0.4, 0.9, 0.6, 1.0, 0.7, 0.3, 0.8].map((scale, i) => (
+                      <span
+                        key={i}
+                        className={`w-1 rounded-full transition-all duration-300 ${
+                          isAudioPlaying
+                            ? "bg-gradient-to-t from-amber-500 to-orange-400 animate-pulse"
+                            : "bg-stone-300 dark:bg-stone-700 h-2"
+                        }`}
+                        style={{
+                          height: isAudioPlaying ? `${Math.round(scale * 24)}px` : "6px",
+                          animationDelay: `${i * 120}ms`,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {gameMode === "audio-slice" && (
+                    <button
+                      type="button"
+                      onClick={handleToggleOrReplayAudio}
+                      aria-label={isAudioPlaying ? "หยุดเสียงตัวอย่างชั่วคราว" : "ฟังเสียงตัวอย่างซ้ำ"}
+                      className="min-h-[44px] px-3.5 py-2 inline-flex items-center gap-1.5 bg-white/90 dark:bg-stone-900/90 hover:bg-amber-500/15 active:scale-95 border border-stone-200 dark:border-stone-800 hover:border-amber-500/40 text-stone-700 dark:text-stone-200 hover:text-amber-700 dark:hover:text-amber-300 font-bold text-xs lg:text-sm rounded-full shadow-sm transition touch-manipulation cursor-pointer"
+                    >
+                      {isAudioPlaying ? (
+                        <>
+                          <Pause className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span>หยุดชั่วคราว</span>
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span>ฟังซ้ำ</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

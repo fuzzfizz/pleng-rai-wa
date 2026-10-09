@@ -764,6 +764,9 @@ export function useRoomRealtime(
       answerText: string
     ): Promise<{ success: boolean; isCorrect?: boolean; error?: string }> => {
       if (!state.myPlayer) return { success: false, error: "no_player" };
+      if (state.isExcludedFromBuzz) {
+        return { success: false, error: "already_excluded" };
+      }
       try {
         const res = await fetch(`/api/room/${cleanCode}/answer`, {
           method: "POST",
@@ -772,6 +775,7 @@ export function useRoomRealtime(
             playerId: state.myPlayer.id,
             displayName: state.myPlayer.displayName,
             answerText,
+            totalPlayers: state.players.length > 0 ? state.players.length : 1,
           }),
         });
         const data = await res.json();
@@ -787,7 +791,7 @@ export function useRoomRealtime(
         return { success: false, error: err?.message || "network_error" };
       }
     },
-    [cleanCode, state.myPlayer]
+    [cleanCode, state.myPlayer, state.isExcludedFromBuzz, state.players.length]
   );
 
   // Action: nextRound
@@ -1006,6 +1010,10 @@ export function useRoomRealtime(
     dispatch({ type: "set_audio_playing", isPlaying: false });
   }, []);
 
+  const setIsAudioPlaying = useCallback((isPlaying: boolean) => {
+    dispatch({ type: "set_audio_playing", isPlaying });
+  }, []);
+
   const toggleMute = useCallback(() => {
     const muted = toggleMasterMute();
     setIsMutedState(muted);
@@ -1025,6 +1033,7 @@ export function useRoomRealtime(
     requestHint,
     playAudio,
     pauseAudio,
+    setIsAudioPlaying,
     toggleMute,
     refetchState,
   };

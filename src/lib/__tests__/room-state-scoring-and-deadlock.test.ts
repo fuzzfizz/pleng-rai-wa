@@ -13,12 +13,12 @@ describe("RoomStateStore - Hint Scoring & Deadlock Prevention", () => {
     hookEndSec: 60,
     releaseYear: 2022,
     era: "2020s",
-    genre: { id: "pop", nameTh: "ป็อป", nameEn: "Pop" },
+    genre: { id: "pop", slug: "pop", nameTh: "ป็อป", nameEn: "Pop" },
   };
 
   const baseSettings: RoomSettings = {
     gameMode: "audio-slice",
-    answerInputMode: "typing",
+    answerInputMode: "free-text",
     sliceDurationSec: 2.0,
     roundTimeoutSec: 15,
     totalRounds: 5,
