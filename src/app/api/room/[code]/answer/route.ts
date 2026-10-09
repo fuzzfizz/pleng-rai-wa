@@ -109,6 +109,21 @@ export async function POST(
       );
     }
 
+    const totalPlayers =
+      (typeof body.totalPlayers === "number" && body.totalPlayers > 0
+        ? body.totalPlayers
+        : undefined) ??
+      (room.players && room.players.length > 0
+        ? room.players.length
+        : undefined) ??
+      (room.settings?.playerCount && room.settings.playerCount > 0
+        ? room.settings.playerCount
+        : undefined) ??
+      (currentRoundState && Object.keys(currentRoundState.scores).length > 0
+        ? Object.keys(currentRoundState.scores).length
+        : undefined) ??
+      1;
+
     // Evaluate answer with fuzzy Thai engine and update score
     const result = RoomStateStore.submitAnswer(
       cleanCode,
@@ -118,7 +133,7 @@ export async function POST(
       {
         roomSettings: room.settings,
         gameMode: room.settings.gameMode,
-        totalPlayers: room.players?.length,
+        totalPlayers,
       }
     );
 
@@ -190,7 +205,7 @@ export async function POST(
         answerText: cleanAnswerText,
         matchedAs: result.matchedAs,
         similarity: result.similarity,
-        scoreDelta: 100,
+        scoreDelta: result.scoreDelta,
         scores: result.scores,
         song: result.fullSong,
       };
@@ -206,7 +221,7 @@ export async function POST(
         isCorrect: true,
         matchedAs: result.matchedAs,
         similarity: result.similarity,
-        scoreDelta: 100,
+        scoreDelta: result.scoreDelta,
         newScore: result.newScore,
         scores: result.scores,
         song: result.fullSong,

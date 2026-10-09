@@ -45,6 +45,7 @@ export interface RoomRoundState {
   roundWinnerPlayerId?: string | null;
   revealedHintLevel?: number; // 0 = none, 1 = genre, 2 = year, 3 = artist
   revealedHints?: { genre?: string; year?: string; artist?: string };
+  playerHintLevels?: Record<string, number>;
   startedAt?: string;
 }
 
@@ -144,6 +145,7 @@ export class RoomStateStore {
       roundWinnerPlayerId: null,
       revealedHintLevel: 0,
       revealedHints: {},
+      playerHintLevels: {},
       startedAt: new Date().toISOString(),
     };
 
@@ -318,8 +320,20 @@ export class RoomStateStore {
 
     if (check.isCorrect) {
       // Points scaled by hint level: 0 hints = 100, 1 hint = 75, 2 hints = 50, 3 hints = 25
-      const hintLevel = state.revealedHintLevel || 0;
-      const points = hintLevel === 1 ? 75 : hintLevel === 2 ? 50 : hintLevel === 3 ? 25 : 100;
+      const playerHintLevel =
+        playerId && state.playerHintLevels && playerId in state.playerHintLevels
+          ? state.playerHintLevels[playerId]
+          : playerId && state.playerHintLevels && Object.keys(state.playerHintLevels).length > 0
+          ? 0
+          : (playerId && state.playerHintLevels?.[playerId]) ?? state.revealedHintLevel ?? 0;
+      const points =
+        playerHintLevel === 1
+          ? 75
+          : playerHintLevel === 2
+          ? 50
+          : playerHintLevel === 3
+          ? 25
+          : 100;
       const currentScore = state.scores[playerId] || 0;
       const newScore = currentScore + points;
       state.scores[playerId] = newScore;
@@ -374,6 +388,15 @@ export class RoomStateStore {
         timestamp: new Date().toISOString(),
       });
 
+      const effectiveTotalPlayers =
+        options?.totalPlayers && options.totalPlayers > 0
+          ? options.totalPlayers
+          : options?.roomSettings?.playerCount && options.roomSettings.playerCount > 0
+          ? options.roomSettings.playerCount
+          : Object.keys(state.scores).length > 0
+          ? Object.keys(state.scores).length
+          : 1;
+
       if (isStandardBuzzer) {
         // Release buzzer lock and allow other players to buzz
         state.buzzedPlayerId = null;
@@ -381,8 +404,7 @@ export class RoomStateStore {
         state.buzzedAt = null;
         state.buzzDeadline = null;
 
-        const totalPlayers = options?.totalPlayers;
-        if (totalPlayers !== undefined && totalPlayers > 0 && state.excludedPlayerIds.length >= totalPlayers) {
+        if (state.excludedPlayerIds.length >= effectiveTotalPlayers) {
           state.roundStatus = "revealing";
           state.winnerPlayerId = null;
           state.roundWinnerPlayerId = null;
@@ -393,8 +415,7 @@ export class RoomStateStore {
         // Direct answering mode:
         // Do NOT change roundStatus (remains "question_active" so other players can still guess!)
         // If ALL players in the room are in excludedPlayerIds: change state.roundStatus = "revealing" with no winner.
-        const totalPlayers = options?.totalPlayers;
-        if (totalPlayers !== undefined && totalPlayers > 0 && state.excludedPlayerIds.length >= totalPlayers) {
+        if (state.excludedPlayerIds.length >= effectiveTotalPlayers) {
           state.roundStatus = "revealing";
           state.winnerPlayerId = null;
           state.roundWinnerPlayerId = null;
@@ -453,7 +474,21 @@ export class RoomStateStore {
     state.buzzedPlayerName = null;
     state.buzzedAt = null;
     state.buzzDeadline = null;
-    state.roundStatus = "question_active";
+
+    const effectiveTotalPlayers =
+      state.settings?.playerCount && state.settings.playerCount > 0
+        ? state.settings.playerCount
+        : Object.keys(state.scores).length > 0
+        ? Object.keys(state.scores).length
+        : 1;
+
+    if (state.excludedPlayerIds.length >= effectiveTotalPlayers) {
+      state.roundStatus = "revealing";
+      state.winnerPlayerId = null;
+      state.roundWinnerPlayerId = null;
+    } else {
+      state.roundStatus = "question_active";
+    }
 
     return {
       success: true,
@@ -482,26 +517,40 @@ export class RoomStateStore {
    * Level 2: Release Year & Era (ปีที่ปล่อยเพลง / ยุค)
    * Level 3: Artist (ศิลปิน / วง)
    */
-  static revealNextHint(code: string): {
+  static revealNextHint(code: string, playerId?: string): {
     success: boolean;
     level: number;
     hintType?: "genre" | "year" | "artist";
     hintText?: string;
     pointsAvailable: number;
+    playerId?: string;
   } {
     const cleanCode = code.trim().toUpperCase();
     const state = roomRoundStates.get(cleanCode);
     if (!state || !state.currentSong) {
-      return { success: false, level: 0, pointsAvailable: 100 };
+      return { success: false, level: 0, pointsAvailable: 100, playerId };
     }
 
-    const currentLevel = state.revealedHintLevel || 0;
+    if (!state.playerHintLevels) {
+      state.playerHintLevels = {};
+    }
+
+    const currentLevel = playerId
+      ? state.playerHintLevels[playerId] || 0
+      : state.revealedHintLevel || 0;
+
     if (currentLevel >= 3) {
-      return { success: false, level: 3, pointsAvailable: 25 };
+      return { success: false, level: 3, pointsAvailable: 25, playerId };
     }
 
     const nextLevel = currentLevel + 1;
-    state.revealedHintLevel = nextLevel;
+
+    if (playerId) {
+      state.playerHintLevels[playerId] = nextLevel;
+      state.revealedHintLevel = Math.max(state.revealedHintLevel || 0, nextLevel);
+    } else {
+      state.revealedHintLevel = nextLevel;
+    }
 
     if (!state.revealedHints) {
       state.revealedHints = {};
@@ -534,6 +583,7 @@ export class RoomStateStore {
       hintType,
       hintText,
       pointsAvailable,
+      playerId,
     };
   }
 

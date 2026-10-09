@@ -44,39 +44,43 @@ export async function POST(
       );
     }
 
-    // Host-only authorization
-    if (playerId && playerId !== room.host_player_id) {
-      return NextResponse.json(
-        { success: false, error: "เฉพาะหัวหน้าห้องเท่านั้นที่สามารถเปิดคำใบ้ได้" },
-        { status: 403 }
-      );
-    }
+    const cleanPlayerId =
+      typeof playerId === "string" && playerId.trim().length > 0
+        ? playerId.trim()
+        : undefined;
 
-    const result = RoomStateStore.revealNextHint(cleanCode);
+    const result = RoomStateStore.revealNextHint(cleanCode, cleanPlayerId);
     if (!result.success) {
       return NextResponse.json(
         {
           success: false,
-          error: result.level >= 3 ? "เปิดคำใบ้ครบทั้ง 3 ระดับแล้ว" : "ไม่สามารถเปิดคำใบ้ได้ในขณะนี้",
+          error:
+            result.level >= 3
+              ? "เปิดคำใบ้ครบทั้ง 3 ระดับแล้ว"
+              : "ไม่สามารถเปิดคำใบ้ได้ในขณะนี้",
         },
         { status: 400 }
       );
     }
 
-    // Broadcast hint_revealed event to all players in the room
-    await RealtimeBroadcastService.broadcast(cleanCode, "hint_revealed", {
+    const hintPayload = {
+      playerId: cleanPlayerId,
       level: result.level,
       hintType: result.hintType,
       hintText: result.hintText,
       pointsAvailable: result.pointsAvailable,
-    });
+    };
+
+    // Broadcast hint_revealed event to all players in the room
+    await RealtimeBroadcastService.broadcast(
+      cleanCode,
+      "hint_revealed",
+      hintPayload
+    );
 
     return NextResponse.json({
       success: true,
-      level: result.level,
-      hintType: result.hintType,
-      hintText: result.hintText,
-      pointsAvailable: result.pointsAvailable,
+      ...hintPayload,
     });
   } catch (error) {
     console.error("[RoomHint] Error revealing hint:", error);
