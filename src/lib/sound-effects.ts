@@ -53,21 +53,15 @@ export function isMuted(): boolean {
 }
 
 /**
- * Toggles or sets the global sound effects mute state.
- * Persisted in localStorage.
+ * Sets the runtime sound effects mute state.
  */
 export function setMuted(muted: boolean): void {
   cachedMuted = muted;
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(STORAGE_KEY_MUTED, String(muted));
-    } catch {}
-  }
 }
 
 /**
  * Gets the current SFX volume (0.0 to 1.0).
- * Defaults to 0.7. Persisted in localStorage.
+ * Defaults to 0.7.
  */
 export function getVolume(): number {
   if (cachedVolume !== null) return cachedVolume;
@@ -89,17 +83,11 @@ export function getVolume(): number {
 }
 
 /**
- * Sets the global SFX volume (clamped between 0.0 and 1.0).
- * Persisted in localStorage.
+ * Sets the runtime SFX volume (effective gain clamped between 0.0 and 1.0).
  */
 export function setVolume(volume: number): void {
   const clamped = Math.max(0, Math.min(1, volume));
   cachedVolume = clamped;
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(STORAGE_KEY_VOLUME, String(clamped));
-    } catch {}
-  }
 }
 
 /**

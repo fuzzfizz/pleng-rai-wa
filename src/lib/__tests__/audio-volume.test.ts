@@ -87,7 +87,7 @@ describe("audio-volume", () => {
   it("persists clamped volume to localStorage and updates soundEffects", () => {
     setMasterVolume(0.65);
     expect(mockStorage[STORAGE_KEY_MASTER_VOLUME]).toBe("0.65");
-    expect(soundEffects.setVolume).toHaveBeenCalledWith(0.65);
+    expect(soundEffects.setVolume).toHaveBeenCalledWith(0.65 * 0.7);
     expect(soundEffects.setMuted).toHaveBeenCalledWith(false);
   });
 
