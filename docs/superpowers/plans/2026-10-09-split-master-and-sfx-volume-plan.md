@@ -19,11 +19,11 @@
 - Modify: `src/lib/sound-effects.ts`
 - Test: `src/lib/__tests__/audio-volume-sfx-split.test.ts`
 
-- [ ] **Step 1: Write unit tests in `src/lib/__tests__/audio-volume-sfx-split.test.ts`**
-- [ ] **Step 2: Run test to verify failure**
-- [ ] **Step 3: Implement SFX volume getters, setters, mute toggles, event subscription, and composite gain logic**
-- [ ] **Step 4: Run test to verify pass**
-- [ ] **Step 5: Commit changes**
+- [x] **Step 1: Write unit tests in `src/lib/__tests__/audio-volume-sfx-split.test.ts`**
+- [x] **Step 2: Run test to verify failure**
+- [x] **Step 3: Implement SFX volume getters, setters, mute toggles, event subscription, and composite gain logic**
+- [x] **Step 4: Run test to verify pass**
+- [x] **Step 5: Commit changes** (Commit `a98c9ad`)
 
 ---
 
@@ -32,11 +32,11 @@
 - Modify: `src/components/common/settings-menu.tsx`
 - Test: `src/components/common/__tests__/settings-menu-volume.test.ts`
 
-- [ ] **Step 1: Write test for SettingsMenu dual volume sliders and mute toggles**
-- [ ] **Step 2: Run test to verify failure**
-- [ ] **Step 3: Implement dual sliders for Master Volume and SFX Volume with test button**
-- [ ] **Step 4: Run test to verify pass**
-- [ ] **Step 5: Commit changes**
+- [x] **Step 1: Write test for SettingsMenu dual volume sliders and mute toggles**
+- [x] **Step 2: Run test to verify failure**
+- [x] **Step 3: Implement dual sliders for Master Volume and SFX Volume with test button**
+- [x] **Step 4: Run test to verify pass**
+- [x] **Step 5: Commit changes** (Commit `b9bc3e1`)
 
 ---
 
@@ -45,6 +45,6 @@
 - Modify: `idea.md`
 - Modify: `docs/superpowers/plans/2026-10-09-split-master-and-sfx-volume-plan.md`
 
-- [ ] **Step 1: Run complete vitest test suite**
-- [ ] **Step 2: Run `npm run build`**
-- [ ] **Step 3: Update `idea.md` and commit**
+- [x] **Step 1: Run complete vitest test suite** (120/120 tests passing)
+- [x] **Step 2: Run `npm run build`** (0 errors, 20 routes generated)
+- [x] **Step 3: Update `idea.md` and commit**
