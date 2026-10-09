@@ -22,11 +22,11 @@
 - Modify: `src/app/api/room/[code]/hint/route.ts`
 - Test: `src/lib/__tests__/room-state-scoring-and-deadlock.test.ts`
 
-- [ ] **Step 1: Write tests for hint scoring and totalPlayers deadlock resolution**
-- [ ] **Step 2: Run test to verify failure**
-- [ ] **Step 3: Implement fixes in RoomStateStore, answer route, and hint route**
-- [ ] **Step 4: Run test to verify pass**
-- [ ] **Step 5: Commit changes**
+- [x] **Step 1: Write tests for hint scoring and totalPlayers deadlock resolution**
+- [x] **Step 2: Run test to verify failure**
+- [x] **Step 3: Implement fixes in RoomStateStore, answer route, and hint route**
+- [x] **Step 4: Run test to verify pass**
+- [x] **Step 5: Commit changes** (Commit `71db5b9`)
 
 ---
 
@@ -37,11 +37,11 @@
 - Modify: `src/app/play/solo/page.tsx`
 - Test: `src/lib/__tests__/audio-volume-sync.test.ts`
 
-- [ ] **Step 1: Write test verifying master volume subscription behavior**
-- [ ] **Step 2: Run test to verify failure/coverage**
-- [ ] **Step 3: Connect volume subscription to Lofi player, reveal card, and solo play**
-- [ ] **Step 4: Run test to verify pass**
-- [ ] **Step 5: Commit changes**
+- [x] **Step 1: Write test verifying master volume subscription behavior**
+- [x] **Step 2: Run test to verify failure/coverage**
+- [x] **Step 3: Connect volume subscription to Lofi player, reveal card, and solo play**
+- [x] **Step 4: Run test to verify pass**
+- [x] **Step 5: Commit changes** (Commit `4e803f0`)
 
 ---
 
@@ -51,11 +51,11 @@
 - Modify: `src/hooks/use-room-realtime.ts`
 - Test: `src/components/room/__tests__/audio-slice-controls.test.ts`
 
-- [ ] **Step 1: Write test for audio slice one-time play and replay trigger**
-- [ ] **Step 2: Run test to verify failure**
-- [ ] **Step 3: Remove loop from audio slice, add replay button, and guard against excluded submits**
-- [ ] **Step 4: Run test to verify pass**
-- [ ] **Step 5: Commit changes**
+- [x] **Step 1: Write test for audio slice one-time play and replay trigger**
+- [x] **Step 2: Run test to verify failure**
+- [x] **Step 3: Remove loop from audio slice, add replay button, and guard against excluded submits**
+- [x] **Step 4: Run test to verify pass**
+- [x] **Step 5: Commit changes** (Commit `7c3b5e6`)
 
 ---
 
@@ -69,7 +69,7 @@
 - [x] **Step 2: Run test to verify failure**
 - [x] **Step 3: Implement vinyl disc UI with groove rings and scrubbable progress bar**
 - [x] **Step 4: Run test to verify pass**
-- [x] **Step 5: Commit changes**
+- [x] **Step 5: Commit changes** (Commit `5d2dc12`)
 
 ---
 
@@ -83,11 +83,11 @@
 - [x] **Step 2: Run test to verify failure**
 - [x] **Step 3: Update GameView and use-room-realtime to expose hint and surrender for all players**
 - [x] **Step 4: Run test to verify pass**
-- [x] **Step 5: Commit changes**
+- [x] **Step 5: Commit changes** (Commit `7c080d4`)
 
 ---
 
 ### Task 6: Final Verification & Build
-- [ ] **Step 1: Run complete vitest test suite**
-- [ ] **Step 2: Run next build**
-- [ ] **Step 3: Update `should fix.md` and commit**
+- [x] **Step 1: Run complete vitest test suite** (98/98 tests passing)
+- [x] **Step 2: Run next build** (100% 0 Errors, 20 routes generated)
+- [x] **Step 3: Update `should fix.md` and commit**
