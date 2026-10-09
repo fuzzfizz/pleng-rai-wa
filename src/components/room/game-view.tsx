@@ -261,6 +261,7 @@ export function GameView({
     revealedHints?.level
   );
   const pointsAvailable = calculatePointsAvailable(myHintLevel);
+  const surrenderButtonConfig = getSurrenderButtonConfig(isHost);
 
   // Fallback song library fetch if not supplied by parent
   const [internalSongs, setInternalSongs] = useState<Song[]>(songLibrary || []);
@@ -910,21 +911,13 @@ export function GameView({
                     onClick={handleSurrender}
                     disabled={isSurrendering || isExcludedFromBuzz}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 transition cursor-pointer touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      isHost
-                        ? "ข้ามข้อนี้สำหรับทุกคนในห้องและเปิดเฉลย"
-                        : "ยอมแพ้ข้อนี้ (รอเล่นข้อถัดไป)"
-                    }
+                    title={surrenderButtonConfig.tooltip}
                   >
                     <Flag className="w-3.5 h-3.5 text-rose-500" />
                     <span>
                       {isSurrendering
-                        ? isHost
-                          ? "กำลังข้าม..."
-                          : "กำลังยอมแพ้..."
-                        : isHost
-                        ? "ข้ามข้อนี้ (ข้ามทั้งห้อง)"
-                        : "ยอมแพ้ข้อนี้"}
+                        ? "กำลังยอมแพ้..."
+                        : surrenderButtonConfig.label}
                     </span>
                   </button>
                 )}

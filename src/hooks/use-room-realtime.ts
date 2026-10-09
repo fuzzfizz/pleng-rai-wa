@@ -491,6 +491,9 @@ export function reduceRoomRealtimeEvent(
             if (!currentExcluded.includes(surrenderedId)) {
               nextState.excludedPlayerIds = [...currentExcluded, surrenderedId];
             }
+            if (nextState.myPlayer && nextState.myPlayer.id === surrenderedId) {
+              nextState.isExcludedFromBuzz = true;
+            }
           }
           break;
         }
@@ -749,6 +752,9 @@ export function useRoomRealtime(
       })
       .on("broadcast", { event: "hint_revealed" }, ({ payload }) => {
         handleBroadcast("hint_revealed", payload);
+      })
+      .on("broadcast", { event: "player_surrendered" }, ({ payload }) => {
+        handleBroadcast("player_surrendered", payload);
       });
 
     channel.subscribe(async (status) => {
@@ -1058,22 +1064,57 @@ export function useRoomRealtime(
     error?: string;
   }> => {
     if (!state.myPlayer) return { success: false, error: "no_player" };
+    const payload = {
+      playerId: state.myPlayer.id,
+      displayName: state.myPlayer.displayName,
+      totalPlayers: state.players.length > 0 ? state.players.length : 1,
+    };
+
     try {
-      const res = await fetch(`/api/room/${cleanCode}/surrender`, {
+      let res = await fetch(`/api/room/${cleanCode}/surrender`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playerId: state.myPlayer.id,
-          displayName: state.myPlayer.displayName,
-          totalPlayers: state.players.length > 0 ? state.players.length : 1,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      // Fail-safe: If the dedicated /surrender endpoint returns 404
+      // (e.g. Next.js dev server hasn't hot-reloaded the new route directory),
+      // seamlessly fallback to /api/room/[code]/answer with isSurrender: true
+      if (res.status === 404) {
+        res = await fetch(`/api/room/${cleanCode}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload,
+            answerText: "(ยอมแพ้)",
+            isSurrender: true,
+          }),
+        });
+      }
+
       const data = await res.json();
       if (!res.ok || !data.success) {
         return { success: false, error: data.error || "Failed to surrender" };
       }
       return { success: true };
     } catch (err: any) {
+      // Fallback on network error to /answer route as well
+      try {
+        const fallbackRes = await fetch(`/api/room/${cleanCode}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload,
+            answerText: "(ยอมแพ้)",
+            isSurrender: true,
+          }),
+        });
+        const fallbackData = await fallbackRes.json();
+        if (fallbackRes.ok && fallbackData.success) {
+          return { success: true };
+        }
+      } catch {}
+
       return { success: false, error: err?.message || "network_error" };
     }
   }, [cleanCode, state.myPlayer, state.players.length]);

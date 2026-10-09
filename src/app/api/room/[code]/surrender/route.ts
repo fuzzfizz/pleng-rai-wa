@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
 import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
+import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 
 export async function POST(
@@ -26,8 +27,9 @@ export async function POST(
 
     const cleanCode = code.trim().toUpperCase();
     const room = await RoomService.getRoomByCode(cleanCode);
+    const inMemoryState = RoomStateStore.getRoomRoundState(cleanCode);
 
-    if (!room) {
+    if (!room && !inMemoryState) {
       return NextResponse.json(
         { success: false, error: "ไม่พบห้องนี้ในระบบ" },
         { status: 404 }
@@ -56,10 +58,13 @@ export async function POST(
     const cleanPlayerId = playerId.trim();
 
     // Ensure round state is rehydrated if running on a fresh serverless instance
-    await RoomStateStore.ensureRoundState(cleanCode, room);
+    if (room) {
+      await RoomStateStore.ensureRoundState(cleanCode, room);
+    }
 
+    const roomSettings = room?.settings || inMemoryState?.settings;
     const result = RoomStateStore.surrenderPlayer(cleanCode, cleanPlayerId, displayName, {
-      roomSettings: room.settings,
+      roomSettings,
       totalPlayers: typeof totalPlayers === "number" && totalPlayers > 0 ? totalPlayers : undefined,
     });
 
@@ -78,11 +83,18 @@ export async function POST(
 
     // Persist updated round state to database
     if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+      const serialized = RoomStateStore.serializeRoundState(result.roundState);
       RoomService.updateRoomRoundState(
         cleanCode,
-        RoomStateStore.serializeRoundState(result.roundState),
+        serialized,
         result.allExcluded ? "revealing" : undefined
       ).catch((err) => console.warn("[SurrenderRoute] Failed to sync round state:", err));
+
+      const effectiveGameMode = inMemoryState?.gameMode || roomSettings?.gameMode || "buzzer";
+      if (effectiveGameMode === "buzzer") {
+        RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+      }
+      RedisService.saveRoundState(cleanCode, serialized).catch(() => {});
     }
 
     if (result.allExcluded) {

@@ -73,28 +73,31 @@ export async function POST(
     const cleanAnswerText = answerText.trim();
 
     const room = await RoomService.getRoomByCode(cleanCode);
-    if (!room) {
+    // Ensure active round state is rehydrated in case this is a fresh serverless instance
+    const currentRoundState = room
+      ? await RoomStateStore.ensureRoundState(cleanCode, room)
+      : RoomStateStore.getRoomRoundState(cleanCode);
+
+    if (!room && !currentRoundState) {
       return NextResponse.json(
         { success: false, error: "ไม่พบห้องนี้ในระบบ" },
         { status: 404 }
       );
     }
 
-    // Ensure active round state is rehydrated in case this is a fresh serverless instance
-    const currentRoundState = await RoomStateStore.ensureRoundState(cleanCode, room);
-
-    const isSurrender = cleanAnswerText === "(ยอมแพ้)";
+    const isSurrender = cleanAnswerText === "(ยอมแพ้)" || Boolean(body.isSurrender);
+    const roomSettings = room?.settings || currentRoundState?.settings;
     const effectiveGameMode =
       currentRoundState?.gameMode ||
-      room.settings?.gameMode ||
+      roomSettings?.gameMode ||
       "buzzer";
     const effectiveRoundStatus =
       currentRoundState?.roundStatus ||
-      (room.status as RoundStatus) ||
+      (room?.status as RoundStatus) ||
       "question_active";
     let effectiveBuzzedPlayerId =
       currentRoundState?.buzzedPlayerId ||
-      room.settings?.round_state?.buzzedPlayerId ||
+      roomSettings?.round_state?.buzzedPlayerId ||
       null;
 
     if (!effectiveBuzzedPlayerId && RedisService.isRedisAvailable()) {
@@ -106,18 +109,114 @@ export async function POST(
       } catch {}
     }
 
+    // Handle Surrender cleanly with zero score penalty and no wrong guess banner
+    if (isSurrender) {
+      if (effectiveRoundStatus !== "question_active" && effectiveRoundStatus !== "buzzed") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "ไม่อยู่ในช่วงเวลาที่ยอมแพ้ได้",
+          },
+          { status: 400 }
+        );
+      }
+
+      const totalPlayers =
+        (typeof body.totalPlayers === "number" && body.totalPlayers > 0
+          ? body.totalPlayers
+          : undefined) ??
+        (room?.players && room.players.length > 0
+          ? room.players.length
+          : undefined) ??
+        (roomSettings?.playerCount && roomSettings.playerCount > 0
+          ? roomSettings.playerCount
+          : undefined) ??
+        (currentRoundState && Object.keys(currentRoundState.scores).length > 0
+          ? Object.keys(currentRoundState.scores).length
+          : undefined) ??
+        1;
+
+      const result = RoomStateStore.surrenderPlayer(
+        cleanCode,
+        cleanPlayerId,
+        cleanDisplayName,
+        {
+          roomSettings,
+          totalPlayers,
+        }
+      );
+
+      if (!result.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              result.reason === "round_not_active"
+                ? "ไม่อยู่ในช่วงเวลาที่ยอมแพ้ได้"
+                : "ไม่สามารถยอมแพ้ในรอบนี้ได้",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Persist updated round state to database
+      if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+        const serialized = RoomStateStore.serializeRoundState(result.roundState);
+        RoomService.updateRoomRoundState(
+          cleanCode,
+          serialized,
+          result.allExcluded ? "revealing" : undefined
+        ).catch((err) => console.warn("[AnswerRoute] Failed to sync surrender state:", err));
+
+        if (effectiveGameMode === "buzzer") {
+          RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+        }
+        RedisService.saveRoundState(cleanCode, serialized).catch(() => {});
+      }
+
+      if (result.allExcluded) {
+        await RoomService.updateRoomStatus(cleanCode, "revealing").catch(() => {});
+      }
+
+      // 1. Broadcast player_surrendered event
+      await RealtimeBroadcastService.broadcast(cleanCode, "player_surrendered", {
+        playerId: cleanPlayerId,
+        displayName: cleanDisplayName,
+        allExcluded: result.allExcluded,
+      });
+
+      // 2. If all players have surrendered or guessed wrong, broadcast round_reveal
+      if (result.allExcluded) {
+        await RealtimeBroadcastService.broadcast(cleanCode, "round_reveal", {
+          song: result.fullSong || result.roundState?.currentSong,
+          winnerPlayerId: null,
+          winnerDisplayName: null,
+          answerText: null,
+          scoreDelta: 0,
+          scores: result.roundState?.scores || {},
+          skipped: true,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        isSurrender: true,
+        isCorrect: false,
+        allExcluded: result.allExcluded,
+        scoreDelta: 0,
+        scores: result.roundState?.scores || {},
+        roundStatus: result.roundState?.roundStatus,
+      });
+    }
+
     const isBuzzerHolder =
       effectiveRoundStatus === "buzzed" &&
       effectiveBuzzedPlayerId === cleanPlayerId;
     const isDirectAnswerAllowed =
       effectiveGameMode !== "buzzer" &&
       effectiveRoundStatus === "question_active";
-    const isSurrenderAllowed =
-      isSurrender &&
-      (effectiveRoundStatus === "question_active" ||
-        effectiveRoundStatus === "buzzed");
 
-    if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed && !isSurrenderAllowed)) {
+    if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed)) {
       return NextResponse.json(
         {
           success: false,
