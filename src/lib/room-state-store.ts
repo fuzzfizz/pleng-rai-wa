@@ -373,7 +373,10 @@ export class RoomStateStore {
         }
       } else {
         const maxWrong = state.settings?.maxWrongGuesses ?? 1;
-        if (maxWrong > 0 && state.playerWrongCounts[playerId] >= maxWrong) {
+        if (
+          answerText === "(ยอมแพ้)" ||
+          (maxWrong > 0 && state.playerWrongCounts[playerId] >= maxWrong)
+        ) {
           if (!state.excludedPlayerIds.includes(playerId)) {
             state.excludedPlayerIds.push(playerId);
           }
@@ -398,11 +401,13 @@ export class RoomStateStore {
           : 1;
 
       if (isStandardBuzzer) {
-        // Release buzzer lock and allow other players to buzz
-        state.buzzedPlayerId = null;
-        state.buzzedPlayerName = null;
-        state.buzzedAt = null;
-        state.buzzDeadline = null;
+        // Release buzzer lock and allow other players to buzz if this was the buzzed player
+        if (state.buzzedPlayerId === playerId) {
+          state.buzzedPlayerId = null;
+          state.buzzedPlayerName = null;
+          state.buzzedAt = null;
+          state.buzzDeadline = null;
+        }
 
         if (state.excludedPlayerIds.length >= effectiveTotalPlayers) {
           state.roundStatus = "revealing";

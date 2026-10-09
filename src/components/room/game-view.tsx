@@ -123,6 +123,109 @@ export function canSubmitAnswer(isExcludedFromBuzz: boolean): boolean {
   return !isExcludedFromBuzz;
 }
 
+/**
+ * Calculates score delta available for a player based on their hint level.
+ * 0 hints: 100 points
+ * 1 hint:  75 points
+ * 2 hints: 50 points
+ * 3 hints: 25 points
+ */
+export function calculatePointsAvailable(hintLevel: number): number {
+  if (hintLevel <= 0) return 100;
+  if (hintLevel === 1) return 75;
+  if (hintLevel === 2) return 50;
+  return 25;
+}
+
+/**
+ * Resolves the active hint level for a specific player.
+ * Checks playerHintLevels first, falls back to room revealedHints level, or defaults to 0.
+ */
+export function resolvePlayerHintLevel(
+  playerId?: string | null,
+  playerHintLevels?: Record<string, number>,
+  roomRevealedLevel?: number
+): number {
+  if (playerId && playerHintLevels && typeof playerHintLevels[playerId] === "number") {
+    return playerHintLevels[playerId];
+  }
+  return roomRevealedLevel || 0;
+}
+
+/**
+ * Determines whether the hint button should be visible.
+ * Visible for ANY player (host or non-host) as long as status is "question_active"
+ * and the player has not yet unlocked all 3 hints.
+ */
+export function shouldShowHintButton(
+  hintLevel: number,
+  status: string
+): boolean {
+  return hintLevel < 3 && status === "question_active";
+}
+
+/**
+ * Determines whether the surrender / skip button should be displayed.
+ * Visible for all players when status is "question_active" or "buzzed".
+ */
+export function shouldShowSurrenderButton(status: string): boolean {
+  return status === "question_active" || status === "buzzed";
+}
+
+/**
+ * Returns the button label and action type for surrender/skip.
+ * Host: skips the round for the entire room.
+ * Non-Host: concedes the round for this individual player.
+ */
+export function getSurrenderButtonConfig(isHost: boolean) {
+  if (isHost) {
+    return {
+      label: "ข้ามข้อนี้ (ข้ามทั้งห้อง)",
+      actionType: "skip_room" as const,
+      tooltip: "ข้ามข้อนี้สำหรับทุกคนในห้องและเปิดเฉลย",
+    };
+  }
+  return {
+    label: "ยอมแพ้ข้อนี้",
+    actionType: "surrender_player" as const,
+    tooltip: "ยอมแพ้ข้อนี้ (รอเล่นข้อถัดไป)",
+  };
+}
+
+/**
+ * Executes the surrender / skip action depending on host status.
+ */
+export async function executeSurrender({
+  isHost,
+  skipRound,
+  surrender,
+  onSkipRound,
+}: {
+  isHost: boolean;
+  skipRound?: () => Promise<boolean>;
+  surrender?: () => Promise<{ success: boolean; error?: string }>;
+  onSkipRound?: () => Promise<boolean>;
+}): Promise<{ success: boolean; error?: string }> {
+  if (isHost) {
+    if (onSkipRound) {
+      const ok = await onSkipRound();
+      return { success: ok };
+    }
+    if (surrender) {
+      return surrender();
+    }
+    if (skipRound) {
+      const ok = await skipRound();
+      return { success: ok };
+    }
+    return { success: false, error: "no_skip_handler" };
+  }
+  if (surrender) {
+    return surrender();
+  }
+  return { success: false, error: "no_surrender_handler" };
+}
+
 export function GameView({
   roomRealtime,
   songLibrary = [],
@@ -150,15 +253,24 @@ export function GameView({
     isAudioPlaying: realtimeIsAudioPlaying,
     setIsAudioPlaying: realtimeSetIsAudioPlaying,
     revealedHints,
+    playerHintLevels,
     buzz,
     submitAnswer,
     nextRound,
     skipRound,
+    surrender,
     requestHint,
     toggleMute,
     playAudio,
     pauseAudio,
   } = roomRealtime;
+
+  const myHintLevel = resolvePlayerHintLevel(
+    myPlayer?.id,
+    playerHintLevels,
+    revealedHints?.level
+  );
+  const pointsAvailable = calculatePointsAvailable(myHintLevel);
 
   const [isAudioPlaying, setIsAudioPlaying] = useState(Boolean(realtimeIsAudioPlaying));
 
@@ -189,7 +301,8 @@ export function GameView({
   const [isBuzzing, setIsBuzzing] = useState(false);
   const [isRequestingHint, setIsRequestingHint] = useState(false);
   const [clickedWrongChoices, setClickedWrongChoices] = useState<string[]>([]);
-  const [isSkipping, setIsSkipping] = useState(false);
+  const [isSurrendering, setIsSurrendering] = useState(false);
+  const isSkipping = isSurrendering;
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Reset wrong choices when currentRound changes or status transitions
@@ -209,19 +322,22 @@ export function GameView({
     }
   }, [lastWrongGuess, myPlayer]);
 
-  const handleSkipQuestion = useCallback(async () => {
-    if (isSkipping) return;
-    setIsSkipping(true);
+  const handleSurrender = useCallback(async () => {
+    if (isSurrendering || isExcludedFromBuzz) return;
+    setIsSurrendering(true);
     try {
-      if (onSkipRound) {
-        await onSkipRound();
-      } else if (skipRound) {
-        await skipRound();
-      }
+      await executeSurrender({
+        isHost,
+        onSkipRound,
+        surrender,
+        skipRound,
+      });
     } finally {
-      setIsSkipping(false);
+      setIsSurrendering(false);
     }
-  }, [isSkipping, onSkipRound, skipRound]);
+  }, [isSurrendering, isExcludedFromBuzz, isHost, onSkipRound, surrender, skipRound]);
+
+  const handleSkipQuestion = handleSurrender;
 
   const handleRequestHint = useCallback(async () => {
     if (isRequestingHint) return;
@@ -605,24 +721,24 @@ export function GameView({
               )}
             </div>
 
-            {/* Progressive Hint Bar & Host Trigger */}
+            {/* Progressive Hint Bar & Player Actions */}
             <div className="w-full max-w-lg lg:max-w-2xl flex flex-col items-center gap-2">
               {/* Revealed Hints Badges */}
-              {(revealedHints?.genre || revealedHints?.year || revealedHints?.artist) && (
+              {myHintLevel > 0 && (revealedHints?.genre || revealedHints?.year || revealedHints?.artist) && (
                 <div className="flex flex-wrap items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-200">
-                  {revealedHints.genre && (
+                  {myHintLevel >= 1 && revealedHints.genre && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
                       <Tag className="w-3.5 h-3.5 text-emerald-500" />
                       <span>แนวเพลง: {revealedHints.genre}</span>
                     </span>
                   )}
-                  {revealedHints.year && (
+                  {myHintLevel >= 2 && revealedHints.year && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/15 border border-blue-500/30 text-blue-800 dark:text-blue-300">
                       <Calendar className="w-3.5 h-3.5 text-blue-500" />
                       <span>{revealedHints.year}</span>
                     </span>
                   )}
-                  {revealedHints.artist && (
+                  {myHintLevel >= 3 && revealedHints.artist && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-300">
                       <UserCheck className="w-3.5 h-3.5 text-purple-500" />
                       <span>ศิลปิน: {revealedHints.artist}</span>
@@ -631,22 +747,16 @@ export function GameView({
                 </div>
               )}
 
-              {/* Points Available & Host Hint Action */}
+              {/* Points Available & Player Actions */}
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] sm:text-xs font-bold text-stone-500 dark:text-stone-400">
                   คะแนนตอบถูกรอบนี้:{" "}
                   <span className="text-amber-500 font-extrabold font-mono text-xs sm:text-sm">
-                    {(revealedHints?.level || 0) === 0
-                      ? "+100"
-                      : (revealedHints?.level || 0) === 1
-                      ? "+75"
-                      : (revealedHints?.level || 0) === 2
-                      ? "+50"
-                      : "+25"}
+                    {`+${pointsAvailable}`}
                   </span>
                 </span>
 
-                {isHost && (revealedHints?.level || 0) < 3 && status === "question_active" && (
+                {shouldShowHintButton(myHintLevel, status) && (
                   <button
                     type="button"
                     onClick={handleRequestHint}
@@ -658,20 +768,32 @@ export function GameView({
                     ) : (
                       <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
                     )}
-                    <span>ขอคำใบ้ (ขั้นที่ {(revealedHints?.level || 0) + 1}/3)</span>
+                    <span>ขอคำใบ้ (ขั้นที่ {myHintLevel + 1}/3)</span>
                   </button>
                 )}
 
-                {isHost && (status === "question_active" || status === "buzzed") && (
+                {shouldShowSurrenderButton(status) && (
                   <button
                     type="button"
-                    onClick={handleSkipQuestion}
-                    disabled={isSkipping}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 transition cursor-pointer touch-manipulation disabled:opacity-50"
-                    title="ยอมแพ้ / ข้ามข้อนี้และเปิดเฉลยทันที"
+                    onClick={handleSurrender}
+                    disabled={isSurrendering || isExcludedFromBuzz}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 transition cursor-pointer touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      isHost
+                        ? "ข้ามข้อนี้สำหรับทุกคนในห้องและเปิดเฉลย"
+                        : "ยอมแพ้ข้อนี้ (รอเล่นข้อถัดไป)"
+                    }
                   >
                     <Flag className="w-3.5 h-3.5 text-rose-500" />
-                    <span>{isSkipping ? "กำลังข้าม..." : "ข้ามข้อนี้ (ยอมแพ้)"}</span>
+                    <span>
+                      {isSurrendering
+                        ? isHost
+                          ? "กำลังข้าม..."
+                          : "กำลังยอมแพ้..."
+                        : isHost
+                        ? "ข้ามข้อนี้ (ข้ามทั้งห้อง)"
+                        : "ยอมแพ้ข้อนี้"}
+                    </span>
                   </button>
                 )}
               </div>

@@ -76,6 +76,7 @@ export interface RoomRealtimeState {
   wrongGuesses: WrongGuessRecord[];
   scores: Record<string, number>;
   revealedHints: { genre?: string; year?: string; artist?: string; level: number };
+  playerHintLevels?: Record<string, number>;
   isConnected: boolean;
   isAudioPlaying: boolean;
   error: string | null;
@@ -169,6 +170,7 @@ export function createInitialRoomRealtimeState(
     wrongGuesses: [],
     scores: {},
     revealedHints: { level: 0 },
+    playerHintLevels: {},
     isConnected: false,
     isAudioPlaying: false,
     error: null,
@@ -218,6 +220,9 @@ export function reduceRoomRealtimeEvent(
       }
       if (r.revealedHints || r.roundState?.revealedHints) {
         nextState.revealedHints = r.revealedHints || r.roundState?.revealedHints;
+      }
+      if (r.playerHintLevels || r.roundState?.playerHintLevels) {
+        nextState.playerHintLevels = r.playerHintLevels || r.roundState?.playerHintLevels;
       }
       break;
     }
@@ -293,6 +298,7 @@ export function reduceRoomRealtimeEvent(
           nextState.revealedSong = null;
           nextState.roundWinner = null;
           nextState.revealedHints = { level: 0 };
+          nextState.playerHintLevels = {};
           nextState.isAudioPlaying = true;
           break;
         }
@@ -410,6 +416,8 @@ export function reduceRoomRealtimeEvent(
             nextState.revealedSong = null;
             nextState.roundWinner = null;
             nextState.isAudioPlaying = false;
+            nextState.revealedHints = { level: 0 };
+            nextState.playerHintLevels = {};
             if (payload?.scores && typeof payload.scores === "object") {
               nextState.scores = payload.scores;
             } else {
@@ -438,7 +446,13 @@ export function reduceRoomRealtimeEvent(
               sfx.click();
             } catch {}
           }
-          const { level, hintType, hintText } = payload || {};
+          const { level, hintType, hintText, playerId } = payload || {};
+          if (playerId && typeof level === "number") {
+            nextState.playerHintLevels = {
+              ...(nextState.playerHintLevels || {}),
+              [playerId]: level,
+            };
+          }
           const currentHints = nextState.revealedHints || { level: 0 };
           const updatedHints = {
             ...currentHints,
@@ -1001,6 +1015,19 @@ export function useRoomRealtime(
     }
   }, [state.roomCode, state.myPlayer?.id]);
 
+  // Action: surrender
+  const surrender = useCallback(async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    if (state.isHost) {
+      const ok = await skipRound();
+      return { success: ok };
+    }
+    const res = await submitAnswer("(ยอมแพ้)");
+    return { success: res.success, error: res.error };
+  }, [state.isHost, skipRound, submitAnswer]);
+
   // Audio helpers
   const playAudio = useCallback(() => {
     dispatch({ type: "set_audio_playing", isPlaying: true });
@@ -1026,6 +1053,7 @@ export function useRoomRealtime(
     submitAnswer,
     nextRound,
     skipRound,
+    surrender,
     resetToLobby,
     setReady,
     updateSettings,

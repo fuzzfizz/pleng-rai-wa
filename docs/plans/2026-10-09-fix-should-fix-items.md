@@ -79,11 +79,11 @@
 - Modify: `src/hooks/use-room-realtime.ts`
 - Test: `src/components/room/__tests__/hint-and-surrender-ui.test.ts`
 
-- [ ] **Step 1: Write test verifying non-host can trigger hint and surrender**
-- [ ] **Step 2: Run test to verify failure**
-- [ ] **Step 3: Update GameView and use-room-realtime to expose hint and surrender for all players**
-- [ ] **Step 4: Run test to verify pass**
-- [ ] **Step 5: Commit changes**
+- [x] **Step 1: Write test verifying non-host can trigger hint and surrender**
+- [x] **Step 2: Run test to verify failure**
+- [x] **Step 3: Update GameView and use-room-realtime to expose hint and surrender for all players**
+- [x] **Step 4: Run test to verify pass**
+- [x] **Step 5: Commit changes**
 
 ---
 

@@ -79,16 +79,21 @@ export async function POST(
       );
     }
 
-    // Verify that the caller is the current active buzzer holder OR direct answering in non-buzzer modes
+    // Verify that the caller is the current active buzzer holder OR direct answering in non-buzzer modes OR surrendering
     const currentRoundState = RoomStateStore.getRoomRoundState(cleanCode);
+    const isSurrender = cleanAnswerText === "(ยอมแพ้)";
     const isBuzzerHolder =
       currentRoundState?.roundStatus === "buzzed" &&
       currentRoundState?.buzzedPlayerId === cleanPlayerId;
     const isDirectAnswerAllowed =
       room.settings.gameMode !== "buzzer" &&
       currentRoundState?.roundStatus === "question_active";
+    const isSurrenderAllowed =
+      isSurrender &&
+      (currentRoundState?.roundStatus === "question_active" ||
+        currentRoundState?.roundStatus === "buzzed");
 
-    if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed)) {
+    if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed && !isSurrenderAllowed)) {
       return NextResponse.json(
         {
           success: false,
@@ -98,7 +103,7 @@ export async function POST(
       );
     }
 
-    if (isDirectAnswerAllowed && currentRoundState.excludedPlayerIds.includes(cleanPlayerId)) {
+    if (currentRoundState.excludedPlayerIds.includes(cleanPlayerId)) {
       return NextResponse.json(
         {
           success: false,
