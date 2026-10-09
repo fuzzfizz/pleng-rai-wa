@@ -101,6 +101,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   const [origin, setOrigin] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [buzzerSecondsLeft, setBuzzerSecondsLeft] = useState(10);
+  const [questionSecondsLeft, setQuestionSecondsLeft] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const cleanCode = (roomCode || "").trim().toUpperCase();
@@ -191,6 +192,34 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     const timer = setInterval(tick, 500);
     return () => clearInterval(timer);
   }, [status, buzzedPlayer?.deadline]);
+
+  // Answer countdown timer during question_active phase
+  const answerTimeLimit = roomRealtime.room?.settings?.roundTimeoutSec || 15;
+  useEffect(() => {
+    if (status !== "question_active") {
+      setQuestionSecondsLeft(null);
+      return;
+    }
+    const durationSec = activeQuestion?.durationSec || 2.0;
+    const startDelay = gameMode === "audio-slice" ? (durationSec + 1.0) * 1000 : 2500;
+
+    const timeout = setTimeout(() => {
+      setQuestionSecondsLeft(answerTimeLimit);
+    }, startDelay);
+
+    return () => clearTimeout(timeout);
+  }, [status, currentRound, gameMode, activeQuestion?.durationSec, answerTimeLimit]);
+
+  useEffect(() => {
+    if (questionSecondsLeft === null || status !== "question_active") return;
+    if (questionSecondsLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setQuestionSecondsLeft((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [questionSecondsLeft, status]);
 
   // Fullscreen toggle handler
   const handleToggleFullscreen = () => {
@@ -522,6 +551,28 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                     ? "ตอบได้ทันทีโดยไม่ต้องแย่งกดกริ่ง ยิ่งตอบไวยิ่งได้คะแนนเยอะ!"
                     : "ใครกดกริ่งคนแรก จะได้สิทธิ์ตอบคำถามและรับคะแนนทันที!"}
                 </p>
+
+                {/* 15s Countdown Timer for TV View */}
+                {questionSecondsLeft !== null && (
+                  <div className="mt-6 flex items-center justify-center gap-3 px-6 py-2.5 rounded-2xl bg-stone-950/80 border border-amber-500/40 shadow-inner w-fit mx-auto">
+                    <Clock
+                      className={`w-5 h-5 ${
+                        questionSecondsLeft <= 5 ? "text-rose-500 animate-pulse" : "text-amber-400"
+                      }`}
+                    />
+                    <span className="text-xl sm:text-2xl font-extrabold text-stone-100">
+                      เหลือเวลาตอบ:{" "}
+                      <span
+                        className={`font-mono font-black ${
+                          questionSecondsLeft <= 5 ? "text-rose-500 animate-bounce" : "text-amber-300"
+                        }`}
+                      >
+                        {questionSecondsLeft}
+                      </span>{" "}
+                      วินาที
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}

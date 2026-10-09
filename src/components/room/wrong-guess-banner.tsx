@@ -67,7 +67,12 @@ export function WrongGuessBanner({
     }
   };
 
-  if (!wrongGuess || !isVisible) {
+  if (
+    !wrongGuess ||
+    !isVisible ||
+    wrongGuess.answerText === "(ยอมแพ้)" ||
+    wrongGuess.answerText.includes("ยอมแพ้")
+  ) {
     return null;
   }
 

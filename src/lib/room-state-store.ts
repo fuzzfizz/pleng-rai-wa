@@ -47,6 +47,7 @@ export interface RoomRoundState {
   revealedHintLevel?: number; // 0 = none, 1 = genre, 2 = year, 3 = artist
   revealedHints?: { genre?: string; year?: string; artist?: string };
   playerHintLevels?: Record<string, number>;
+  playerHints?: Record<string, { genre?: string; year?: string; artist?: string }>;
   startedAt?: string;
 }
 
@@ -133,6 +134,7 @@ export class RoomStateStore {
       totalRounds: state.totalRounds,
       roundStatus: state.roundStatus,
       gameMode: state.gameMode,
+      currentSong: state.currentSong ? { ...state.currentSong } : undefined,
       buzzedPlayerId: state.buzzedPlayerId ?? null,
       buzzedPlayerName: state.buzzedPlayerName ?? null,
       buzzedAt: state.buzzedAt ?? null,
@@ -145,6 +147,7 @@ export class RoomStateStore {
       revealedHintLevel: state.revealedHintLevel ?? 0,
       revealedHints: { ...(state.revealedHints || {}) },
       playerHintLevels: { ...(state.playerHintLevels || {}) },
+      playerHints: { ...(state.playerHints || {}) },
       sliceUrl: state.sliceUrl,
       sliceStartSec: state.sliceStartSec,
       sliceDurationSec: state.sliceDurationSec,
@@ -168,9 +171,12 @@ export class RoomStateStore {
     const existing = roomRoundStates.get(cleanCode);
 
     const dbRoundState =
-      typeof room.settings?.round_state === "object" && room.settings.round_state !== null
+      (typeof room.settings?.round_state === "object" && room.settings.round_state !== null
         ? room.settings.round_state
-        : undefined;
+        : undefined) ||
+      (typeof room.round_state === "object" && room.round_state !== null
+        ? room.round_state
+        : undefined);
 
     // If existing in-memory state has currentSong, sync any newer buzzer / status from DB if applicable
     if (existing && existing.currentSong) {
@@ -198,7 +204,16 @@ export class RoomStateStore {
     }
 
     // Otherwise, rehydrate from room / DB
+    // Priority 1: Directly from serialized dbRoundState.currentSong (guarantees 100% round-song fidelity)
     let resolvedSong: Song | undefined = song;
+    if (!resolvedSong && dbRoundState?.currentSong && dbRoundState.currentSong.title) {
+      try {
+        resolvedSong = toSongDomain(dbRoundState.currentSong);
+      } catch (err) {
+        console.warn("[RoomStateStore] Failed to map dbRoundState.currentSong:", err);
+      }
+    }
+
     if (!resolvedSong && room.songs) {
       try {
         const rawSong = Array.isArray(room.songs) ? room.songs[0] : room.songs;
@@ -276,6 +291,7 @@ export class RoomStateStore {
           : 0,
       revealedHints: dbRoundState?.revealedHints || {},
       playerHintLevels: dbRoundState?.playerHintLevels || {},
+      playerHints: dbRoundState?.playerHints || {},
       startedAt: dbRoundState?.startedAt || new Date().toISOString(),
     };
 
@@ -334,6 +350,7 @@ export class RoomStateStore {
       revealedHintLevel: 0,
       revealedHints: {},
       playerHintLevels: {},
+      playerHints: {},
       startedAt: new Date().toISOString(),
     };
 
@@ -508,12 +525,9 @@ export class RoomStateStore {
 
     if (check.isCorrect) {
       // Points scaled by hint level: 0 hints = 100, 1 hint = 75, 2 hints = 50, 3 hints = 25
-      const playerHintLevel =
-        playerId && state.playerHintLevels && playerId in state.playerHintLevels
-          ? state.playerHintLevels[playerId]
-          : playerId && state.playerHintLevels && Object.keys(state.playerHintLevels).length > 0
-          ? 0
-          : (playerId && state.playerHintLevels?.[playerId]) ?? state.revealedHintLevel ?? 0;
+      const playerHintLevel = playerId
+        ? (state.playerHintLevels?.[playerId] ?? 0)
+        : (state.revealedHintLevel ?? 0);
       const points =
         playerHintLevel === 1
           ? 75
@@ -741,6 +755,12 @@ export class RoomStateStore {
     if (playerId) {
       state.playerHintLevels[playerId] = nextLevel;
       state.revealedHintLevel = Math.max(state.revealedHintLevel || 0, nextLevel);
+      if (!state.playerHints) {
+        state.playerHints = {};
+      }
+      if (!state.playerHints[playerId]) {
+        state.playerHints[playerId] = {};
+      }
     } else {
       state.revealedHintLevel = nextLevel;
     }
@@ -756,16 +776,25 @@ export class RoomStateStore {
       hintType = "genre";
       hintText = state.currentSong.genre?.nameTh || "เพลงไทยยอดนิยม";
       state.revealedHints.genre = hintText;
+      if (playerId && state.playerHints?.[playerId]) {
+        state.playerHints[playerId]!.genre = hintText;
+      }
     } else if (nextLevel === 2) {
       hintType = "year";
       const year = state.currentSong.releaseYear;
       const era = state.currentSong.era;
       hintText = year ? `ปี ${year}${era ? ` (ยุค ${era})` : ""}` : `ยุค ${era || "ไม่ระบุ"}`;
       state.revealedHints.year = hintText;
+      if (playerId && state.playerHints?.[playerId]) {
+        state.playerHints[playerId]!.year = hintText;
+      }
     } else if (nextLevel === 3) {
       hintType = "artist";
       hintText = state.currentSong.artist || "ศิลปินไม่ระบุ";
       state.revealedHints.artist = hintText;
+      if (playerId && state.playerHints?.[playerId]) {
+        state.playerHints[playerId]!.artist = hintText;
+      }
     }
 
     const pointsAvailable = nextLevel === 1 ? 75 : nextLevel === 2 ? 50 : 25;
@@ -777,6 +806,90 @@ export class RoomStateStore {
       hintText,
       pointsAvailable,
       playerId,
+    };
+  }
+
+  /**
+   * Surrenders the active round for a specific player:
+   * - Adds playerId to excludedPlayerIds (if not already present).
+   * - Score is NOT deducted (penalty = 0).
+   * - Does NOT record answerText as "(ยอมแพ้)" in wrongGuesses (neutral surrender).
+   * - Releases buzzer if the surrendered player was holding the buzzer.
+   * - If all players are excluded, transitions roundStatus -> 'revealing'.
+   */
+  static surrenderPlayer(
+    code: string,
+    playerId: string,
+    displayName?: string,
+    options?: {
+      roomSettings?: RoomSettings;
+      totalPlayers?: number;
+    }
+  ): {
+    success: boolean;
+    allExcluded: boolean;
+    roundState?: RoomRoundState;
+    fullSong?: Song;
+    reason?: string;
+  } {
+    const cleanCode = code.trim().toUpperCase();
+    const state = roomRoundStates.get(cleanCode);
+
+    if (!state) {
+      return { success: false, allExcluded: false, reason: "round_not_active" };
+    }
+
+    if (state.roundStatus !== "question_active" && state.roundStatus !== "buzzed") {
+      return { success: false, allExcluded: false, reason: "round_not_active" };
+    }
+
+    if (!state.excludedPlayerIds) {
+      state.excludedPlayerIds = [];
+    }
+
+    if (!state.excludedPlayerIds.includes(playerId)) {
+      state.excludedPlayerIds.push(playerId);
+    }
+
+    // Release buzzer if this player held it
+    if (state.buzzedPlayerId === playerId) {
+      state.buzzedPlayerId = null;
+      state.buzzedPlayerName = null;
+      state.buzzedAt = null;
+      state.buzzDeadline = null;
+      if (state.roundStatus === "buzzed") {
+        state.roundStatus = "question_active";
+      }
+    }
+
+    const effectiveTotalPlayers =
+      options?.totalPlayers && options.totalPlayers > 0
+        ? options.totalPlayers
+        : options?.roomSettings?.playerCount && options.roomSettings.playerCount > 0
+        ? options.roomSettings.playerCount
+        : state.settings?.playerCount && state.settings.playerCount > 0
+        ? state.settings.playerCount
+        : Object.keys(state.scores).length > 0
+        ? Object.keys(state.scores).length
+        : 1;
+
+    const allExcluded = state.excludedPlayerIds.length >= effectiveTotalPlayers;
+
+    if (allExcluded) {
+      state.roundStatus = "revealing";
+      state.winnerPlayerId = null;
+      state.roundWinnerPlayerId = null;
+      state.buzzedPlayerId = null;
+      state.buzzedPlayerName = null;
+      state.buzzedAt = null;
+      state.buzzDeadline = null;
+    }
+
+    return {
+      success: true,
+      allExcluded,
+      roundState: state,
+      fullSong: allExcluded ? state.currentSong : undefined,
     };
   }
 

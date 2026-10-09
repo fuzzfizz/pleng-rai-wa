@@ -77,6 +77,8 @@ export interface RoomRealtimeState {
   scores: Record<string, number>;
   revealedHints: { genre?: string; year?: string; artist?: string; level: number };
   playerHintLevels?: Record<string, number>;
+  playerHints?: Record<string, { genre?: string; year?: string; artist?: string }>;
+  excludedPlayerIds?: string[];
   isConnected: boolean;
   isAudioPlaying: boolean;
   error: string | null;
@@ -171,6 +173,8 @@ export function createInitialRoomRealtimeState(
     scores: {},
     revealedHints: { level: 0 },
     playerHintLevels: {},
+    playerHints: {},
+    excludedPlayerIds: [],
     isConnected: false,
     isAudioPlaying: false,
     error: null,
@@ -299,6 +303,8 @@ export function reduceRoomRealtimeEvent(
           nextState.roundWinner = null;
           nextState.revealedHints = { level: 0 };
           nextState.playerHintLevels = {};
+          nextState.playerHints = {};
+          nextState.excludedPlayerIds = [];
           nextState.isAudioPlaying = true;
           break;
         }
@@ -453,13 +459,39 @@ export function reduceRoomRealtimeEvent(
               [playerId]: level,
             };
           }
-          const currentHints = nextState.revealedHints || { level: 0 };
-          const updatedHints = {
-            ...currentHints,
-            level: typeof level === "number" ? level : (currentHints.level || 0) + 1,
-            ...(hintType && hintText ? { [hintType]: hintText } : {}),
-          };
-          nextState.revealedHints = updatedHints;
+          if (playerId && hintType && hintText) {
+            const currentPlayerHints = nextState.playerHints?.[playerId] || {};
+            nextState.playerHints = {
+              ...(nextState.playerHints || {}),
+              [playerId]: {
+                ...currentPlayerHints,
+                [hintType]: hintText,
+              },
+            };
+          }
+
+          // Only update revealedHints if this hint belongs to me or was broadcast globally
+          const isForMe = !playerId || (nextState.myPlayer && playerId === nextState.myPlayer.id);
+          if (isForMe) {
+            const currentHints = nextState.revealedHints || { level: 0 };
+            const updatedHints = {
+              ...currentHints,
+              level: typeof level === "number" ? level : (currentHints.level || 0) + 1,
+              ...(hintType && hintText ? { [hintType]: hintText } : {}),
+            };
+            nextState.revealedHints = updatedHints;
+          }
+          break;
+        }
+
+        case "player_surrendered": {
+          const surrenderedId = payload?.playerId;
+          if (surrenderedId) {
+            const currentExcluded = nextState.excludedPlayerIds || [];
+            if (!currentExcluded.includes(surrenderedId)) {
+              nextState.excludedPlayerIds = [...currentExcluded, surrenderedId];
+            }
+          }
           break;
         }
 
@@ -503,7 +535,10 @@ export function reduceRoomRealtimeEvent(
     myId && nextState.buzzedPlayer && nextState.buzzedPlayer.id === myId
   );
   nextState.isExcludedFromBuzz = Boolean(
-    myId && nextState.wrongGuesses.some((g) => g.playerId === myId)
+    myId && (
+      nextState.wrongGuesses.some((g) => g.playerId === myId) ||
+      Boolean(nextState.excludedPlayerIds && nextState.excludedPlayerIds.includes(myId))
+    )
   );
   nextState.isHost = Boolean(
     nextState.myPlayer?.isHost ||
@@ -816,6 +851,7 @@ export function useRoomRealtime(
     if (!state.myPlayer) return { success: false, error: "no_player" };
     try {
       const token = state.myPlayer.sessionToken || state.myPlayer.id;
+      const isPlayAgain = state.status === "game_over";
       const res = await fetch(`/api/room/${cleanCode}/next-round`, {
         method: "POST",
         headers: {
@@ -824,6 +860,7 @@ export function useRoomRealtime(
         },
         body: JSON.stringify({
           sessionToken: token,
+          playAgain: isPlayAgain,
         }),
       });
       const data = await res.json();
@@ -834,7 +871,7 @@ export function useRoomRealtime(
     } catch (err: any) {
       return { success: false, error: err?.message || "network_error" };
     }
-  }, [cleanCode, state.myPlayer]);
+  }, [cleanCode, state.myPlayer, state.status]);
 
   // Action: setReady
   const setReady = useCallback(
@@ -1015,18 +1052,31 @@ export function useRoomRealtime(
     }
   }, [state.roomCode, state.myPlayer?.id]);
 
-  // Action: surrender
+  // Action: surrender (neutral surrender for any player including host, no score penalty)
   const surrender = useCallback(async (): Promise<{
     success: boolean;
     error?: string;
   }> => {
-    if (state.isHost) {
-      const ok = await skipRound();
-      return { success: ok };
+    if (!state.myPlayer) return { success: false, error: "no_player" };
+    try {
+      const res = await fetch(`/api/room/${cleanCode}/surrender`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: state.myPlayer.id,
+          displayName: state.myPlayer.displayName,
+          totalPlayers: state.players.length > 0 ? state.players.length : 1,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || "Failed to surrender" };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "network_error" };
     }
-    const res = await submitAnswer("(ยอมแพ้)");
-    return { success: res.success, error: res.error };
-  }, [state.isHost, skipRound, submitAnswer]);
+  }, [cleanCode, state.myPlayer, state.players.length]);
 
   // Audio helpers
   const playAudio = useCallback(() => {

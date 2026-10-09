@@ -33,7 +33,7 @@ import { PodiumView } from "@/components/room/podium-view";
 import { getDeterministicAvatar } from "@/components/room/player-card";
 import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
 import { useAuth } from "@/hooks/use-auth";
-import type { Player, RoomSettings } from "@/types";
+import type { Player, RoomSettings, Song } from "@/types";
 
 /**
  * Fallback room settings if room metadata hasn't arrived from server yet.
@@ -160,6 +160,24 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   const [nickname, setNickname] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  // Song catalog for autocomplete search
+  const [songLibrary, setSongLibrary] = useState<Song[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/admin/songs?limit=200")
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && Array.isArray(data.songs)) {
+          setSongLibrary(data.songs);
+        }
+      })
+      .catch((err) => console.warn("[RoomPage] Failed to fetch song library for autocomplete:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Sync avatar from sessionStorage or user profile
   useEffect(() => {
@@ -535,6 +553,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   return (
     <GameView
       roomRealtime={roomRealtime}
+      songLibrary={songLibrary}
       onLeaveRoom={handleLeave}
       onSkipRound={roomRealtime.skipRound}
     />

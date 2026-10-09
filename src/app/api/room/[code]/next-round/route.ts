@@ -74,32 +74,52 @@ export async function POST(
       ...(room.settings && typeof room.settings === "object" ? room.settings : {}),
     };
 
+    // Ensure round state is rehydrated if running on a fresh serverless instance
+    await RoomStateStore.ensureRoundState(cleanCode, room);
+
+    // Check if this is a request to play again after game_over
+    const isPlayAgain = Boolean(body.playAgain) || room.status === "game_over";
+
     const existingRoundState = RoomStateStore.getRoomRoundState(cleanCode);
-    const playedSongIds: string[] = Array.isArray(room.played_song_ids)
+    const playedSongIds: string[] = isPlayAgain
+      ? []
+      : Array.isArray(room.played_song_ids)
       ? [...room.played_song_ids]
       : [];
-    const completedRounds = existingRoundState
+    const completedRounds = isPlayAgain
+      ? 0
+      : existingRoundState
       ? existingRoundState.currentRound
       : playedSongIds.length;
 
-    // Check if game has reached maximum rounds
-    if (settings.totalRounds > 0 && completedRounds >= settings.totalRounds) {
-      await RoomService.updateRoomStatus(cleanCode, "game_over");
-      RoomStateStore.setGameOver(cleanCode);
+    if (isPlayAgain) {
+      RoomStateStore.resetRoom(cleanCode);
+      await RoomService.updateRoomRound(cleanCode, {
+        currentSongId: null,
+        playedSongIds: [],
+        status: "question_active",
+        roundState: null,
+      }).catch((err) => console.warn("[NextRound] Failed to reset room round for playAgain:", err));
+    } else {
+      // Check if game has reached maximum rounds
+      if (settings.totalRounds > 0 && completedRounds >= settings.totalRounds) {
+        await RoomService.updateRoomStatus(cleanCode, "game_over");
+        RoomStateStore.setGameOver(cleanCode);
 
-      await RealtimeBroadcastService.broadcast(cleanCode, "game_over", {
-        gameOver: true,
-        round: completedRounds,
-        totalRounds: settings.totalRounds,
-        finalScores: existingRoundState?.scores || {},
-      });
+        await RealtimeBroadcastService.broadcast(cleanCode, "game_over", {
+          gameOver: true,
+          round: completedRounds,
+          totalRounds: settings.totalRounds,
+          finalScores: existingRoundState?.scores || {},
+        });
 
-      return NextResponse.json({
-        success: true,
-        gameOver: true,
-        message: "เกมจบแล้ว (ครบจำนวนรอบ)",
-        finalScores: existingRoundState?.scores || {},
-      });
+        return NextResponse.json({
+          success: true,
+          gameOver: true,
+          message: "เกมจบแล้ว (ครบจำนวนรอบ)",
+          finalScores: existingRoundState?.scores || {},
+        });
+      }
     }
 
     const nextRound = completedRounds + 1;

@@ -43,9 +43,9 @@ describe("Hint and Surrender UI & State Logic", () => {
       expect(resolvePlayerHintLevel("p-bob", playerHintLevels, 0)).toBe(1);
     });
 
-    it("falls back to room revealedHints level if player has no recorded level", () => {
+    it("isolates hint level strictly per player and does not leak to other players", () => {
       const playerHintLevels = { "p-alice": 2 };
-      expect(resolvePlayerHintLevel("p-charlie", playerHintLevels, 1)).toBe(1);
+      expect(resolvePlayerHintLevel("p-charlie", playerHintLevels, 1)).toBe(0);
     });
 
     it("defaults to 0 if neither player nor room has hint level", () => {
@@ -81,10 +81,10 @@ describe("Hint and Surrender UI & State Logic", () => {
       expect(shouldShowSurrenderButton("revealing")).toBe(false);
     });
 
-    it("configures host to skip round for the whole room", () => {
+    it("configures host to surrender without force-skipping the entire room", () => {
       const config = getSurrenderButtonConfig(true);
-      expect(config.label).toBe("ข้ามข้อนี้ (ข้ามทั้งห้อง)");
-      expect(config.actionType).toBe("skip_room");
+      expect(config.label).toBe("ยอมแพ้ข้อนี้");
+      expect(config.actionType).toBe("surrender_player");
     });
 
     it("configures non-host to surrender individually", () => {
@@ -95,7 +95,7 @@ describe("Hint and Surrender UI & State Logic", () => {
   });
 
   describe("executeSurrender handler", () => {
-    it("invokes onSkipRound or skipRound when host triggers surrender", async () => {
+    it("invokes surrender callback when host triggers surrender (no immediate force skip)", async () => {
       const onSkipRoundSpy = vi.fn().mockResolvedValue(true);
       const surrenderSpy = vi.fn().mockResolvedValue({ success: true });
       const skipRoundSpy = vi.fn().mockResolvedValue(true);
@@ -108,8 +108,7 @@ describe("Hint and Surrender UI & State Logic", () => {
       });
 
       expect(res).toEqual({ success: true });
-      expect(onSkipRoundSpy).toHaveBeenCalledTimes(1);
-      expect(surrenderSpy).not.toHaveBeenCalled();
+      expect(surrenderSpy).toHaveBeenCalledTimes(1);
     });
 
     it("invokes surrender callback when non-host triggers surrender", async () => {
@@ -164,8 +163,10 @@ describe("Hint and Surrender UI & State Logic", () => {
 
       expect(stateWithHint2.playerHintLevels?.["player-1"]).toBe(1);
       expect(stateWithHint2.playerHintLevels?.["player-2"]).toBe(2);
-      expect(stateWithHint2.revealedHints.year).toBe("2015");
-      expect(stateWithHint2.revealedHints.level).toBe(2);
+      // Player 1's revealedHints should NOT leak Player 2's hint
+      expect(stateWithHint2.revealedHints.level).toBe(1);
+      expect(stateWithHint2.revealedHints.year).toBeUndefined();
+      expect(stateWithHint2.playerHints?.["player-2"]?.year).toBe("2015");
     });
 
     it("resets playerHintLevels on round_start", () => {

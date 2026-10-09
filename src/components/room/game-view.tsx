@@ -28,11 +28,13 @@ import {
   RotateCcw,
   Play,
   Pause,
+  Clock,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
 import type { Song, GameMode } from "@/types";
 import { ttsReader } from "@/lib/tts-reader";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
+import { soundEffects } from "@/lib/sound-effects";
 import { BuzzerButton, resolveBuzzerStatus } from "./buzzer-button";
 import { AnswerModal } from "./answer-modal";
 import { WrongGuessBanner } from "./wrong-guess-banner";
@@ -151,7 +153,7 @@ export function resolvePlayerHintLevel(
   if (playerId && playerHintLevels && typeof playerHintLevels[playerId] === "number") {
     return playerHintLevels[playerId];
   }
-  return roomRevealedLevel || 0;
+  return 0;
 }
 
 /**
@@ -176,26 +178,18 @@ export function shouldShowSurrenderButton(status: string): boolean {
 
 /**
  * Returns the button label and action type for surrender/skip.
- * Host: skips the round for the entire room.
- * Non-Host: concedes the round for this individual player.
+ * Host & non-host alike surrender this round; round only advances when all players surrender or guess wrong.
  */
 export function getSurrenderButtonConfig(isHost: boolean) {
-  if (isHost) {
-    return {
-      label: "ข้ามข้อนี้ (ข้ามทั้งห้อง)",
-      actionType: "skip_room" as const,
-      tooltip: "ข้ามข้อนี้สำหรับทุกคนในห้องและเปิดเฉลย",
-    };
-  }
   return {
     label: "ยอมแพ้ข้อนี้",
     actionType: "surrender_player" as const,
-    tooltip: "ยอมแพ้ข้อนี้ (รอเล่นข้อถัดไป)",
+    tooltip: "ยอมแพ้ข้อนี้ (รอเล่นข้อถัดไปหรือรอคนอื่นตอบครบ)",
   };
 }
 
 /**
- * Executes the surrender / skip action depending on host status.
+ * Executes the surrender action.
  */
 export async function executeSurrender({
   isHost,
@@ -208,22 +202,16 @@ export async function executeSurrender({
   surrender?: () => Promise<{ success: boolean; error?: string }>;
   onSkipRound?: () => Promise<boolean>;
 }): Promise<{ success: boolean; error?: string }> {
-  if (isHost) {
-    if (onSkipRound) {
-      const ok = await onSkipRound();
-      return { success: ok };
-    }
-    if (surrender) {
-      return surrender();
-    }
-    if (skipRound) {
-      const ok = await skipRound();
-      return { success: ok };
-    }
-    return { success: false, error: "no_skip_handler" };
-  }
   if (surrender) {
     return surrender();
+  }
+  if (isHost && onSkipRound) {
+    const ok = await onSkipRound();
+    return { success: ok };
+  }
+  if (isHost && skipRound) {
+    const ok = await skipRound();
+    return { success: ok };
   }
   return { success: false, error: "no_surrender_handler" };
 }
@@ -274,6 +262,72 @@ export function GameView({
   );
   const pointsAvailable = calculatePointsAvailable(myHintLevel);
 
+  // Fallback song library fetch if not supplied by parent
+  const [internalSongs, setInternalSongs] = useState<Song[]>(songLibrary || []);
+
+  useEffect(() => {
+    if (songLibrary && songLibrary.length > 0) {
+      setInternalSongs(songLibrary);
+      return;
+    }
+    let isMounted = true;
+    fetch("/api/admin/songs?limit=200")
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && Array.isArray(data.songs)) {
+          setInternalSongs(data.songs);
+        }
+      })
+      .catch((err) => console.warn("[GameView] Autocomplete fallback songs fetch failed:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, [songLibrary]);
+
+  const effectiveSongLibrary = songLibrary && songLibrary.length > 0 ? songLibrary : internalSongs;
+
+  // Hints resolution strictly per player
+  const myPlayerHints =
+    myPlayer?.id && roomRealtime.playerHints ? roomRealtime.playerHints[myPlayer.id] : undefined;
+  const myHints = myPlayerHints || (myHintLevel > 0 ? revealedHints : undefined);
+
+  // 15-second answer countdown timer (starts after slice audio finishes playing for the first time)
+  const answerTimeLimit =
+    roomRealtime.room?.settings?.roundTimeoutSec ||
+    roomRealtime.room?.settings?.answerTimeLimit ||
+    15;
+
+  const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
+  const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
+
+  // Reset countdown on new round or status change
+  useEffect(() => {
+    setHasPlayedOnce(false);
+    setCountdownRemaining(null);
+  }, [currentRound, status]);
+
+  // Safety timer to start countdown if audio autoplay is delayed or for AI lyrics modes
+  useEffect(() => {
+    if (status !== "question_active") {
+      setCountdownRemaining(null);
+      return;
+    }
+
+    if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
+      const timer = setTimeout(() => {
+        setHasPlayedOnce(true);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+
+    const durationSec = activeQuestion?.durationSec || 2.0;
+    const fallbackTimer = setTimeout(() => {
+      setHasPlayedOnce(true);
+    }, (durationSec + 1.5) * 1000);
+
+    return () => clearTimeout(fallbackTimer);
+  }, [status, currentRound, gameMode, activeQuestion?.durationSec]);
+
   const [isAudioPlaying, setIsAudioPlaying] = useState(Boolean(realtimeIsAudioPlaying));
 
   useEffect(() => {
@@ -293,6 +347,11 @@ export function GameView({
     },
     [realtimeSetIsAudioPlaying, playAudio, pauseAudio]
   );
+
+  const handleAudioEnded = useCallback(() => {
+    handleSetIsAudioPlaying(false);
+    setHasPlayedOnce(true);
+  }, [handleSetIsAudioPlaying]);
 
   const handleToggleOrReplayAudio = useCallback(() => {
     toggleOrReplayAudio(audioRef.current, isAudioPlaying, handleSetIsAudioPlaying);
@@ -340,6 +399,38 @@ export function GameView({
   }, [isSurrendering, isExcludedFromBuzz, isHost, onSkipRound, surrender, skipRound]);
 
   const handleSkipQuestion = handleSurrender;
+
+  // Interval countdown after slice plays for the first time
+  useEffect(() => {
+    if (!hasPlayedOnce || status !== "question_active") {
+      return;
+    }
+
+    setCountdownRemaining(answerTimeLimit);
+
+    const timer = setInterval(() => {
+      setCountdownRemaining((prev) => {
+        if (prev === null) return answerTimeLimit;
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (!isExcludedFromBuzz) {
+            handleSurrender();
+          }
+          return 0;
+        }
+
+        const nextVal = prev - 1;
+        if (nextVal <= 5 && nextVal > 0) {
+          try {
+            soundEffects.countdownTick();
+          } catch {}
+        }
+        return nextVal;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hasPlayedOnce, status, answerTimeLimit, isExcludedFromBuzz, handleSurrender]);
 
   const handleRequestHint = useCallback(async () => {
     if (isRequestingHint) return;
@@ -445,15 +536,15 @@ export function GameView({
 
   // Autocomplete suggestions for direct answer mode
   const directSuggestions = useMemo(() => {
-    if (answerInputMode !== "autocomplete" || !songLibrary || songLibrary.length === 0) {
+    if (answerInputMode !== "autocomplete" || !effectiveSongLibrary || effectiveSongLibrary.length === 0) {
       return [];
     }
     const query = directAnswer.trim();
     if (!query) {
       return [];
     }
-    return searchSongAutocomplete(query, songLibrary, 5);
-  }, [answerInputMode, directAnswer, songLibrary]);
+    return searchSongAutocomplete(query, effectiveSongLibrary, 5);
+  }, [answerInputMode, directAnswer, effectiveSongLibrary]);
 
   const handleSelectSuggestion = useCallback(
     (title: string) => {
@@ -577,7 +668,7 @@ export function GameView({
           src={activeQuestion.sliceUrl}
           preload="auto"
           loop={shouldLoopAudio(gameMode)}
-          onEnded={() => handleSetIsAudioPlaying(false)}
+          onEnded={handleAudioEnded}
         />
       )}
 
@@ -726,27 +817,63 @@ export function GameView({
               )}
             </div>
 
+            {/* 15s Answer Countdown Timer Bar (starts after audio slice finishes playing for the first time) */}
+            {countdownRemaining !== null && status === "question_active" && (
+              <div className="w-full max-w-sm sm:max-w-md mx-auto my-1 px-4 py-2 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col gap-1.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
+                    <Clock
+                      className={`w-3.5 h-3.5 ${
+                        countdownRemaining <= 5 ? "text-rose-500 animate-pulse" : "text-amber-500"
+                      }`}
+                    />
+                    <span>เวลาตอบคำถาม</span>
+                  </span>
+                  <span
+                    className={`font-mono text-xs sm:text-sm font-black ${
+                      countdownRemaining <= 5 ? "text-rose-500 animate-bounce" : "text-amber-500"
+                    }`}
+                  >
+                    {countdownRemaining} วินาที
+                  </span>
+                </div>
+                {/* Progress Bar */}
+                <div className="w-full h-1.5 sm:h-2 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-1000 rounded-full ${
+                      countdownRemaining <= 5
+                        ? "bg-gradient-to-r from-rose-500 to-red-600"
+                        : "bg-gradient-to-r from-amber-400 to-amber-500"
+                    }`}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, (countdownRemaining / answerTimeLimit) * 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Progressive Hint Bar & Player Actions */}
             <div className="w-full max-w-lg lg:max-w-2xl flex flex-col items-center gap-2">
-              {/* Revealed Hints Badges */}
-              {myHintLevel > 0 && (revealedHints?.genre || revealedHints?.year || revealedHints?.artist) && (
+              {/* Revealed Hints Badges (Isolated for this player) */}
+              {myHintLevel > 0 && (myHints?.genre || myHints?.year || myHints?.artist) && (
                 <div className="flex flex-wrap items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-200">
-                  {myHintLevel >= 1 && revealedHints.genre && (
+                  {myHintLevel >= 1 && myHints?.genre && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
                       <Tag className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>แนวเพลง: {revealedHints.genre}</span>
+                      <span>แนวเพลง: {myHints.genre}</span>
                     </span>
                   )}
-                  {myHintLevel >= 2 && revealedHints.year && (
+                  {myHintLevel >= 2 && myHints?.year && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/15 border border-blue-500/30 text-blue-800 dark:text-blue-300">
                       <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                      <span>{revealedHints.year}</span>
+                      <span>{myHints.year}</span>
                     </span>
                   )}
-                  {myHintLevel >= 3 && revealedHints.artist && (
+                  {myHintLevel >= 3 && myHints?.artist && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-300">
                       <UserCheck className="w-3.5 h-3.5 text-purple-500" />
-                      <span>ศิลปิน: {revealedHints.artist}</span>
+                      <span>ศิลปิน: {myHints.artist}</span>
                     </span>
                   )}
                 </div>
@@ -1042,7 +1169,7 @@ export function GameView({
         onSubmitAnswer={handleSubmitAnswer}
         inputMode={answerInputMode}
         choices={activeQuestion?.choices}
-        songLibrary={songLibrary}
+        songLibrary={effectiveSongLibrary}
         isSubmitting={isSubmittingAnswer}
         timeRemainingSec={room?.settings?.roundTimeoutSec ?? 15}
       />
