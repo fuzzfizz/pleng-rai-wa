@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
 import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
+import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 
 export async function POST(
@@ -43,8 +44,9 @@ export async function POST(
       roundState: null,
     });
 
-    // 2. Reset round state in RoomStateStore (resets round to 0, scores to 0, current question to null, buzzed player to null)
+    // 2. Reset round state in RoomStateStore and delete Redis cache
     RoomStateStore.resetRoom(cleanCode);
+    RedisService.deleteRoom(cleanCode).catch(() => {});
 
     // 3. Broadcast room_state event with status "lobby" to all players in the room
     await RealtimeBroadcastService.broadcast(cleanCode, "room_state", {

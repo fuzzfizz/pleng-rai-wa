@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
 import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
+import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 
 export async function POST(
@@ -75,10 +76,27 @@ export async function POST(
     const cleanPlayerId = playerId.trim();
     const cleanDisplayName = displayName.trim();
 
-    // Ensure round state is rehydrated if running on a fresh serverless instance
+    // 1. Optional fast atomic lock via Upstash Redis (if configured)
+    const redisLock = await RedisService.acquireBuzzerLock(
+      cleanCode,
+      cleanPlayerId,
+      cleanDisplayName
+    );
+    if (redisLock.isRedisActive && !redisLock.acquired) {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: "already_buzzed",
+          error: "มีผู้เล่นคนอื่นกดกริ่งไปก่อนแล้ว",
+        },
+        { status: 409 }
+      );
+    }
+
+    // 2. Ensure round state is rehydrated if running on a fresh serverless instance
     await RoomStateStore.ensureRoundState(cleanCode, room);
 
-    // Attempt atomic FCFS buzzer lock
+    // 3. Attempt authoritative in-memory buzzer arbitration
     const buzzResult = RoomStateStore.buzz(
       cleanCode,
       cleanPlayerId,
@@ -86,6 +104,11 @@ export async function POST(
     );
 
     if (!buzzResult.success) {
+      // If in-memory check failed (e.g. already guessed wrong), release Redis lock
+      if (redisLock.isRedisActive && redisLock.acquired) {
+        RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+      }
+
       const errorMap: Record<string, string> = {
         already_buzzed: "มีผู้เล่นคนอื่นกดกริ่งไปก่อนแล้ว",
         already_guessed_wrong:
@@ -106,15 +129,19 @@ export async function POST(
     }
 
     const roundState = buzzResult.roundState!;
+    const serialized = RoomStateStore.serializeRoundState(roundState);
 
     // Persist buzzer lock to Supabase so subsequent /answer requests on any lambda know who buzzed
     await RoomService.updateRoomRoundState(
       cleanCode,
-      RoomStateStore.serializeRoundState(roundState),
+      serialized,
       "buzzed"
     ).catch((err) => {
       console.warn("[BuzzerRoute] Failed to persist buzzer state to DB:", err);
     });
+
+    // Cache updated state in Redis if available
+    RedisService.saveRoundState(cleanCode, serialized).catch(() => {});
 
     const broadcastPayload = {
       playerId: roundState.buzzedPlayerId,

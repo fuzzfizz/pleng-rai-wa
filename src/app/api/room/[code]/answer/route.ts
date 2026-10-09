@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
 import { RoomStateStore, type RoundStatus } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
+import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 
 export async function POST(
@@ -91,10 +92,19 @@ export async function POST(
       currentRoundState?.roundStatus ||
       (room.status as RoundStatus) ||
       "question_active";
-    const effectiveBuzzedPlayerId =
+    let effectiveBuzzedPlayerId =
       currentRoundState?.buzzedPlayerId ||
       room.settings?.round_state?.buzzedPlayerId ||
       null;
+
+    if (!effectiveBuzzedPlayerId && RedisService.isRedisAvailable()) {
+      try {
+        const redisLock = await RedisService.getBuzzerLock(cleanCode);
+        if (redisLock?.playerId) {
+          effectiveBuzzedPlayerId = redisLock.playerId;
+        }
+      } catch {}
+    }
 
     const isBuzzerHolder =
       effectiveRoundStatus === "buzzed" &&
@@ -188,6 +198,9 @@ export async function POST(
           ).catch((err) => console.warn("[AnswerRoute] Failed to sync timeout state:", err));
         }
 
+        // Release buzzer in Redis on timeout
+        RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+
         RealtimeBroadcastService.broadcast(
           cleanCode,
           "wrong_guess",
@@ -226,11 +239,18 @@ export async function POST(
       await RoomService.updateRoomStatus(cleanCode, "revealing");
 
       if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+        const serialized = RoomStateStore.serializeRoundState(result.roundState);
         RoomService.updateRoomRoundState(
           cleanCode,
-          RoomStateStore.serializeRoundState(result.roundState),
+          serialized,
           "revealing"
         ).catch((err) => console.warn("[AnswerRoute] Failed to sync reveal state:", err));
+
+        // Cache reveal state & release buzzer in Redis
+        RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+        RedisService.saveRoundState(cleanCode, serialized).catch(() => {});
+      } else {
+        RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
       }
 
       const revealPayload = {
@@ -265,12 +285,22 @@ export async function POST(
       // 2. Wrong Answer: update DB with new round state and status
       const nextStatus = result.roundState?.roundStatus || "question_active";
       if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+        const serialized = RoomStateStore.serializeRoundState(result.roundState);
         RoomService.updateRoomRoundState(
           cleanCode,
-          RoomStateStore.serializeRoundState(result.roundState),
+          serialized,
           nextStatus
         ).catch(() => RoomService.updateRoomStatus(cleanCode, nextStatus));
+
+        // In buzzer mode, release lock so others can buzz, and cache updated state
+        if (effectiveGameMode === "buzzer") {
+          RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+        }
+        RedisService.saveRoundState(cleanCode, serialized).catch(() => {});
       } else {
+        if (effectiveGameMode === "buzzer") {
+          RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+        }
         RoomService.updateRoomStatus(cleanCode, nextStatus).catch(() => {});
       }
 

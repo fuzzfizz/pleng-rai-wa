@@ -8,6 +8,7 @@ import { RoomService, DEFAULT_ROOM_SETTINGS } from "@/lib/services/room-service"
 import { SongService } from "@/lib/services/song-service";
 import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
+import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 import { translateThaiToEnglishLiteral } from "@/lib/translate";
 import type { RoomSettings, Song, ChoiceOption } from "@/types";
@@ -249,12 +250,17 @@ export async function POST(
 
     // Update database room row with serialized round state for serverless rehydration
     const updatedPlayedSongs = [...playedSongIds, song.id];
+    const serializedRound = RoomStateStore.serializeRoundState(roundState);
     await RoomService.updateRoomRound(cleanCode, {
       currentSongId: song.id,
       playedSongIds: updatedPlayedSongs,
       status: "question_active",
-      roundState: RoomStateStore.serializeRoundState(roundState),
+      roundState: serializedRound,
     });
+
+    // Reset buzzer lock and cache round state in Redis if available
+    RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+    RedisService.saveRoundState(cleanCode, serializedRound).catch(() => {});
 
     // Broadcast round_start event to all room participants
     // ANTI-CHEAT: NEVER leak song title or artist in broadcast or response

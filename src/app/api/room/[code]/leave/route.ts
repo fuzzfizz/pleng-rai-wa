@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
 import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
+import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 
 export async function POST(
@@ -50,6 +51,7 @@ export async function POST(
     if (isActualHost) {
       await RoomService.deleteRoomByCode(cleanCode);
       RoomStateStore.deleteRoom(cleanCode);
+      RedisService.deleteRoom(cleanCode).catch(() => {});
 
       // Broadcast room dissolution to any remaining players
       await RealtimeBroadcastService.broadcast(cleanCode, "room_dissolved", {

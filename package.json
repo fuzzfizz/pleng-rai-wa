@@ -13,6 +13,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "@types/three": "^0.186.0",
+    "@upstash/redis": "^1.39.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "fuse.js": "^7.5.0",
