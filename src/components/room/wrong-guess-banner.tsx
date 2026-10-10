@@ -18,6 +18,7 @@ export interface WrongGuessRecord {
 export interface WrongGuessBannerProps {
   wrongGuess: WrongGuessRecord | null;
   showResumeCue?: boolean;
+  gameMode?: string;
   onDismiss?: () => void;
 }
 
@@ -38,6 +39,7 @@ export function formatWrongGuessMessage(wrongGuess: {
 export function WrongGuessBanner({
   wrongGuess,
   showResumeCue = true,
+  gameMode,
   onDismiss,
 }: WrongGuessBannerProps): React.JSX.Element | null {
   const [isVisible, setIsVisible] = useState(false);
@@ -78,30 +80,32 @@ export function WrongGuessBanner({
 
   const message = formatWrongGuessMessage(wrongGuess);
 
-  return (
-    <div
-      role="alert"
-      aria-live="assertive"
-      className="w-full max-w-xl mx-auto my-3 animate-in fade-in slide-in-from-top-2 duration-200"
-    >
-      <div className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-3.5 bg-rose-50 dark:bg-rose-950/90 border-2 border-rose-300 dark:border-rose-500/80 rounded-2xl shadow-lg dark:shadow-[0_0_35px_rgba(244,63,94,0.4)] text-rose-950 dark:text-rose-100 backdrop-blur-md">
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="p-2 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 shrink-0">
-            <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 animate-pulse" />
-          </div>
+    const shouldShowResumeCue = showResumeCue && (gameMode ? gameMode === "buzzer" : true);
 
-          <div className="overflow-hidden">
-            <p className="text-sm sm:text-base font-bold text-rose-900 dark:text-rose-200 truncate leading-snug">
-              {message}
-            </p>
-            {showResumeCue && (
-              <p className="text-xs text-rose-700 dark:text-rose-300/90 font-medium flex items-center gap-1.5 mt-0.5">
-                <Volume2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span>{RESUME_AUDIO_CUE}</span>
+    return (
+      <div
+        role="alert"
+        aria-live="assertive"
+        className="w-full max-w-xl mx-auto my-3 animate-in fade-in slide-in-from-top-2 duration-200"
+      >
+        <div className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-3.5 bg-rose-50 dark:bg-rose-950/90 border-2 border-rose-300 dark:border-rose-500/80 rounded-2xl shadow-lg dark:shadow-[0_0_35px_rgba(244,63,94,0.4)] text-rose-950 dark:text-rose-100 backdrop-blur-md">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="p-2 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 shrink-0">
+              <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 animate-pulse" />
+            </div>
+
+            <div className="overflow-hidden">
+              <p className="text-sm sm:text-base font-bold text-rose-900 dark:text-rose-200 truncate leading-snug">
+                {message}
               </p>
-            )}
+              {shouldShowResumeCue && (
+                <p className="text-xs text-rose-700 dark:text-rose-300/90 font-medium flex items-center gap-1.5 mt-0.5">
+                  <Volume2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>{RESUME_AUDIO_CUE}</span>
+                </p>
+              )}
+            </div>
           </div>
-        </div>
 
         <button
           type="button"

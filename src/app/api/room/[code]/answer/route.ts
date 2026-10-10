@@ -284,7 +284,7 @@ export async function POST(
           answerText: "(หมดเวลา)",
           scoreDelta: -20,
           scores: result.scores,
-          resumeAudio: true,
+          resumeAudio: effectiveGameMode === "buzzer",
           wrongGuesses: result.roundState?.wrongGuesses || [],
           reason: "buzzer_timeout",
         };
@@ -316,7 +316,7 @@ export async function POST(
             scoreDelta: -20,
             newScore: result.newScore,
             scores: result.scores,
-            resumeAudio: true,
+            resumeAudio: effectiveGameMode === "buzzer",
             wrongGuesses: result.roundState?.wrongGuesses || [],
             reason: "buzzer_timeout",
           },
@@ -444,7 +444,7 @@ export async function POST(
         scoreDelta: -20,
         newScore: result.newScore,
         scores: result.scores,
-        resumeAudio: true,
+        resumeAudio: effectiveGameMode === "buzzer",
         wrongGuesses: result.roundState?.wrongGuesses || [],
       };
 
@@ -460,7 +460,7 @@ export async function POST(
         scoreDelta: -20,
         newScore: result.newScore,
         scores: result.scores,
-        resumeAudio: true,
+        resumeAudio: effectiveGameMode === "buzzer",
         wrongGuesses: result.roundState?.wrongGuesses || [],
       });
     }

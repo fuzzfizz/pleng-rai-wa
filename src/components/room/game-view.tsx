@@ -42,6 +42,7 @@ import { RoundRevealCard } from "./round-reveal-card";
 import { getDeterministicAvatar } from "./player-card";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 import { SettingsMenu } from "@/components/common/settings-menu";
+import { DEMO_SONGS } from "@/lib/constants/demo-songs";
 
 export interface GameViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -96,9 +97,15 @@ export function replayAudio(
   try {
     const playPromise = audioEl.play();
     if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch((err) => console.warn("[GameView] Audio replay error:", err));
+      playPromise.catch((err) => {
+        console.warn("[GameView] Audio replay error:", err);
+        setIsAudioPlaying?.(false);
+      });
     }
-  } catch {}
+  } catch (err) {
+    console.warn("[GameView] Audio replay sync error:", err);
+    setIsAudioPlaying?.(false);
+  }
   setIsAudioPlaying?.(true);
   return true;
 }
@@ -298,7 +305,9 @@ export function GameView({
   const surrenderButtonConfig = getSurrenderButtonConfig(isHost);
 
   // Fallback song library fetch if not supplied by parent
-  const [internalSongs, setInternalSongs] = useState<Song[]>(songLibrary || []);
+  const [internalSongs, setInternalSongs] = useState<Song[]>(
+    songLibrary && songLibrary.length > 0 ? songLibrary : DEMO_SONGS
+  );
 
   useEffect(() => {
     if (songLibrary && songLibrary.length > 0) {
@@ -319,7 +328,12 @@ export function GameView({
     };
   }, [songLibrary]);
 
-  const effectiveSongLibrary = songLibrary && songLibrary.length > 0 ? songLibrary : internalSongs;
+  const effectiveSongLibrary =
+    songLibrary && songLibrary.length > 0
+      ? songLibrary
+      : internalSongs && internalSongs.length > 0
+      ? internalSongs
+      : DEMO_SONGS;
 
   // Hints resolution strictly per player
   const myPlayerHints =
@@ -334,11 +348,13 @@ export function GameView({
 
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
+  const [myExclusionReason, setMyExclusionReason] = useState<"surrendered" | "wrong_guess" | null>(null);
 
-  // Reset countdown on new round or status change
+  // Reset countdown and exclusion reason on new round or status change
   useEffect(() => {
     setHasPlayedOnce(false);
     setCountdownRemaining(null);
+    setMyExclusionReason(null);
   }, [currentRound, status]);
 
   // Safety timer to start countdown if audio autoplay is delayed or for AI lyrics modes
@@ -420,9 +436,10 @@ export function GameView({
     setClickedWrongChoices([]);
   }, [currentRound, status]);
 
-  // Sync wrong guess to clickedWrongChoices
+  // Sync wrong guess to clickedWrongChoices and exclusion reason
   useEffect(() => {
     if (myPlayer && lastWrongGuess?.playerId === myPlayer.id && lastWrongGuess.answerText) {
+      setMyExclusionReason("wrong_guess");
       setClickedWrongChoices((prev) => {
         if (!prev.includes(lastWrongGuess.answerText)) {
           return [...prev, lastWrongGuess.answerText];
@@ -434,6 +451,7 @@ export function GameView({
 
   const handleSurrender = useCallback(async () => {
     if (isSurrendering || isExcludedFromBuzz) return;
+    setMyExclusionReason("surrendered");
     setIsSurrendering(true);
     try {
       await executeSurrender({
@@ -449,6 +467,11 @@ export function GameView({
 
   const handleSkipQuestion = handleSurrender;
 
+  const isExcludedRef = useRef(isExcludedFromBuzz);
+  useEffect(() => {
+    isExcludedRef.current = isExcludedFromBuzz;
+  }, [isExcludedFromBuzz]);
+
   // Interval countdown after slice plays for the first time
   useEffect(() => {
     if (!hasPlayedOnce || status !== "question_active") {
@@ -462,7 +485,7 @@ export function GameView({
         if (prev === null) return answerTimeLimit;
         if (prev <= 1) {
           clearInterval(timer);
-          if (!isExcludedFromBuzz) {
+          if (!isExcludedRef.current) {
             handleSurrender();
           }
           return 0;
@@ -479,7 +502,7 @@ export function GameView({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [hasPlayedOnce, status, answerTimeLimit, isExcludedFromBuzz, handleSurrender]);
+  }, [hasPlayedOnce, status, answerTimeLimit, handleSurrender]);
 
   const handleRequestHint = useCallback(async () => {
     if (isRequestingHint) return;
@@ -526,6 +549,8 @@ export function GameView({
       if (isAudioPlaying) {
         audioRef.current.play().catch((err) => {
           console.warn("[GameView] Audio play error (browser autoplay policy):", err);
+          handleSetIsAudioPlaying(false);
+          setHasPlayedOnce(true);
         });
       } else {
         audioRef.current.pause();
@@ -533,7 +558,7 @@ export function GameView({
     } else if (audioRef.current) {
       audioRef.current.pause();
     }
-  }, [status, gameMode, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying]);
+  }, [status, gameMode, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying, handleSetIsAudioPlaying]);
 
   // Clean up audio & TTS on unmount
   useEffect(() => {
@@ -560,7 +585,10 @@ export function GameView({
       if (!canSubmitAnswer(isExcludedFromBuzz)) return;
       setIsSubmittingAnswer(true);
       try {
-        await submitAnswer(answerText);
+        const res = await submitAnswer(answerText);
+        if (res && res.success === true && res.isCorrect === false) {
+          setMyExclusionReason("wrong_guess");
+        }
       } finally {
         setIsSubmittingAnswer(false);
       }
@@ -718,6 +746,10 @@ export function GameView({
           preload="auto"
           loop={shouldLoopAudio(gameMode)}
           onEnded={handleAudioEnded}
+          onError={() => {
+            handleSetIsAudioPlaying(false);
+            setHasPlayedOnce(true);
+          }}
         />
       )}
 
@@ -803,7 +835,21 @@ export function GameView({
       {/* ==================================================== */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 max-w-4xl lg:max-w-5xl mx-auto w-full z-10">
         {/* Wrong Guess Feedback Banner */}
-        <WrongGuessBanner wrongGuess={lastWrongGuess} showResumeCue={true} />
+        {gameMode === "audio-slice" ? (
+          lastWrongGuess?.playerId === myPlayer?.id ? (
+            <WrongGuessBanner
+              wrongGuess={lastWrongGuess}
+              showResumeCue={false}
+              gameMode={gameMode}
+            />
+          ) : null
+        ) : (
+          <WrongGuessBanner
+            wrongGuess={lastWrongGuess}
+            showResumeCue={gameMode === "buzzer"}
+            gameMode={gameMode}
+          />
+        )}
 
         {/* 1. Revealing state -> Show Round Reveal Card */}
         {status === "revealing" && (
@@ -885,7 +931,7 @@ export function GameView({
             </div>
 
             {/* 15s Answer Countdown Timer Bar (starts after audio slice finishes playing for the first time) */}
-            {countdownRemaining !== null && status === "question_active" && (
+            {countdownRemaining !== null && status === "question_active" && !isExcludedFromBuzz && (
               <div className="w-full max-w-sm sm:max-w-md mx-auto my-1 px-4 py-2 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col gap-1.5 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between text-xs font-bold">
                   <span className="flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
@@ -1004,9 +1050,15 @@ export function GameView({
 
                 {/* Excluded feedback banner */}
                 {isExcludedFromBuzz && (
-                  <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-700 dark:text-rose-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm">
-                    <span>❌ คุณตอบผิดในข้อนี้แล้ว (รอข้อถัดไป)</span>
-                  </div>
+                  (myExclusionReason === "surrendered" || (!myExclusionReason && lastWrongGuess?.playerId !== myPlayer?.id)) ? (
+                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-stone-500/15 border border-stone-400/40 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm">
+                      <span>🏳️ คุณยอมแพ้ในข้อนี้แล้ว (รอข้อถัดไป)</span>
+                    </div>
+                  ) : (
+                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-700 dark:text-rose-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm">
+                      <span>❌ คุณตอบผิดในข้อนี้แล้ว (รอข้อถัดไป)</span>
+                    </div>
+                  )
                 )}
 
                 {answerInputMode === "multiple-choice" ? (

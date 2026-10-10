@@ -178,8 +178,15 @@ export class RoomStateStore {
         ? room.round_state
         : undefined);
 
-    // If existing in-memory state has currentSong, sync any newer buzzer / status from DB if applicable
-    if (existing && existing.currentSong) {
+    const isStale =
+      Boolean(existing) &&
+      ((typeof dbRoundState?.currentRound === "number" &&
+        dbRoundState.currentRound > (existing?.currentRound || 0)) ||
+       (Array.isArray(room.played_song_ids) &&
+        room.played_song_ids.length > (existing?.currentRound || 0)));
+
+    // If existing in-memory state has currentSong and is not stale, sync any newer buzzer / status from DB if applicable
+    if (existing && existing.currentSong && !isStale) {
       if (dbRoundState) {
         if (dbRoundState.buzzedPlayerId && !existing.buzzedPlayerId) {
           existing.buzzedPlayerId = dbRoundState.buzzedPlayerId;
@@ -281,8 +288,8 @@ export class RoomStateStore {
         : [],
       scores:
         typeof dbRoundState?.scores === "object" && dbRoundState?.scores !== null
-          ? { ...dbRoundState.scores }
-          : {},
+          ? { ...(existing?.scores || {}), ...dbRoundState.scores }
+          : { ...(existing?.scores || {}) },
       winnerPlayerId: dbRoundState?.winnerPlayerId ?? null,
       roundWinnerPlayerId: dbRoundState?.roundWinnerPlayerId ?? null,
       revealedHintLevel:
@@ -598,9 +605,19 @@ export class RoomStateStore {
           ? options.totalPlayers
           : options?.roomSettings?.playerCount && options.roomSettings.playerCount > 0
           ? options.roomSettings.playerCount
+          : state.settings?.playerCount && state.settings.playerCount > 0
+          ? state.settings.playerCount
           : Object.keys(state.scores).length > 0
           ? Object.keys(state.scores).length
           : 1;
+
+      const knownPlayerIds = Object.keys(state.scores);
+      const allKnownPlayersExcluded =
+        knownPlayerIds.length >= 2 &&
+        knownPlayerIds.every((id) => state.excludedPlayerIds.includes(id));
+      const shouldReveal =
+        state.excludedPlayerIds.length >= effectiveTotalPlayers ||
+        allKnownPlayersExcluded;
 
       if (isStandardBuzzer) {
         // Release buzzer lock and allow other players to buzz if this was the buzzed player
@@ -611,7 +628,7 @@ export class RoomStateStore {
           state.buzzDeadline = null;
         }
 
-        if (state.excludedPlayerIds.length >= effectiveTotalPlayers) {
+        if (shouldReveal) {
           state.roundStatus = "revealing";
           state.winnerPlayerId = null;
           state.roundWinnerPlayerId = null;
@@ -622,7 +639,7 @@ export class RoomStateStore {
         // Direct answering mode:
         // Do NOT change roundStatus (remains "question_active" so other players can still guess!)
         // If ALL players in the room are in excludedPlayerIds: change state.roundStatus = "revealing" with no winner.
-        if (state.excludedPlayerIds.length >= effectiveTotalPlayers) {
+        if (shouldReveal) {
           state.roundStatus = "revealing";
           state.winnerPlayerId = null;
           state.roundWinnerPlayerId = null;
@@ -689,7 +706,15 @@ export class RoomStateStore {
         ? Object.keys(state.scores).length
         : 1;
 
-    if (state.excludedPlayerIds.length >= effectiveTotalPlayers) {
+    const knownPlayerIds = Object.keys(state.scores);
+    const allKnownPlayersExcluded =
+      knownPlayerIds.length >= 2 &&
+      knownPlayerIds.every((id) => state.excludedPlayerIds.includes(id));
+    const shouldReveal =
+      state.excludedPlayerIds.length >= effectiveTotalPlayers ||
+      allKnownPlayersExcluded;
+
+    if (shouldReveal) {
       state.roundStatus = "revealing";
       state.winnerPlayerId = null;
       state.roundWinnerPlayerId = null;
@@ -873,7 +898,14 @@ export class RoomStateStore {
         ? Object.keys(state.scores).length
         : 1;
 
-    const allExcluded = state.excludedPlayerIds.length >= effectiveTotalPlayers;
+    const knownPlayerIds = Object.keys(state.scores);
+    const allKnownPlayersExcluded =
+      knownPlayerIds.length >= 2 &&
+      knownPlayerIds.every((id) => state.excludedPlayerIds.includes(id));
+
+    const allExcluded =
+      state.excludedPlayerIds.length >= effectiveTotalPlayers ||
+      allKnownPlayersExcluded;
 
     if (allExcluded) {
       state.roundStatus = "revealing";

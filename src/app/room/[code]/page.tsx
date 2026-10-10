@@ -33,6 +33,7 @@ import { PodiumView } from "@/components/room/podium-view";
 import { getDeterministicAvatar } from "@/components/room/player-card";
 import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
 import { useAuth } from "@/hooks/use-auth";
+import { DEMO_SONGS } from "@/lib/constants/demo-songs";
 import type { Player, RoomSettings, Song } from "@/types";
 
 /**
@@ -162,7 +163,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   const [joinError, setJoinError] = useState<string | null>(null);
 
   // Song catalog for autocomplete search
-  const [songLibrary, setSongLibrary] = useState<Song[]>([]);
+  const [songLibrary, setSongLibrary] = useState<Song[]>(DEMO_SONGS);
 
   useEffect(() => {
     let isMounted = true;

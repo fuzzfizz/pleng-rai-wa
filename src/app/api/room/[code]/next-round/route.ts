@@ -87,11 +87,21 @@ export async function POST(
       : Array.isArray(room.played_song_ids)
       ? [...room.played_song_ids]
       : [];
+    const dbRoundState =
+      (typeof room.settings?.round_state === "object" && room.settings.round_state !== null
+        ? room.settings.round_state
+        : undefined) ||
+      (typeof room.round_state === "object" && room.round_state !== null
+        ? room.round_state
+        : undefined);
+
     const completedRounds = isPlayAgain
       ? 0
-      : existingRoundState
-      ? existingRoundState.currentRound
-      : playedSongIds.length;
+      : Math.max(
+          playedSongIds.length,
+          typeof dbRoundState?.currentRound === "number" ? dbRoundState.currentRound : 0,
+          existingRoundState?.currentRound ?? 0
+        );
 
     if (isPlayAgain) {
       RoomStateStore.resetRoom(cleanCode);
