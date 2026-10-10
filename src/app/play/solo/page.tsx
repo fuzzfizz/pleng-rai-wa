@@ -58,6 +58,7 @@ import {
   clampSeekTime,
   getVinylAnimationClass,
 } from "@/components/room/round-reveal-card";
+import { calculateSliceStart } from "@/lib/audio-slice-utils";
 
 // Built-in seed songs for immediate offline play
 const DEMO_SONGS: Song[] = [
@@ -129,6 +130,9 @@ function SoloPlayContent() {
   const [sliceDuration, setSliceDuration] = useState<number>(1.0);
   const [lyricsType, setLyricsType] = useState<"intro" | "chorus">("intro");
   const [voiceGender, setVoiceGender] = useState<AIVoiceGender>("female");
+  const [roundSliceStartSec, setRoundSliceStartSec] = useState<number>(() =>
+    calculateSliceStart(DEMO_SONGS[0], 1.0)
+  );
 
   // Gameplay State
   const [score, setScore] = useState(0);
@@ -166,6 +170,13 @@ function SoloPlayContent() {
   }, []);
 
   const currentSong = songsPool[currentSongIndex] || songsPool[0] || DEMO_SONGS[0];
+
+  // Recalculate randomized slice start whenever the current song/round changes
+  useEffect(() => {
+    if (currentSong) {
+      setRoundSliceStartSec(calculateSliceStart(currentSong, sliceDuration));
+    }
+  }, [currentSongIndex, currentSong?.id]);
 
   // Helper to reset round sounds & answers
   const resetRoundState = () => {
@@ -493,8 +504,8 @@ function SoloPlayContent() {
     playClickSound();
     audioRef.current?.pause();
 
-    // If slice duration is chosen, fetch sliced audio from API or fallback
-    const startSec = currentSong.hookStartSec || 45;
+    // Use randomized slice start calculated for this round
+    const startSec = roundSliceStartSec;
     const sliceUrl = `/api/audio/slice?id=${currentSong.id}&start=${startSec}&duration=${sliceDuration}`;
 
     const audio = new Audio(sliceUrl);
@@ -740,6 +751,10 @@ function SoloPlayContent() {
     // Pick next random song
     const nextIdx = (currentSongIndex + 1) % songsPool.length;
     setCurrentSongIndex(nextIdx);
+    const nextSong = songsPool[nextIdx];
+    if (nextSong) {
+      setRoundSliceStartSec(calculateSliceStart(nextSong, sliceDuration));
+    }
   };
 
   return (

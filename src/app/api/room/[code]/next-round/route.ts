@@ -11,6 +11,7 @@ import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 import { translateThaiToEnglishLiteral } from "@/lib/translate";
+import { calculateSliceStart } from "@/lib/audio-slice-utils";
 import type { RoomSettings, Song, ChoiceOption } from "@/types";
 
 export async function POST(
@@ -185,8 +186,7 @@ export async function POST(
 
     // Build audio slice URL & lyrics
     const durationSec = settings.sliceDurationSec || 2.0;
-    const startSec =
-      song.hookStartSec && song.hookStartSec > 0 ? song.hookStartSec : 0;
+    const startSec = calculateSliceStart(song, durationSec);
     const sliceUrl = `/api/audio/slice?id=${encodeURIComponent(song.id)}&start=${startSec}&duration=${durationSec}`;
 
     let lyrics: string | undefined = undefined;

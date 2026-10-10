@@ -36,6 +36,44 @@ export async function POST(
       );
     }
 
+    // Parse body for playerId / sessionToken
+    let body: any = {};
+    try {
+      const text = await request.text();
+      if (text && text.trim().length > 0) {
+        body = JSON.parse(text);
+      }
+    } catch {
+      // Empty or non-JSON body
+    }
+
+    // Host authorization check
+    const authHeader = request.headers.get("authorization");
+    const bearerToken = authHeader
+      ? authHeader.replace(/^Bearer\s+/i, "").trim()
+      : undefined;
+
+    const hostPlayerId = room.host_player_id || (room as any).hostPlayerId;
+    const providedTokens = [
+      bearerToken,
+      typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0
+        ? body.sessionToken.trim()
+        : undefined,
+      typeof body.playerId === "string" && body.playerId.trim().length > 0
+        ? body.playerId.trim()
+        : undefined,
+    ].filter(Boolean) as string[];
+
+    if (providedTokens.length > 0 && !providedTokens.includes(hostPlayerId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ไม่มีสิทธิ์ยกเลิกเกม (เฉพาะ Host เท่านั้น)",
+        },
+        { status: 403 }
+      );
+    }
+
     // 1. Update room status in DB / memory back to "lobby", clear roundState, and reset played_song_ids = []
     const updatedRoom = await RoomService.updateRoomRound(cleanCode, {
       status: "lobby",

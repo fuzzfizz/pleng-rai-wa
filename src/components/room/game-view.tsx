@@ -216,6 +216,39 @@ export async function executeSurrender({
   return { success: false, error: "no_surrender_handler" };
 }
 
+/**
+ * Determines whether the "Return to Lobby" button should be displayed for a player.
+ * Only the room host can cancel/abort a game and return everyone to the lobby.
+ */
+export function shouldShowReturnToLobbyButton(isHost: boolean): boolean {
+  return Boolean(isHost);
+}
+
+/**
+ * Returns labels and descriptions for the abort game confirmation modal.
+ */
+export function getAbortModalTexts() {
+  return {
+    title: "ยกเลิกเกมและกลับสู่ล็อบบี้?",
+    description:
+      "คุณต้องการยกเลิกเกมรอบนี้และพาทุกคนกลับไปที่หน้า Lobby หรือไม่? (คะแนนในรอบปัจจุบันจะถูกรีเซ็ต)",
+    cancelLabel: "เล่นต่อ",
+    confirmLabel: "ยืนยันกลับล็อบบี้",
+  };
+}
+
+/**
+ * Executes resetting room to lobby.
+ */
+export async function executeResetToLobby(
+  resetToLobbyFn?: () => Promise<{ success: boolean; error?: string }>
+): Promise<{ success: boolean; error?: string }> {
+  if (!resetToLobbyFn) {
+    return { success: false, error: "no_reset_handler" };
+  }
+  return await resetToLobbyFn();
+}
+
 export function GameView({
   roomRealtime,
   songLibrary = [],
@@ -249,6 +282,7 @@ export function GameView({
     nextRound,
     skipRound,
     surrender,
+    resetToLobby,
     requestHint,
     toggleMute,
     playAudio,
@@ -364,8 +398,22 @@ export function GameView({
   const [isRequestingHint, setIsRequestingHint] = useState(false);
   const [clickedWrongChoices, setClickedWrongChoices] = useState<string[]>([]);
   const [isSurrendering, setIsSurrendering] = useState(false);
+  const [isAbortModalOpen, setIsAbortModalOpen] = useState(false);
+  const [isSubmittingAbort, setIsSubmittingAbort] = useState(false);
   const isSkipping = isSurrendering;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Close abort modal on Escape key
+  useEffect(() => {
+    if (!isAbortModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isSubmittingAbort) {
+        setIsAbortModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isAbortModalOpen, isSubmittingAbort]);
 
   // Reset wrong choices when currentRound changes or status transitions
   useEffect(() => {
@@ -714,8 +762,26 @@ export function GameView({
             })}
           </div>
 
-          {/* Settings Menu & Exit Button */}
+          {/* Settings Menu, Return to Lobby & Exit Button */}
           <div className="flex items-center gap-2 shrink-0">
+            {shouldShowReturnToLobbyButton(isHost) && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    soundEffects.click();
+                  } catch {}
+                  setIsAbortModalOpen(true);
+                }}
+                title="กลับล็อบบี้"
+                aria-label="กลับล็อบบี้"
+                className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-xs sm:text-sm flex items-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">กลับล็อบบี้</span>
+              </button>
+            )}
+
             <SettingsMenu />
 
             {onLeaveRoom && (
@@ -1166,6 +1232,87 @@ export function GameView({
         isSubmitting={isSubmittingAnswer}
         timeRemainingSec={room?.settings?.roundTimeoutSec ?? 15}
       />
+
+      {/* ==================================================== */}
+      {/* ABORT GAME TO LOBBY CONFIRMATION MODAL (Host only)  */}
+      {/* ==================================================== */}
+      {isAbortModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="abort-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => !isSubmittingAbort && setIsAbortModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-7 shadow-2xl text-center overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Ambient decorative glow */}
+            <div className="absolute -top-12 -left-12 w-32 h-32 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-rose-500/15 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-4">
+              <RotateCcw className="w-6 h-6" />
+            </div>
+
+            <h3
+              id="abort-modal-title"
+              className="text-lg sm:text-xl font-black text-stone-900 dark:text-stone-100 mb-2"
+            >
+              ยกเลิกเกมและกลับสู่ล็อบบี้?
+            </h3>
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mb-6 leading-relaxed">
+              คุณต้องการยกเลิกเกมรอบนี้และพาทุกคนกลับไปที่หน้า Lobby หรือไม่? (คะแนนในรอบปัจจุบันจะถูกรีเซ็ต)
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={isSubmittingAbort}
+                onClick={() => {
+                  try {
+                    soundEffects.click();
+                  } catch {}
+                  setIsAbortModalOpen(false);
+                }}
+                className="flex-1 min-h-[44px] py-2.5 px-4 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold text-sm hover:bg-stone-200 dark:hover:bg-stone-700 transition active:scale-95 touch-manipulation cursor-pointer disabled:opacity-50"
+              >
+                เล่นต่อ
+              </button>
+
+              <button
+                type="button"
+                disabled={isSubmittingAbort}
+                onClick={async () => {
+                  try {
+                    soundEffects.click();
+                  } catch {}
+                  setIsSubmittingAbort(true);
+                  try {
+                    await resetToLobby();
+                    setIsAbortModalOpen(false);
+                  } catch (err) {
+                    console.error("[GameView] Failed to reset lobby:", err);
+                  } finally {
+                    setIsSubmittingAbort(false);
+                  }
+                }}
+                className="flex-1 min-h-[44px] py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-stone-950 font-bold text-sm shadow-md shadow-amber-500/20 transition active:scale-95 touch-manipulation cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isSubmittingAbort ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>กำลังกลับ...</span>
+                  </>
+                ) : (
+                  <span>ยืนยันกลับล็อบบี้</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================================================== */}
       {/* BOTTOM BAR: Status cue pill                          */}

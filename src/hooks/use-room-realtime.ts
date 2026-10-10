@@ -424,12 +424,15 @@ export function reduceRoomRealtimeEvent(
             nextState.isAudioPlaying = false;
             nextState.revealedHints = { level: 0 };
             nextState.playerHintLevels = {};
-            if (payload?.scores && typeof payload.scores === "object") {
+            if (payload?.scores && Object.keys(payload.scores).length > 0) {
               nextState.scores = payload.scores;
             } else {
               const resetScores: Record<string, number> = {};
               for (const p of nextState.players) {
                 resetScores[p.id] = 0;
+              }
+              if (nextState.myPlayer && resetScores[nextState.myPlayer.id] === undefined) {
+                resetScores[nextState.myPlayer.id] = 0;
               }
               nextState.scores = resetScores;
             }
@@ -981,9 +984,17 @@ export function useRoomRealtime(
     error?: string;
   }> => {
     try {
+      const playerId = state.myPlayer?.id;
       const res = await fetch(`/api/room/${cleanCode}/reset-lobby`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(playerId ? { Authorization: `Bearer ${playerId}` } : {}),
+        },
+        body: JSON.stringify({
+          playerId,
+          sessionToken: state.myPlayer?.sessionToken || playerId,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -993,7 +1004,7 @@ export function useRoomRealtime(
       dispatch({
         type: "broadcast",
         event: "room_state",
-        payload: { status: "lobby", scores: {} },
+        payload: { status: "lobby", round: 0, scores: {}, room: data.room },
       });
       if (channelRef.current && state.myPlayer) {
         try {
