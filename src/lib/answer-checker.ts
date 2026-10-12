@@ -343,16 +343,25 @@ export function searchSongAutocomplete(
   }
 
   // If query is 3+ characters:
-  // Prioritize songs where title contains the query first.
+  // Prioritize songs where title, artist, or alias matches
   const titleStarts: Song[] = [];
   const titleContains: Song[] = [];
+  const artistMatches: Song[] = [];
+  const aliasMatches: Song[] = [];
   const seenIds = new Set<string>();
 
   for (const song of songPool) {
     const title = song.title || "";
+    const artist = song.artist || "";
+    const aliases = song.aliases || [];
+
     const normTitle = normalizeThaiText(title);
     const normTitleNoTones = normalizeThaiText(title, { stripTones: true });
     const rawLowerTitle = title.toLowerCase();
+
+    const normArtist = normalizeThaiText(artist);
+    const normArtistNoTones = normalizeThaiText(artist, { stripTones: true });
+    const rawLowerArtist = artist.toLowerCase();
 
     const titleMatchesStart =
       (normQuery && normTitle.startsWith(normQuery)) ||
@@ -364,28 +373,52 @@ export function searchSongAutocomplete(
       (normQueryNoTones && normTitleNoTones.includes(normQueryNoTones)) ||
       rawLowerTitle.includes(rawLowerQuery);
 
+    const artistContains =
+      (normQuery && normArtist.includes(normQuery)) ||
+      (normQueryNoTones && normArtistNoTones.includes(normQueryNoTones)) ||
+      rawLowerArtist.includes(rawLowerQuery);
+
+    const aliasContains = aliases.some((a) => {
+      const normA = normalizeThaiText(a);
+      const normANoTones = normalizeThaiText(a, { stripTones: true });
+      const rawA = a.toLowerCase();
+      return (
+        (normQuery && normA.includes(normQuery)) ||
+        (normQueryNoTones && normANoTones.includes(normQueryNoTones)) ||
+        rawA.includes(rawLowerQuery)
+      );
+    });
+
+    const key = song.id || song.title;
+
     if (titleMatchesStart) {
       titleStarts.push(song);
-      seenIds.add(song.id || song.title);
+      seenIds.add(key);
     } else if (titleMatchesContains) {
       titleContains.push(song);
-      seenIds.add(song.id || song.title);
+      seenIds.add(key);
+    } else if (artistContains) {
+      artistMatches.push(song);
+      seenIds.add(key);
+    } else if (aliasContains) {
+      aliasMatches.push(song);
+      seenIds.add(key);
     }
   }
 
-  const prioritized = [...titleStarts, ...titleContains];
+  const prioritized = [...titleStarts, ...titleContains, ...artistMatches, ...aliasMatches];
   if (prioritized.length >= limit) {
     return prioritized.slice(0, limit);
   }
 
-  // Use Fuse.js with a strict threshold (threshold: 0.25) so loose accidental matches don't appear.
+  // Use Fuse.js with a balanced threshold so loose accidental matches don't appear
   const fuse = new Fuse(songPool, {
     keys: [
-      { name: "title", weight: 0.6 },
-      { name: "aliases", weight: 0.25 },
-      { name: "artist", weight: 0.15 },
+      { name: "title", weight: 0.55 },
+      { name: "aliases", weight: 0.3 },
+      { name: "artist", weight: 0.25 },
     ],
-    threshold: 0.25,
+    threshold: 0.38,
     distance: 100,
     ignoreLocation: true,
     minMatchCharLength: 2,

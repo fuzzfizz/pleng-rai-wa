@@ -100,6 +100,10 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
     result.answerInputMode = "autocomplete";
   }
 
+  if (result.answerResolutionMode && !["race", "wait_all"].includes(result.answerResolutionMode)) {
+    result.answerResolutionMode = "race";
+  }
+
   if (result.maxWrongGuesses !== undefined) {
     const val = Number(result.maxWrongGuesses);
     result.maxWrongGuesses = isNaN(val) || val < 0 ? 1 : val;
@@ -757,6 +761,56 @@ export function HostSettingsModal({
               </button>
             </div>
           </div>
+
+          {/* 6.5. Answer Resolution Mode (Race vs Wait-for-All) */}
+          {draft.gameMode !== "buzzer" && (
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
+                🏁 กติกาการเฉลยคำตอบ (Answer Resolution)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, answerResolutionMode: "race" }))}
+                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    (draft.answerResolutionMode || "race") === "race"
+                      ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm text-stone-900 dark:text-white">⚡ แย่งกันตอบ (Race)</span>
+                    {(draft.answerResolutionMode || "race") === "race" && (
+                      <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    )}
+                  </div>
+                  <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                    ใครตอบถูกคนแรกชนะทันทีและเฉลยเพลง คนตอบผิดเสียแต้ม
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, answerResolutionMode: "wait_all" }))}
+                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    draft.answerResolutionMode === "wait_all"
+                      ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm text-stone-900 dark:text-white">👥 รอตอบให้หมดทุกคน (Wait for All)</span>
+                    {draft.answerResolutionMode === "wait_all" && (
+                      <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    )}
+                  </div>
+                  <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                    ทุกคนพิมพ์ส่งคำตอบได้ในเวลา เมื่อตอบครบหรือหมดเวลาจึงเฉลยพร้อมกัน
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 7. Allowed Wrong Guesses */}
           <div>

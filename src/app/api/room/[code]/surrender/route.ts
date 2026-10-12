@@ -46,7 +46,8 @@ export async function POST(
       // Empty or non-JSON body
     }
 
-    const { playerId, displayName, totalPlayers } = body || {};
+    const { playerId, displayName, totalPlayers, reason: rawReason } = body || {};
+    const reason: "surrendered" | "timed_out" = rawReason === "timed_out" ? "timed_out" : "surrendered";
 
     if (!playerId || typeof playerId !== "string" || playerId.trim().length === 0) {
       return NextResponse.json(
@@ -66,6 +67,7 @@ export async function POST(
     const result = RoomStateStore.surrenderPlayer(cleanCode, cleanPlayerId, displayName, {
       roomSettings,
       totalPlayers: typeof totalPlayers === "number" && totalPlayers > 0 ? totalPlayers : undefined,
+      reason,
     });
 
     if (!result.success) {
@@ -108,25 +110,30 @@ export async function POST(
       playerId: cleanPlayerId,
       displayName: displayName || "ผู้เล่น",
       allExcluded: result.allExcluded,
+      reason,
     });
 
     // 2. If all players have surrendered or guessed wrong, broadcast round_reveal
     if (result.allExcluded) {
+      const winnerId = result.roundState?.winnerPlayerId || null;
+      const winnerSubmission = winnerId ? result.roundState?.playerSubmissions?.[winnerId] : null;
+
       await RealtimeBroadcastService.broadcast(cleanCode, "round_reveal", {
         song: result.fullSong || result.roundState?.currentSong,
-        winnerPlayerId: null,
-        winnerDisplayName: null,
-        answerText: null,
-        scoreDelta: 0,
+        winnerPlayerId: winnerId,
+        winnerDisplayName: winnerSubmission?.displayName || (winnerId ? "ผู้ชนะ" : null),
+        answerText: winnerSubmission?.answerText || null,
+        scoreDelta: winnerSubmission?.scoreDelta || 0,
         scores: result.roundState?.scores || {},
-        skipped: true,
+        skipped: !winnerId,
       });
     }
 
     return NextResponse.json({
       success: true,
-      message: "ยอมแพ้ข้อนี้เรียบร้อยแล้ว",
+      message: reason === "timed_out" ? "หมดเวลาตอบในข้อนี้แล้ว" : "ยอมแพ้ข้อนี้เรียบร้อยแล้ว",
       allExcluded: result.allExcluded,
+      reason,
       roundStatus: result.roundState?.roundStatus,
     });
   } catch (error) {

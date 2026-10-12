@@ -21,6 +21,17 @@ export interface WrongGuess {
   timestamp: string;
 }
 
+export interface PlayerSubmission {
+  playerId: string;
+  displayName: string;
+  answerText: string;
+  isCorrect: boolean;
+  scoreDelta: number;
+  matchedAs?: string;
+  similarity?: number;
+  timestamp: string;
+}
+
 export interface RoomRoundState {
   roomCode: string;
   currentRound: number;
@@ -40,6 +51,7 @@ export interface RoomRoundState {
   buzzedAt?: string | null;
   buzzDeadline?: string | null; // 10 seconds timeout for answering
   excludedPlayerIds: string[]; // Players who answered wrong this round and are barred from re-buzzing until next song
+  playerSubmissions?: Record<string, PlayerSubmission>; // Recorded answer submissions per player
   wrongGuesses: WrongGuess[];
   scores: Record<string, number>; // Running scores by playerId, minimum score clamped to 0
   winnerPlayerId?: string | null;
@@ -68,6 +80,8 @@ export interface SubmitAnswerResult {
   reason?: string;
   roundState?: RoomRoundState;
   fullSong?: Song;
+  waitingForOthers?: boolean;
+  shouldReveal?: boolean;
 }
 
 export interface TimeoutBuzzerResult {
@@ -140,6 +154,7 @@ export class RoomStateStore {
       buzzedAt: state.buzzedAt ?? null,
       buzzDeadline: state.buzzDeadline ?? null,
       excludedPlayerIds: [...state.excludedPlayerIds],
+      playerSubmissions: state.playerSubmissions ? { ...state.playerSubmissions } : {},
       wrongGuesses: [...state.wrongGuesses],
       scores: { ...state.scores },
       winnerPlayerId: state.winnerPlayerId ?? null,
@@ -169,6 +184,13 @@ export class RoomStateStore {
     if (!code || typeof code !== "string" || !room) return undefined;
     const cleanCode = code.trim().toUpperCase();
     const existing = roomRoundStates.get(cleanCode);
+
+    if (room.status === "lobby") {
+      if (existing) {
+        roomRoundStates.delete(cleanCode);
+      }
+      return undefined;
+    }
 
     const dbRoundState =
       (typeof room.settings?.round_state === "object" && room.settings.round_state !== null
@@ -283,6 +305,10 @@ export class RoomStateStore {
       excludedPlayerIds: Array.isArray(dbRoundState?.excludedPlayerIds)
         ? [...dbRoundState.excludedPlayerIds]
         : [],
+      playerSubmissions:
+        typeof dbRoundState?.playerSubmissions === "object" && dbRoundState?.playerSubmissions !== null
+          ? { ...dbRoundState.playerSubmissions }
+          : {},
       wrongGuesses: Array.isArray(dbRoundState?.wrongGuesses)
         ? [...dbRoundState.wrongGuesses]
         : [],
@@ -350,6 +376,7 @@ export class RoomStateStore {
       buzzedAt: null,
       buzzDeadline: null,
       excludedPlayerIds: [],
+      playerSubmissions: {},
       wrongGuesses: [],
       scores,
       winnerPlayerId: null,
@@ -525,10 +552,120 @@ export class RoomStateStore {
       };
     }
 
+    const resolutionMode =
+      options?.roomSettings?.answerResolutionMode ||
+      state.settings?.answerResolutionMode ||
+      "race";
+
     const check = checkAnswer(answerText, {
       title: state.currentSong.title,
       aliases: state.currentSong.aliases,
     });
+
+    if (!state.playerSubmissions) {
+      state.playerSubmissions = {};
+    }
+
+    // Direct answer mode with 'wait_all' setting
+    if (isDirectAnswer && resolutionMode === "wait_all") {
+      const playerHintLevel = playerId
+        ? (state.playerHintLevels?.[playerId] ?? 0)
+        : (state.revealedHintLevel ?? 0);
+      const points =
+        playerHintLevel === 1
+          ? 75
+          : playerHintLevel === 2
+          ? 50
+          : playerHintLevel === 3
+          ? 25
+          : 100;
+
+      const scoreDelta = check.isCorrect ? points : -20;
+      const currentScore = state.scores[playerId] || 0;
+      const newScore = Math.max(0, currentScore + scoreDelta);
+      state.scores[playerId] = newScore;
+
+      state.playerSubmissions[playerId] = {
+        playerId,
+        displayName: displayName || "ผู้เล่น",
+        answerText,
+        isCorrect: check.isCorrect,
+        scoreDelta,
+        matchedAs: check.matchedAs,
+        similarity: check.similarity,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (!state.excludedPlayerIds.includes(playerId)) {
+        state.excludedPlayerIds.push(playerId);
+      }
+
+      if (!check.isCorrect) {
+        if (!state.playerWrongCounts) state.playerWrongCounts = {};
+        state.playerWrongCounts[playerId] = (state.playerWrongCounts[playerId] || 0) + 1;
+        state.wrongGuesses.push({
+          playerId,
+          displayName: displayName || "ผู้เล่น",
+          answerText,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const effectiveTotalPlayers =
+        options?.totalPlayers && options.totalPlayers > 0
+          ? options.totalPlayers
+          : options?.roomSettings?.playerCount && options.roomSettings.playerCount > 0
+          ? options.roomSettings.playerCount
+          : state.settings?.playerCount && state.settings.playerCount > 0
+          ? state.settings.playerCount
+          : Object.keys(state.scores).length > 0
+          ? Object.keys(state.scores).length
+          : 1;
+
+      const knownPlayerIds = Object.keys(state.scores);
+      const allKnownPlayersExcluded =
+        knownPlayerIds.length >= 2 &&
+        knownPlayerIds.every((id) => state.excludedPlayerIds.includes(id));
+
+      const shouldReveal =
+        state.excludedPlayerIds.length >= effectiveTotalPlayers ||
+        allKnownPlayersExcluded;
+
+      if (shouldReveal) {
+        state.roundStatus = "revealing";
+        const correctSubs = Object.values(state.playerSubmissions || {}).filter((s) => s.isCorrect);
+        state.winnerPlayerId = correctSubs.length > 0 ? correctSubs[0].playerId : null;
+        state.roundWinnerPlayerId = state.winnerPlayerId;
+
+        return {
+          success: true,
+          isCorrect: check.isCorrect,
+          matchedAs: check.matchedAs,
+          similarity: check.similarity,
+          scoreDelta,
+          newScore,
+          scores: { ...state.scores },
+          roundState: state,
+          fullSong: state.currentSong,
+          waitingForOthers: false,
+          shouldReveal: true,
+        };
+      } else {
+        state.roundStatus = "question_active";
+        return {
+          success: true,
+          isCorrect: check.isCorrect,
+          matchedAs: check.matchedAs,
+          similarity: check.similarity,
+          scoreDelta,
+          newScore,
+          scores: { ...state.scores },
+          roundState: state,
+          waitingForOthers: true,
+          shouldReveal: false,
+        };
+      }
+    }
 
     if (check.isCorrect) {
       // Points scaled by hint level: 0 hints = 100, 1 hint = 75, 2 hints = 50, 3 hints = 25
@@ -549,6 +686,20 @@ export class RoomStateStore {
       state.roundStatus = "revealing";
       state.winnerPlayerId = playerId;
       state.roundWinnerPlayerId = playerId;
+
+      if (!state.excludedPlayerIds.includes(playerId)) {
+        state.excludedPlayerIds.push(playerId);
+      }
+      state.playerSubmissions[playerId] = {
+        playerId,
+        displayName: displayName || state.buzzedPlayerName || "ผู้เล่น",
+        answerText,
+        isCorrect: true,
+        scoreDelta: points,
+        matchedAs: check.matchedAs,
+        similarity: check.similarity,
+        timestamp: new Date().toISOString(),
+      };
 
       if (isStandardBuzzer) {
         state.buzzedPlayerId = null;
@@ -592,6 +743,15 @@ export class RoomStateStore {
         }
       }
 
+      state.playerSubmissions[playerId] = {
+        playerId,
+        displayName: displayName || state.buzzedPlayerName || "ผู้เล่น",
+        answerText,
+        isCorrect: false,
+        scoreDelta: -20,
+        timestamp: new Date().toISOString(),
+      };
+
       // Record wrong guess history
       state.wrongGuesses.push({
         playerId,
@@ -615,6 +775,7 @@ export class RoomStateStore {
       const allKnownPlayersExcluded =
         knownPlayerIds.length >= 2 &&
         knownPlayerIds.every((id) => state.excludedPlayerIds.includes(id));
+
       const shouldReveal =
         state.excludedPlayerIds.length >= effectiveTotalPlayers ||
         allKnownPlayersExcluded;
@@ -710,6 +871,7 @@ export class RoomStateStore {
     const allKnownPlayersExcluded =
       knownPlayerIds.length >= 2 &&
       knownPlayerIds.every((id) => state.excludedPlayerIds.includes(id));
+
     const shouldReveal =
       state.excludedPlayerIds.length >= effectiveTotalPlayers ||
       allKnownPlayersExcluded;
@@ -849,6 +1011,7 @@ export class RoomStateStore {
     options?: {
       roomSettings?: RoomSettings;
       totalPlayers?: number;
+      reason?: "surrendered" | "timed_out";
     }
   ): {
     success: boolean;
@@ -874,6 +1037,20 @@ export class RoomStateStore {
 
     if (!state.excludedPlayerIds.includes(playerId)) {
       state.excludedPlayerIds.push(playerId);
+    }
+
+    if (!state.playerSubmissions) {
+      state.playerSubmissions = {};
+    }
+    if (!state.playerSubmissions[playerId]) {
+      state.playerSubmissions[playerId] = {
+        playerId,
+        displayName: displayName || "ผู้เล่น",
+        answerText: options?.reason === "timed_out" ? "(หมดเวลา)" : "(ยอมแพ้)",
+        isCorrect: false,
+        scoreDelta: 0,
+        timestamp: new Date().toISOString(),
+      };
     }
 
     // Release buzzer if this player held it
@@ -909,8 +1086,10 @@ export class RoomStateStore {
 
     if (allExcluded) {
       state.roundStatus = "revealing";
-      state.winnerPlayerId = null;
-      state.roundWinnerPlayerId = null;
+      // In wait_all mode, check if any player answered correctly earlier
+      const correctSubs = Object.values(state.playerSubmissions || {}).filter((s) => s.isCorrect);
+      state.winnerPlayerId = correctSubs.length > 0 ? correctSubs[0].playerId : null;
+      state.roundWinnerPlayerId = state.winnerPlayerId;
       state.buzzedPlayerId = null;
       state.buzzedPlayerName = null;
       state.buzzedAt = null;

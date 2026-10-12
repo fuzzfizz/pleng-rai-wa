@@ -333,8 +333,90 @@ export async function POST(
       );
     }
 
+    // 1. Wait for all mode: Player answered, but waiting for others to finish
+    if (result.waitingForOthers) {
+      if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+        const serialized = RoomStateStore.serializeRoundState(result.roundState);
+        RoomService.updateRoomRoundState(
+          cleanCode,
+          serialized,
+          "question_active"
+        ).catch((err) => console.warn("[AnswerRoute] Failed to sync waiting round state:", err));
+
+        RedisService.saveRoundState(cleanCode, serialized).catch(() => {});
+      }
+
+      await RealtimeBroadcastService.broadcast(cleanCode, "player_submitted", {
+        playerId: cleanPlayerId,
+        displayName: cleanDisplayName,
+        allExcluded: false,
+      });
+
+      return NextResponse.json({
+        success: true,
+        isCorrect: result.isCorrect,
+        waitingForOthers: true,
+        matchedAs: result.matchedAs,
+        similarity: result.similarity,
+        scoreDelta: result.scoreDelta,
+        newScore: result.newScore,
+        scores: result.scores,
+        message: "บันทึกคำตอบเรียบร้อยแล้ว รอเพื่อนๆ ตอบครบทุกคน",
+      });
+    }
+
+    // 2. Wait for all mode: Last active player answered, reveal round with winner (if any)
+    if (result.shouldReveal) {
+      await RoomService.updateRoomStatus(cleanCode, "revealing");
+
+      if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
+        const serialized = RoomStateStore.serializeRoundState(result.roundState);
+        RoomService.updateRoomRoundState(
+          cleanCode,
+          serialized,
+          "revealing"
+        ).catch((err) => console.warn("[AnswerRoute] Failed to sync reveal state:", err));
+
+        RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
+        RedisService.saveRoundState(cleanCode, serialized).catch(() => {});
+      }
+
+      const winnerId = result.roundState?.winnerPlayerId || null;
+      const winnerSub = winnerId ? result.roundState?.playerSubmissions?.[winnerId] : null;
+
+      const revealPayload = {
+        winnerPlayerId: winnerId,
+        winnerDisplayName: winnerSub?.displayName || (winnerId ? "ผู้ชนะ" : null),
+        answerText: winnerSub?.answerText || cleanAnswerText,
+        matchedAs: winnerSub?.matchedAs || result.matchedAs,
+        similarity: winnerSub?.similarity || result.similarity,
+        scoreDelta: winnerSub?.scoreDelta || result.scoreDelta,
+        scores: result.scores,
+        song: result.fullSong || currentRoundState?.currentSong,
+        skipped: !winnerId,
+      };
+
+      await RealtimeBroadcastService.broadcast(
+        cleanCode,
+        "round_reveal",
+        revealPayload
+      );
+
+      return NextResponse.json({
+        success: true,
+        isCorrect: result.isCorrect,
+        waitingForOthers: false,
+        matchedAs: result.matchedAs,
+        similarity: result.similarity,
+        scoreDelta: result.scoreDelta,
+        newScore: result.newScore,
+        scores: result.scores,
+        song: result.fullSong,
+      });
+    }
+
     if (result.isCorrect) {
-      // 1. Correct Answer: update DB status to 'revealing' and sync round state
+      // 3. Race mode: Correct Answer: update DB status to 'revealing' and sync round state
       await RoomService.updateRoomStatus(cleanCode, "revealing");
 
       if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {

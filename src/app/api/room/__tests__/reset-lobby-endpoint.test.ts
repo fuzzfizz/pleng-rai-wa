@@ -143,6 +143,35 @@ describe("Reset Lobby Endpoint (/api/room/[code]/reset-lobby)", () => {
     expect(RoomService.updateRoomRound).not.toHaveBeenCalled();
   });
 
+  it("allows non-host player to reset room to lobby when room status is game_over", async () => {
+    const gameOverRoom = { ...mockRoom, status: "game_over" };
+    (RoomService.getRoomByCode as any).mockResolvedValue(gameOverRoom);
+    (RoomService.updateRoomRound as any).mockResolvedValue({ ...mockUpdatedRoom, status: "lobby" });
+
+    const req = new NextRequest(`http://localhost/api/room/${roomCode}/reset-lobby`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${otherPlayerId}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ playerId: otherPlayerId, sessionToken: otherPlayerId }),
+    });
+
+    const res = await resetLobbyHandler(req, {
+      params: Promise.resolve({ code: roomCode }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(RoomService.updateRoomRound).toHaveBeenCalledWith(roomCode, {
+      status: "lobby",
+      playedSongIds: [],
+      currentSongId: null,
+      roundState: null,
+    });
+  });
+
   it("authorizes host via body.playerId and resets room state cleanly", async () => {
     (RoomService.getRoomByCode as any).mockResolvedValue(mockRoom);
     (RoomService.updateRoomRound as any).mockResolvedValue(mockUpdatedRoom);

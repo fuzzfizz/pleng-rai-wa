@@ -42,6 +42,7 @@ import type { Player, RoomSettings, Song } from "@/types";
 export const DEFAULT_CLIENT_ROOM_SETTINGS: RoomSettings = {
   gameMode: "buzzer",
   answerInputMode: "autocomplete",
+  answerResolutionMode: "race",
   lyricsType: "intro",
   voiceGender: "female",
   sliceDurationSec: 2.0,

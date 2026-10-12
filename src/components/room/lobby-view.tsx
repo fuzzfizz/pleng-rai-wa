@@ -76,7 +76,12 @@ export function formatSettingsSummary(settings: RoomSettings): string {
       ? "ตัวเลือก (ปรนัย)"
       : "พิมพ์เอง";
 
-  return `${modeLabel} • ${roundsLabel} • ${detailLabel} • ${inputLabel}`;
+  const resolutionLabel =
+    settings.gameMode !== "buzzer" && settings.answerResolutionMode === "wait_all"
+      ? " • รอตอบครบทุกคน"
+      : "";
+
+  return `${modeLabel} • ${roundsLabel} • ${detailLabel} • ${inputLabel}${resolutionLabel}`;
 }
 
 export function LobbyView({

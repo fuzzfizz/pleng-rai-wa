@@ -13,7 +13,7 @@ vi.mock("@/lib/services/room-service", () => ({
   RoomService: {
     getRoomByCode: vi.fn(),
     updateRoomStatus: vi.fn(),
-    updateRoomRound: vi.fn(),
+    updateRoomRound: vi.fn().mockResolvedValue({}),
     updateRoomRoundState: vi.fn().mockResolvedValue({}),
   },
   DEFAULT_ROOM_SETTINGS: {
@@ -146,6 +146,39 @@ describe("Skip Route & Decoy Generation Logic", () => {
           ]),
         })
       );
+    });
+
+    it("starts strictly at round 1 when starting from lobby even if previous played_song_ids exist", async () => {
+      (RoomService.getRoomByCode as any).mockResolvedValue({
+        room_code: roomCode,
+        host_player_id: "host-1",
+        status: "lobby",
+        settings: {
+          gameMode: "audio-slice",
+          answerInputMode: "autocomplete",
+          totalRounds: 10,
+        },
+        played_song_ids: ["old-song-1", "old-song-2", "old-song-3"],
+      });
+
+      (SongService.getRandomSongs as any).mockResolvedValueOnce([dummySong]);
+
+      const req = new NextRequest(`http://localhost:3000/api/room/${roomCode}/next-round`, {
+        method: "POST",
+        body: JSON.stringify({ sessionToken: "host-1" }),
+      });
+
+      const response = await nextRoundHandler(req, {
+        params: Promise.resolve({ code: roomCode }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.round).toBe(1);
+
+      const state = RoomStateStore.getRoomRoundState(roomCode);
+      expect(state?.currentRound).toBe(1);
     });
   });
 

@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import confetti from "canvas-confetti";
-import { Trophy, Crown, RotateCcw, Home, LogOut, Sparkles, Award } from "lucide-react";
+import { Trophy, Crown, RotateCcw, Home, LogOut, Sparkles, Award, Loader2 } from "lucide-react";
 import type { Player } from "@/types";
 import { soundEffects } from "@/lib/sound-effects";
 import { getDeterministicAvatar } from "./player-card";
@@ -443,8 +443,17 @@ export function PodiumView({
                 : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-md shadow-amber-500/20"
             }`}
           >
-            <Home className="w-5 h-5" />
-            <span>กลับสู่ห้องล็อบบี้ (Back to Lobby)</span>
+            {isProcessingAction ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>กำลังกลับล็อบบี้...</span>
+              </>
+            ) : (
+              <>
+                <Home className="w-5 h-5" />
+                <span>กลับสู่ห้องล็อบบี้ (Back to Lobby)</span>
+              </>
+            )}
           </button>
         )}
 

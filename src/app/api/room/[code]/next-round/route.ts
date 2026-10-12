@@ -78,24 +78,29 @@ export async function POST(
     // Ensure round state is rehydrated if running on a fresh serverless instance
     await RoomStateStore.ensureRoundState(cleanCode, room);
 
-    // Check if this is a request to play again after game_over
-    const isPlayAgain = Boolean(body.playAgain) || room.status === "game_over";
+    // Check if this is a request to start a new game (from lobby or play again)
+    const isNewGame =
+      Boolean(body.playAgain) ||
+      Boolean(body.isNewGame) ||
+      room.status === "game_over" ||
+      room.status === "lobby";
 
-    const existingRoundState = RoomStateStore.getRoomRoundState(cleanCode);
-    const playedSongIds: string[] = isPlayAgain
+    const existingRoundState = isNewGame ? undefined : RoomStateStore.getRoomRoundState(cleanCode);
+    const playedSongIds: string[] = isNewGame
       ? []
       : Array.isArray(room.played_song_ids)
       ? [...room.played_song_ids]
       : [];
-    const dbRoundState =
-      (typeof room.settings?.round_state === "object" && room.settings.round_state !== null
-        ? room.settings.round_state
-        : undefined) ||
-      (typeof room.round_state === "object" && room.round_state !== null
-        ? room.round_state
-        : undefined);
+    const dbRoundState = isNewGame
+      ? undefined
+      : (typeof room.settings?.round_state === "object" && room.settings.round_state !== null
+          ? room.settings.round_state
+          : undefined) ||
+        (typeof room.round_state === "object" && room.round_state !== null
+          ? room.round_state
+          : undefined);
 
-    const completedRounds = isPlayAgain
+    const completedRounds = isNewGame
       ? 0
       : Math.max(
           playedSongIds.length,
@@ -103,14 +108,17 @@ export async function POST(
           existingRoundState?.currentRound ?? 0
         );
 
-    if (isPlayAgain) {
+    if (isNewGame) {
       RoomStateStore.resetRoom(cleanCode);
-      await RoomService.updateRoomRound(cleanCode, {
-        currentSongId: null,
-        playedSongIds: [],
-        status: "question_active",
-        roundState: null,
-      }).catch((err) => console.warn("[NextRound] Failed to reset room round for playAgain:", err));
+      RedisService.deleteRoom(cleanCode).catch(() => {});
+      await Promise.resolve(
+        RoomService.updateRoomRound(cleanCode, {
+          currentSongId: null,
+          playedSongIds: [],
+          status: "question_active",
+          roundState: null,
+        })
+      ).catch((err) => console.warn("[NextRound] Failed to reset room round for new game:", err));
     } else {
       // Check if game has reached maximum rounds
       if (settings.totalRounds > 0 && completedRounds >= settings.totalRounds) {

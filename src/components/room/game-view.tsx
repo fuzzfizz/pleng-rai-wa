@@ -203,14 +203,16 @@ export async function executeSurrender({
   skipRound,
   surrender,
   onSkipRound,
+  reason = "surrendered",
 }: {
   isHost: boolean;
   skipRound?: () => Promise<boolean>;
-  surrender?: () => Promise<{ success: boolean; error?: string }>;
+  surrender?: (reason?: "surrendered" | "timed_out") => Promise<{ success: boolean; error?: string }>;
   onSkipRound?: () => Promise<boolean>;
+  reason?: "surrendered" | "timed_out";
 }): Promise<{ success: boolean; error?: string }> {
   if (surrender) {
-    return surrender();
+    return surrender(reason);
   }
   if (isHost && onSkipRound) {
     const ok = await onSkipRound();
@@ -348,7 +350,9 @@ export function GameView({
 
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
-  const [myExclusionReason, setMyExclusionReason] = useState<"surrendered" | "wrong_guess" | null>(null);
+  const [myExclusionReason, setMyExclusionReason] = useState<
+    "surrendered" | "timed_out" | "wrong_guess" | "submitted_waiting" | null
+  >(null);
 
   // Reset countdown and exclusion reason on new round or status change
   useEffect(() => {
@@ -459,6 +463,24 @@ export function GameView({
         onSkipRound,
         surrender,
         skipRound,
+        reason: "surrendered",
+      });
+    } finally {
+      setIsSurrendering(false);
+    }
+  }, [isSurrendering, isExcludedFromBuzz, isHost, onSkipRound, surrender, skipRound]);
+
+  const handleTimeout = useCallback(async () => {
+    if (isSurrendering || isExcludedFromBuzz) return;
+    setMyExclusionReason("timed_out");
+    setIsSurrendering(true);
+    try {
+      await executeSurrender({
+        isHost,
+        onSkipRound,
+        surrender,
+        skipRound,
+        reason: "timed_out",
       });
     } finally {
       setIsSurrendering(false);
@@ -486,7 +508,7 @@ export function GameView({
         if (prev <= 1) {
           clearInterval(timer);
           if (!isExcludedRef.current) {
-            handleSurrender();
+            handleTimeout();
           }
           return 0;
         }
@@ -502,7 +524,7 @@ export function GameView({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [hasPlayedOnce, status, answerTimeLimit, handleSurrender]);
+  }, [hasPlayedOnce, status, answerTimeLimit, handleTimeout]);
 
   const handleRequestHint = useCallback(async () => {
     if (isRequestingHint) return;
@@ -586,8 +608,12 @@ export function GameView({
       setIsSubmittingAnswer(true);
       try {
         const res = await submitAnswer(answerText);
-        if (res && res.success === true && res.isCorrect === false) {
-          setMyExclusionReason("wrong_guess");
+        if (res && res.success === true) {
+          if (res.waitingForOthers) {
+            setMyExclusionReason("submitted_waiting");
+          } else if (res.isCorrect === false) {
+            setMyExclusionReason("wrong_guess");
+          }
         }
       } finally {
         setIsSubmittingAnswer(false);
@@ -618,7 +644,7 @@ export function GameView({
     }
     const query = directAnswer.trim();
     if (!query) {
-      return [];
+      return effectiveSongLibrary.slice(0, 5);
     }
     return searchSongAutocomplete(query, effectiveSongLibrary, 5);
   }, [answerInputMode, directAnswer, effectiveSongLibrary]);
@@ -1042,7 +1068,9 @@ export function GameView({
                 <p className="text-xs lg:text-sm font-semibold text-amber-700 dark:text-amber-300/90 text-center flex items-center justify-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
                   <span>
-                    {gameMode === "audio-slice"
+                    {roomRealtime.room?.settings?.answerResolutionMode === "wait_all"
+                      ? "ฟังเสียงเสี้ยววินาทีแล้วเลือกหรือพิมพ์ชื่อเพลง ตอบให้ครบทุกคนเพื่อเก็บคะแนน!"
+                      : gameMode === "audio-slice"
                       ? "ฟังเสียงเสี้ยววินาทีแล้วพิมพ์ชื่อเพลงได้ทันที ใครตอบถูกคนแรกชนะ!"
                       : "พิมพ์ชื่อเพลงและส่งคำตอบได้ทันที ใครตอบถูกคนแรกชนะ!"}
                   </span>
@@ -1050,12 +1078,22 @@ export function GameView({
 
                 {/* Excluded feedback banner */}
                 {isExcludedFromBuzz && (
-                  (myExclusionReason === "surrendered" || (!myExclusionReason && lastWrongGuess?.playerId !== myPlayer?.id)) ? (
-                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-stone-500/15 border border-stone-400/40 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm">
+                  myExclusionReason === "timed_out" ? (
+                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>⏰ คุณตอบไม่ทันในข้อนี้ (หมดเวลา)</span>
+                    </div>
+                  ) : myExclusionReason === "submitted_waiting" ? (
+                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
+                      <Loader2 className="w-4 h-4 text-emerald-500 animate-spin shrink-0" />
+                      <span>✓ บันทึกคำตอบแล้ว รอเพื่อนๆ ตอบครบทุกคน...</span>
+                    </div>
+                  ) : (myExclusionReason === "surrendered" || (!myExclusionReason && lastWrongGuess?.playerId !== myPlayer?.id)) ? (
+                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-stone-500/15 border border-stone-400/40 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
                       <span>🏳️ คุณยอมแพ้ในข้อนี้แล้ว (รอข้อถัดไป)</span>
                     </div>
                   ) : (
-                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-700 dark:text-rose-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm">
+                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-700 dark:text-rose-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
                       <span>❌ คุณตอบผิดในข้อนี้แล้ว (รอข้อถัดไป)</span>
                     </div>
                   )
@@ -1132,51 +1170,51 @@ export function GameView({
                         autoComplete="off"
                         className="w-full min-h-[48px] lg:min-h-[54px] pl-11 lg:pl-12 pr-4 py-3 bg-stone-50 dark:bg-stone-950/90 border-2 border-stone-300 dark:border-stone-700 focus:border-amber-500 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-500 font-medium focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-base lg:text-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
                       />
-                    </div>
 
-                    {/* Autocomplete Dropdown List */}
-                    {answerInputMode === "autocomplete" && showSuggestions && directSuggestions.length > 0 && !isExcludedFromBuzz && (
-                      <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
-                        {directSuggestions.map((song, idx) => {
-                          const isHighlighted = idx === highlightedIndex;
-                          return (
-                            <button
-                              key={song.id || idx}
-                              type="button"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleSelectSuggestion(song.title);
-                              }}
-                              className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between text-sm lg:text-base transition cursor-pointer ${
-                                isHighlighted
-                                  ? "bg-amber-500 text-stone-950 font-bold"
-                                  : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
-                              }`}
-                            >
-                              <div className="truncate pr-2">
-                                <div className="font-semibold truncate">{song.title}</div>
-                                <div
-                                  className={`text-xs truncate ${
-                                    isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
-                                  }`}
-                                >
-                                  {song.artist}
-                                </div>
-                              </div>
-                              <span
-                                className={`text-[11px] px-2 py-0.5 rounded-full uppercase font-medium shrink-0 ${
+                      {/* Autocomplete Dropdown List (anchored directly under input) */}
+                      {answerInputMode === "autocomplete" && showSuggestions && directSuggestions.length > 0 && !isExcludedFromBuzz && (
+                        <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
+                          {directSuggestions.map((song, idx) => {
+                            const isHighlighted = idx === highlightedIndex;
+                            return (
+                              <button
+                                key={song.id || idx}
+                                type="button"
+                                onPointerDown={(e) => {
+                                  e.preventDefault();
+                                  handleSelectSuggestion(song.title);
+                                }}
+                                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between text-sm lg:text-base transition cursor-pointer ${
                                   isHighlighted
-                                    ? "bg-stone-950/20 text-stone-950"
-                                    : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+                                    ? "bg-amber-500 text-stone-950 font-bold"
+                                    : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
                                 }`}
                               >
-                                เลือก
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                                <div className="truncate pr-2">
+                                  <div className="font-semibold truncate">{song.title}</div>
+                                  <div
+                                    className={`text-xs truncate ${
+                                      isHighlighted ? "text-stone-900" : "text-stone-500 dark:text-stone-400"
+                                    }`}
+                                  >
+                                    {song.artist}
+                                  </div>
+                                </div>
+                                <span
+                                  className={`text-[11px] px-2 py-0.5 rounded-full uppercase font-medium shrink-0 ${
+                                    isHighlighted
+                                      ? "bg-stone-950/20 text-stone-950"
+                                      : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+                                  }`}
+                                >
+                                  เลือก
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
 
                     {/* Submit Button */}
                     <button

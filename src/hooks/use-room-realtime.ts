@@ -424,6 +424,8 @@ export function reduceRoomRealtimeEvent(
             nextState.isAudioPlaying = false;
             nextState.revealedHints = { level: 0 };
             nextState.playerHintLevels = {};
+            nextState.playerHints = {};
+            nextState.excludedPlayerIds = [];
             if (payload?.scores && Object.keys(payload.scores).length > 0) {
               nextState.scores = payload.scores;
             } else {
@@ -495,6 +497,20 @@ export function reduceRoomRealtimeEvent(
               nextState.excludedPlayerIds = [...currentExcluded, surrenderedId];
             }
             if (nextState.myPlayer && nextState.myPlayer.id === surrenderedId) {
+              nextState.isExcludedFromBuzz = true;
+            }
+          }
+          break;
+        }
+
+        case "player_submitted": {
+          const submittedId = payload?.playerId;
+          if (submittedId) {
+            const currentExcluded = nextState.excludedPlayerIds || [];
+            if (!currentExcluded.includes(submittedId)) {
+              nextState.excludedPlayerIds = [...currentExcluded, submittedId];
+            }
+            if (nextState.myPlayer && nextState.myPlayer.id === submittedId) {
               nextState.isExcludedFromBuzz = true;
             }
           }
@@ -758,6 +774,9 @@ export function useRoomRealtime(
       })
       .on("broadcast", { event: "player_surrendered" }, ({ payload }) => {
         handleBroadcast("player_surrendered", payload);
+      })
+      .on("broadcast", { event: "player_submitted" }, ({ payload }) => {
+        handleBroadcast("player_submitted", payload);
       });
 
     channel.subscribe(async (status) => {
@@ -820,12 +839,17 @@ export function useRoomRealtime(
   const submitAnswer = useCallback(
     async (
       answerText: string
-    ): Promise<{ success: boolean; isCorrect?: boolean; error?: string }> => {
+    ): Promise<{ success: boolean; isCorrect?: boolean; waitingForOthers?: boolean; error?: string }> => {
       if (!state.myPlayer) return { success: false, error: "no_player" };
       if (state.isExcludedFromBuzz) {
         return { success: false, error: "already_excluded" };
       }
       try {
+        const activeHumanPlayers = state.players.filter(
+          (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+        );
+        const totalPlayers = activeHumanPlayers.length > 0 ? activeHumanPlayers.length : 1;
+
         const res = await fetch(`/api/room/${cleanCode}/answer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -833,7 +857,7 @@ export function useRoomRealtime(
             playerId: state.myPlayer.id,
             displayName: state.myPlayer.displayName,
             answerText,
-            totalPlayers: state.players.length > 0 ? state.players.length : 1,
+            totalPlayers,
           }),
         });
         const data = await res.json();
@@ -843,13 +867,14 @@ export function useRoomRealtime(
         return {
           success: Boolean(data.success),
           isCorrect: Boolean(data.isCorrect),
+          waitingForOthers: Boolean(data.waitingForOthers),
           error: data.error,
         };
       } catch (err: any) {
         return { success: false, error: err?.message || "network_error" };
       }
     },
-    [cleanCode, state.myPlayer, state.isExcludedFromBuzz, state.players.length]
+    [cleanCode, state.myPlayer, state.isExcludedFromBuzz, state.players]
   );
 
   // Action: nextRound
@@ -860,7 +885,7 @@ export function useRoomRealtime(
     if (!state.myPlayer) return { success: false, error: "no_player" };
     try {
       const token = state.myPlayer.sessionToken || state.myPlayer.id;
-      const isPlayAgain = state.status === "game_over";
+      const isPlayAgain = state.status === "game_over" || state.status === "lobby";
       const res = await fetch(`/api/room/${cleanCode}/next-round`, {
         method: "POST",
         headers: {
@@ -870,6 +895,7 @@ export function useRoomRealtime(
         body: JSON.stringify({
           sessionToken: token,
           playAgain: isPlayAgain,
+          isNewGame: isPlayAgain,
         }),
       });
       const data = await res.json();
@@ -1070,65 +1096,75 @@ export function useRoomRealtime(
   }, [state.roomCode, state.myPlayer?.id]);
 
   // Action: surrender (neutral surrender for any player including host, no score penalty)
-  const surrender = useCallback(async (): Promise<{
-    success: boolean;
-    error?: string;
-  }> => {
-    if (!state.myPlayer) return { success: false, error: "no_player" };
-    const payload = {
-      playerId: state.myPlayer.id,
-      displayName: state.myPlayer.displayName,
-      totalPlayers: state.players.length > 0 ? state.players.length : 1,
-    };
+  const surrender = useCallback(
+    async (
+      reason: "surrendered" | "timed_out" = "surrendered"
+    ): Promise<{
+      success: boolean;
+      error?: string;
+    }> => {
+      if (!state.myPlayer) return { success: false, error: "no_player" };
+      const activeHumanPlayers = state.players.filter(
+        (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+      );
+      const totalPlayers = activeHumanPlayers.length > 0 ? activeHumanPlayers.length : 1;
+      const payload = {
+        playerId: state.myPlayer.id,
+        displayName: state.myPlayer.displayName,
+        totalPlayers,
+        reason,
+      };
 
-    try {
-      let res = await fetch(`/api/room/${cleanCode}/surrender`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      // Fail-safe: If the dedicated /surrender endpoint returns 404
-      // (e.g. Next.js dev server hasn't hot-reloaded the new route directory),
-      // seamlessly fallback to /api/room/[code]/answer with isSurrender: true
-      if (res.status === 404) {
-        res = await fetch(`/api/room/${cleanCode}/answer`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...payload,
-            answerText: "(ยอมแพ้)",
-            isSurrender: true,
-          }),
-        });
-      }
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || "Failed to surrender" };
-      }
-      return { success: true };
-    } catch (err: any) {
-      // Fallback on network error to /answer route as well
       try {
-        const fallbackRes = await fetch(`/api/room/${cleanCode}/answer`, {
+        let res = await fetch(`/api/room/${cleanCode}/surrender`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...payload,
-            answerText: "(ยอมแพ้)",
-            isSurrender: true,
-          }),
+          body: JSON.stringify(payload),
         });
-        const fallbackData = await fallbackRes.json();
-        if (fallbackRes.ok && fallbackData.success) {
-          return { success: true };
-        }
-      } catch {}
 
-      return { success: false, error: err?.message || "network_error" };
-    }
-  }, [cleanCode, state.myPlayer, state.players.length]);
+        // Fail-safe: If the dedicated /surrender endpoint returns 404
+        // (e.g. Next.js dev server hasn't hot-reloaded the new route directory),
+        // seamlessly fallback to /api/room/[code]/answer with isSurrender: true
+        if (res.status === 404) {
+          res = await fetch(`/api/room/${cleanCode}/answer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...payload,
+              answerText: reason === "timed_out" ? "(หมดเวลา)" : "(ยอมแพ้)",
+              isSurrender: true,
+            }),
+          });
+        }
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          return { success: false, error: data.error || "Failed to surrender" };
+        }
+        return { success: true };
+      } catch (err: any) {
+        // Fallback on network error to /answer route as well
+        try {
+          const fallbackRes = await fetch(`/api/room/${cleanCode}/answer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...payload,
+              answerText: reason === "timed_out" ? "(หมดเวลา)" : "(ยอมแพ้)",
+              isSurrender: true,
+            }),
+          });
+          const fallbackData = await fallbackRes.json();
+          if (fallbackRes.ok && fallbackData.success) {
+            return { success: true };
+          }
+        } catch {}
+
+        return { success: false, error: err?.message || "network_error" };
+      }
+    },
+    [cleanCode, state.myPlayer, state.players]
+  );
 
   // Audio helpers
   const playAudio = useCallback(() => {
