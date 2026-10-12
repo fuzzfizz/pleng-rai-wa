@@ -1113,6 +1113,7 @@ export function useRoomRealtime(
         displayName: state.myPlayer.displayName,
         totalPlayers,
         reason,
+        isHost: Boolean(state.isHost),
       };
 
       try {

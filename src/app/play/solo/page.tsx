@@ -60,6 +60,7 @@ import {
 } from "@/components/room/round-reveal-card";
 import { calculateSliceStart } from "@/lib/audio-slice-utils";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
+import { loadPublicSongLibrary } from "@/lib/services/song-library-cache";
 
 function SoloPlayContent() {
   const searchParams = useSearchParams();
@@ -164,13 +165,12 @@ function SoloPlayContent() {
       // 1. Fetch library songs
       let librarySongs = DEMO_SONGS;
       try {
-        const res = await fetch("/api/admin/songs");
-        const data = await res.json();
-        if (data.success && data.songs && data.songs.length > 0) {
-          librarySongs = data.songs;
-          defaultLibrarySongsRef.current = data.songs;
+        const songs = await loadPublicSongLibrary();
+        if (Array.isArray(songs) && songs.length > 0) {
+          librarySongs = songs;
+          defaultLibrarySongsRef.current = songs;
           if (isMounted && !queryPlaylistId?.trim()) {
-            setSongsPool(data.songs);
+            setSongsPool(songs);
             setIsLoadingSongs(false);
           }
         }
@@ -555,6 +555,7 @@ function SoloPlayContent() {
           if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
           playWrongSound();
           setFeedback({ isCorrect: false, message: "หมดเวลาตอบคำถาม!" });
+          setIsRevealed(true);
           return 0;
         }
         if (prev <= 5) {

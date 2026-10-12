@@ -280,7 +280,7 @@ export function searchSongAutocomplete(
 
   const trimmedQuery = query?.trim() || "";
   if (!trimmedQuery) {
-    return songPool.slice(0, limit);
+    return [];
   }
 
   const normQuery = normalizeThaiText(trimmedQuery);

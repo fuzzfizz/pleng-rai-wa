@@ -1012,6 +1012,7 @@ export class RoomStateStore {
       roomSettings?: RoomSettings;
       totalPlayers?: number;
       reason?: "surrendered" | "timed_out";
+      isHost?: boolean;
     }
   ): {
     success: boolean;
@@ -1080,7 +1081,25 @@ export class RoomStateStore {
       knownPlayerIds.length >= 2 &&
       knownPlayerIds.every((id) => state.excludedPlayerIds.includes(id));
 
+    const isTimeout = options?.reason === "timed_out";
+    const roundDurationSec =
+      (state.sliceDurationSec || 2.0) +
+      (options?.roomSettings?.roundTimeoutSec ||
+        state.settings?.roundTimeoutSec ||
+        15);
+    const roundStartedTime = state.startedAt ? new Date(state.startedAt).getTime() : 0;
+    const elapsedSec = roundStartedTime > 0 ? (Date.now() - roundStartedTime) / 1000 : 0;
+
+    // A timeout triggers immediate reveal if:
+    // 1. Single player room (effectiveTotalPlayers <= 1)
+    // 2. OR the allocated round duration has expired (elapsedSec >= roundDurationSec - 2)
+    // 3. OR all active players have been excluded
+    const isRoundTimeExpired =
+      isTimeout &&
+      (effectiveTotalPlayers <= 1 || elapsedSec >= Math.max(5, roundDurationSec - 2));
+
     const allExcluded =
+      Boolean(isRoundTimeExpired) ||
       state.excludedPlayerIds.length >= effectiveTotalPlayers ||
       allKnownPlayersExcluded;
 

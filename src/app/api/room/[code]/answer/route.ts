@@ -143,6 +143,8 @@ export async function POST(
         {
           roomSettings,
           totalPlayers,
+          reason: body.reason === "timed_out" ? "timed_out" : "surrendered",
+          isHost: Boolean(body.isHost || (room?.host_player_id && room.host_player_id === cleanPlayerId)),
         }
       );
 

@@ -34,6 +34,7 @@ import { getDeterministicAvatar } from "@/components/room/player-card";
 import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
 import { useAuth } from "@/hooks/use-auth";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
+import { loadPublicSongLibrary } from "@/lib/services/song-library-cache";
 import type { Player, RoomSettings, Song } from "@/types";
 
 /**
@@ -164,15 +165,14 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   const [joinError, setJoinError] = useState<string | null>(null);
 
   // Song catalog for autocomplete search
-  const [songLibrary, setSongLibrary] = useState<Song[]>(DEMO_SONGS);
+  const [songLibrary, setSongLibrary] = useState<Song[]>([]);
 
   useEffect(() => {
     let isMounted = true;
-    fetch("/api/admin/songs?limit=200")
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted && data.success && Array.isArray(data.songs)) {
-          setSongLibrary(data.songs);
+    loadPublicSongLibrary()
+      .then((songs) => {
+        if (isMounted && Array.isArray(songs) && songs.length > 0) {
+          setSongLibrary(songs);
         }
       })
       .catch((err) => console.warn("[RoomPage] Failed to fetch song library for autocomplete:", err));

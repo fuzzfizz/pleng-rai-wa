@@ -63,11 +63,16 @@ export async function POST(
       await RoomStateStore.ensureRoundState(cleanCode, room);
     }
 
+    const isCallerHost = Boolean(
+      body?.isHost || (room?.host_player_id && room.host_player_id === cleanPlayerId)
+    );
+
     const roomSettings = room?.settings || inMemoryState?.settings;
     const result = RoomStateStore.surrenderPlayer(cleanCode, cleanPlayerId, displayName, {
       roomSettings,
       totalPlayers: typeof totalPlayers === "number" && totalPlayers > 0 ? totalPlayers : undefined,
       reason,
+      isHost: isCallerHost,
     });
 
     if (!result.success) {

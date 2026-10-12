@@ -91,7 +91,7 @@ export function AnswerModal({
     }
     const query = inputValue.trim();
     if (!query) {
-      return songLibrary.slice(0, 5);
+      return [];
     }
     return searchSongAutocomplete(query, songLibrary, 6);
   }, [inputMode, inputValue, songLibrary]);

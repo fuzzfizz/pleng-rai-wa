@@ -43,6 +43,7 @@ import { getDeterministicAvatar } from "./player-card";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 import { SettingsMenu } from "@/components/common/settings-menu";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
+import { loadPublicSongLibrary } from "@/lib/services/song-library-cache";
 
 export interface GameViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -306,32 +307,35 @@ export function GameView({
   const pointsAvailable = calculatePointsAvailable(myHintLevel);
   const surrenderButtonConfig = getSurrenderButtonConfig(isHost);
 
-  // Fallback song library fetch if not supplied by parent
+  // Fallback song library fetch if not supplied by parent or if only demo songs passed
   const [internalSongs, setInternalSongs] = useState<Song[]>(
     songLibrary && songLibrary.length > 0 ? songLibrary : DEMO_SONGS
   );
 
   useEffect(() => {
-    if (songLibrary && songLibrary.length > 0) {
+    if (songLibrary && songLibrary.length > 3) {
       setInternalSongs(songLibrary);
       return;
     }
     let isMounted = true;
-    fetch("/api/admin/songs?limit=200")
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted && data.success && Array.isArray(data.songs)) {
-          setInternalSongs(data.songs);
+    loadPublicSongLibrary()
+      .then((songs) => {
+        if (isMounted && Array.isArray(songs) && songs.length > 0) {
+          setInternalSongs(songs);
         }
       })
-      .catch((err) => console.warn("[GameView] Autocomplete fallback songs fetch failed:", err));
+      .catch((err) => console.warn("[GameView] Public songs fetch failed:", err));
     return () => {
       isMounted = false;
     };
   }, [songLibrary]);
 
   const effectiveSongLibrary =
-    songLibrary && songLibrary.length > 0
+    songLibrary && songLibrary.length > 3
+      ? songLibrary
+      : internalSongs && internalSongs.length > 3
+      ? internalSongs
+      : songLibrary && songLibrary.length > 0
       ? songLibrary
       : internalSongs && internalSongs.length > 0
       ? internalSongs
@@ -471,7 +475,7 @@ export function GameView({
   }, [isSurrendering, isExcludedFromBuzz, isHost, onSkipRound, surrender, skipRound]);
 
   const handleTimeout = useCallback(async () => {
-    if (isSurrendering || isExcludedFromBuzz) return;
+    if (isSurrendering) return;
     setMyExclusionReason("timed_out");
     setIsSurrendering(true);
     try {
@@ -485,14 +489,9 @@ export function GameView({
     } finally {
       setIsSurrendering(false);
     }
-  }, [isSurrendering, isExcludedFromBuzz, isHost, onSkipRound, surrender, skipRound]);
+  }, [isSurrendering, isHost, onSkipRound, surrender, skipRound]);
 
   const handleSkipQuestion = handleSurrender;
-
-  const isExcludedRef = useRef(isExcludedFromBuzz);
-  useEffect(() => {
-    isExcludedRef.current = isExcludedFromBuzz;
-  }, [isExcludedFromBuzz]);
 
   // Interval countdown after slice plays for the first time
   useEffect(() => {
@@ -507,9 +506,7 @@ export function GameView({
         if (prev === null) return answerTimeLimit;
         if (prev <= 1) {
           clearInterval(timer);
-          if (!isExcludedRef.current) {
-            handleTimeout();
-          }
+          handleTimeout();
           return 0;
         }
 
@@ -525,6 +522,25 @@ export function GameView({
 
     return () => clearInterval(timer);
   }, [hasPlayedOnce, status, answerTimeLimit, handleTimeout]);
+
+  // Watchdog: If countdown hit 0 but status is still question_active after 2.5s, trigger state refetch & host safety finish
+  useEffect(() => {
+    if (countdownRemaining !== 0 || status !== "question_active") return;
+    const watchdogTimer = setTimeout(async () => {
+      if (status === "question_active") {
+        if (isHost) {
+          if (onSkipRound) {
+            await onSkipRound();
+          } else if (skipRound) {
+            await skipRound();
+          }
+        }
+        roomRealtime.refetchState?.();
+      }
+    }, 2500);
+
+    return () => clearTimeout(watchdogTimer);
+  }, [countdownRemaining, status, isHost, onSkipRound, skipRound, roomRealtime]);
 
   const handleRequestHint = useCallback(async () => {
     if (isRequestingHint) return;
@@ -644,7 +660,7 @@ export function GameView({
     }
     const query = directAnswer.trim();
     if (!query) {
-      return effectiveSongLibrary.slice(0, 5);
+      return [];
     }
     return searchSongAutocomplete(query, effectiveSongLibrary, 5);
   }, [answerInputMode, directAnswer, effectiveSongLibrary]);
@@ -1150,11 +1166,16 @@ export function GameView({
                         type="text"
                         value={directAnswer}
                         onChange={(e) => {
-                          setDirectAnswer(e.target.value);
+                          const val = e.target.value;
+                          setDirectAnswer(val);
                           setHighlightedIndex(-1);
-                          setShowSuggestions(true);
+                          setShowSuggestions(val.trim().length > 0);
                         }}
-                        onFocus={() => setShowSuggestions(true)}
+                        onFocus={() => {
+                          if (directAnswer.trim().length > 0) {
+                            setShowSuggestions(true);
+                          }
+                        }}
                         onBlur={() => {
                           setTimeout(() => setShowSuggestions(false), 200);
                         }}
