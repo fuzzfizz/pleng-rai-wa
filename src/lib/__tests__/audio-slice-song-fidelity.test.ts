@@ -36,6 +36,9 @@ describe("Audio Slice Song Fidelity & Rehydration", () => {
     gameMode: "audio-slice",
     totalRounds: 5,
     roundTimeoutSec: 15,
+    answerInputMode: "autocomplete",
+    sliceDurationSec: 2,
+    targetScore: 100,
   };
 
   beforeEach(() => {
@@ -47,7 +50,7 @@ describe("Audio Slice Song Fidelity & Rehydration", () => {
     RoomStateStore.initRound(ROOM_CODE, 5, song1, defaultSettings);
     const existing = RoomStateStore.getRoomRoundState(ROOM_CODE);
     expect(existing?.currentRound).toBe(5);
-    expect(existing?.currentSong.title).toBe("วัดใจ");
+    expect(existing?.currentSong?.title).toBe("วัดใจ");
 
     // 2. DB represents a brand new game starting at round 1 with song2
     const dbRoom = {
@@ -70,15 +73,15 @@ describe("Audio Slice Song Fidelity & Rehydration", () => {
     const rehydrated = await RoomStateStore.ensureRoundState(ROOM_CODE, dbRoom);
     expect(rehydrated).toBeDefined();
     expect(rehydrated?.currentRound).toBe(1);
-    expect(rehydrated?.currentSong.id).toBe(song2.id);
-    expect(rehydrated?.currentSong.title).toBe("ซ่อนกลิ่น");
+    expect(rehydrated?.currentSong?.id).toBe(song2.id);
+    expect(rehydrated?.currentSong?.title).toBe("ซ่อนกลิ่น");
   });
 
   it("invalidates in-memory state when DB current_song_id differs from memory currentSong.id even if round number is the same", async () => {
     // 1. Initialize round 1 with song1 in memory
     RoomStateStore.initRound(ROOM_CODE, 1, song1, defaultSettings);
     const existing = RoomStateStore.getRoomRoundState(ROOM_CODE);
-    expect(existing?.currentSong.id).toBe("song-uuid-1");
+    expect(existing?.currentSong?.id).toBe("song-uuid-1");
 
     // 2. DB has round 1 but with song2 (e.g. host skipped or replaced song)
     const dbRoom = {
@@ -99,7 +102,7 @@ describe("Audio Slice Song Fidelity & Rehydration", () => {
     // 3. ensureRoundState MUST detect the song mismatch and load song2
     const rehydrated = await RoomStateStore.ensureRoundState(ROOM_CODE, dbRoom);
     expect(rehydrated).toBeDefined();
-    expect(rehydrated?.currentSong.id).toBe(song2.id);
-    expect(rehydrated?.currentSong.title).toBe("ซ่อนกลิ่น");
+    expect(rehydrated?.currentSong?.id).toBe(song2.id);
+    expect(rehydrated?.currentSong?.title).toBe("ซ่อนกลิ่น");
   });
 });

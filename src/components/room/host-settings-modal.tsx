@@ -671,28 +671,40 @@ export function HostSettingsModal({
             </div>
           </div>
 
-          {/* 5. Round Timeout */}
-          <div>
-            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
-              ⏳ เวลาตอบต่อข้อ (Round Timeout)
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {ROUND_TIMEOUT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setDraft((prev) => ({ ...prev, roundTimeoutSec: opt.value }))}
-                  className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
-                    draft.roundTimeoutSec === opt.value
-                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
-                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          {/* 5. Buzzer Timeout (Buzzer mode only) or Unlimited Time Banner */}
+          {draft.gameMode === "buzzer" ? (
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
+                ⏱️ เวลาตอบหลังกดกริ่ง (Buzzer Timeout)
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {ROUND_TIMEOUT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setDraft((prev) => ({ ...prev, roundTimeoutSec: opt.value }))}
+                    className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
+                      draft.roundTimeoutSec === opt.value
+                        ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800 flex items-center justify-between text-xs sm:text-sm">
+              <div className="flex items-center gap-2 text-stone-700 dark:text-stone-300 font-medium">
+                <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>เวลาในการตอบ:</span>
+              </div>
+              <span className="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                ไม่จำกัดเวลา (Unlimited)
+              </span>
+            </div>
+          )}
 
           {/* 6. Answer Input Mode */}
           <div>
@@ -785,7 +797,7 @@ export function HostSettingsModal({
                     )}
                   </div>
                   <span className="text-[11px] text-stone-500 dark:text-stone-400">
-                    ใครตอบถูกคนแรกชนะทันทีและเฉลยเพลง คนตอบผิดเสียแต้ม
+                    ใครตอบถูกคนแรกชนะข้อนี้ทันทีและเฉลยเพลง คนตอบผิดจะหมดสิทธิ์ตอบข้อนี้
                   </span>
                 </button>
 
@@ -805,7 +817,7 @@ export function HostSettingsModal({
                     )}
                   </div>
                   <span className="text-[11px] text-stone-500 dark:text-stone-400">
-                    ทุกคนพิมพ์ส่งคำตอบได้ในเวลา เมื่อตอบครบหรือหมดเวลาจึงเฉลยพร้อมกัน
+                    ทุกคนตอบได้โดยไม่จำกัดเวลา เมื่อตอบครบทุกคนหรือยอมแพ้ จึงเฉลยพร้อมกันและรวมคะแนน
                   </span>
                 </button>
               </div>

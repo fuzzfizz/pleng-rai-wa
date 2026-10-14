@@ -77,9 +77,11 @@ export function formatSettingsSummary(settings: RoomSettings): string {
       : "พิมพ์เอง";
 
   const resolutionLabel =
-    settings.gameMode !== "buzzer" && settings.answerResolutionMode === "wait_all"
-      ? " • รอตอบครบทุกคน"
-      : "";
+    settings.gameMode !== "buzzer"
+      ? settings.answerResolutionMode === "wait_all"
+        ? " • ไม่จำกัดเวลา (รอตอบครบทุกคน)"
+        : " • ไม่จำกัดเวลา (แย่งกันตอบ)"
+      : ` • ${settings.roundTimeoutSec || 15} วินาที`;
 
   return `${modeLabel} • ${roundsLabel} • ${detailLabel} • ${inputLabel}${resolutionLabel}`;
 }

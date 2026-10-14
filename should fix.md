@@ -1,27 +1,39 @@
 # รายการแก้ไขบั๊กและการปรับปรุง (Fixes & Improvements) โหมด audio slice
 
-### 1. ปัญหาตอบไม่ทันแล้วค้าง (Timeout Freeze Issue)
-- [x] **แก้ไขเรียบร้อยแล้ว:**
-  - **สาเหตุรากฐาน (Root Causes):**
-    1. ใน `GameView` เมื่อนับถอยหลังถึง 0 (`prev <= 1`) โค้ดเดิมมีเงื่อนไข `if (!isExcludedRef.current) handleTimeout()` — หากผู้เล่นเคยเดาผิดไปก่อนหน้านี้หรือยอมแพ้ โค้ดจะไม่ส่งสัญญาณ timeout ไปยังเซิร์ฟเวอร์เลย ทำให้เกมหยุดนิ่งอยู่ที่ 0 วินาทีตลอดกาล
-    2. ใน `handleTimeout()` โค้ดเดิมมี `if (isExcludedFromBuzz) return;` ซึ่งบล็อกการส่ง timeout ซ้ำอีกชั้นหนึ่ง
-    3. ใน `RoomStateStore.surrenderPlayer` เมื่อได้รับ `reason: "timed_out"` ตรรกะเดิมนับจำนวนผู้เล่นที่ timeout แยกทีละคน (`excludedPlayerIds.length >= effectiveTotalPlayers`) หากมีผู้เล่นคนอื่นปิดจอ/สลับแท็บ/เน็ตหลุด เซิร์ฟเวอร์จะไม่ยอมเฉลยและค้างรอ
-  - **การแก้ไข:**
-    - ลบเงื่อนไขการบล็อก `isExcluded` ออกจาก `handleTimeout()` เมื่อเวลานับถอยหลังหมดลง จะส่งสัญญาณ timeout ไปยังเซิร์ฟเวอร์เสมอ
-    - ใน `RoomStateStore.surrenderPlayer` เพิ่มการตรวจสอบว่าหากเวลาของรอบหมดลงแล้ว (`elapsedSec >= roundDurationSec - 2`) หรือหัวห้องเป็นผู้ส่ง timeout ระบบจะตัดสินให้รอบนั้นเฉลยเพลงทันที (`allExcluded = true` -> `revealing`) ไม่รอการ timeout แยกของแต่ละคนจนค้าง
-    - เพิ่ม **Client Watchdog Timer**: หากเวลานับถอยหลังถึง 0 แล้ว แต่ผ่านไป 2.5 วินาทียังไม่ได้รับสถานะเฉลย ระบบจะรีเฟรชสถานะห้องอัตโนมัติ (`refetchState()`) และหากเป็นหัวห้องจะส่งคำสั่งเฉลยความปลอดภัยทันที
-
-### 2. Autocomplete Suggestions & อ้างอิงจากฐานข้อมูลจริง
-- [x] **แก้ไขเรียบร้อยแล้ว:**
-  - **สาเหตุรากฐาน (Root Causes):**
-    1. ฟังก์ชัน `searchSongAutocomplete` ใน `src/lib/answer-checker.ts` และ `directSuggestions` ใน `GameView` มีโค้ดเดิม `if (!query) return effectiveSongLibrary.slice(0, 5);` และช่อง input มี `onFocus={() => setShowSuggestions(true)}` ส่งผลให้เมื่อคลิกเข้าช่อง input ขณะยังไม่ได้พิมพ์ จะเด้งกล่องข้อความขึ้นมา 5 (หรือ 3) เพลงทันที
-    2. หน้าเว็บเดิมดึงเพลงผ่าน `/api/admin/songs` ซึ่งผู้เล่นทั่วไปไม่มีสิทธิ์เข้าถึง และไม่มี Public API สำหรับเพลง ทำให้เมื่อ fetch ไม่สำเร็จ ตัวแปรจะ fallback ไปที่ `DEMO_SONGS` ซึ่งมีเพลงตัวอย่างเพียง 3 เพลง (วัดใจ, ซ่อนกลิ่น, ขอบคุณที่รักกัน) ผู้เล่นจึงเห็นและค้นหาได้เพียง 3 เพลงเท่านั้น
-  - **การแก้ไข:**
-    - สร้าง Public Endpoint ใหม่ [`GET /api/songs`](file:///D:/pleng-rai-wa/src/app/api/songs/route.ts) ดึงเพลงทั้งหมดจากฐานข้อมูล Supabase โดยตรง (พร้อมคัดกรองข้อมูลความลับเพื่อความปลอดภัย ป้องกันการรั่วไหลของเนื้อเพลง/ท่อนฮุก)
-    - เพิ่มระบบแคชเพลงฝั่ง Client [`src/lib/services/song-library-cache.ts`](file:///D:/pleng-rai-wa/src/lib/services/song-library-cache.ts) โหลดเพลงจากฐานข้อมูลเก็บใน memory และ `sessionStorage` เพื่อให้โหลดทันที
-    - อัปเดต `src/lib/answer-checker.ts`, `src/components/room/game-view.tsx`, `src/components/room/answer-modal.tsx` และ `src/app/play/solo/page.tsx` ให้คืนค่า `[]` (ไม่แสดงคำแนะนำใดๆ) เมื่อข้อความเป็นค่าว่าง และแสดงผลเฉพาะเมื่อผู้เล่นเริ่มพิมพ์ข้อความเท่านั้น
+## 1. บั๊กบางครั้งเฉลยเพลงผิด (Wrong song revealed in audio-slice mode) - [แก้ไขแล้ว ✓]
+- **สาเหตุที่พบ (Root Cause):**
+  1. ในระดับ Server State (`RoomStateStore.ensureRoundState`), การตรวจสอบ `isStale` เช็คเฉพาะ `currentRound > existing.currentRound` ทำให้เมื่อห้องถูกรีเซ็ต/เริ่มเกมใหม่ (เช่น เล่นจบ 5 ข้อแล้วเริ่มรอบ 1 ใหม่) หรือเมื่อข้ามเพลง/เปลี่ยนเพลงในรอบเดียวกัน Server memory ยังคงถือ `currentSong` เดิมจากรอบก่อนหน้า
+  2. ในระดับ Client Audio Playback (`GameView`), การเปลี่ยน `activeQuestion?.sliceUrl` ไม่ได้รีเซ็ต buffer ด้วย `audio.pause()`, `audio.currentTime = 0` และ `audio.load()` ทำให้เว็บบราวเซอร์เล่น audio slice buffer เดิมค้าง
+  3. ใน Solo Play (`src/app/play/solo/page.tsx`), เมื่อโหลดคลังเพลงจาก Supabase DB เสร็จทีหลัง โค้ด shuffle ใหม่ไปแทนที่ `songsPool[0]` ขณะที่ผู้เล่นกำลังตอบเพลงแรก
+- **การแก้ไข:**
+  - เพิ่มเงื่อนไข invalidate stale state ใน `RoomStateStore.ensureRoundState`: เมื่อรอบไม่ตรงกัน (`!==`) หรือ `room.current_song_id !== existing.currentSong.id` ให้ rehydrate เพลงที่ถูกต้องจากฐานข้อมูลทันที
+  - เพิ่ม audio buffer cleanup ใน `GameView`: เมื่อ `sliceUrl` เปลี่ยน ให้สั่ง pause, currentTime = 0 และ `load()` ใหม่เสมอ
+  - เพิ่ม `hasInteractedRef` ใน Solo Play ป้องกัน pool swap ขณะเริ่มเล่น
+  - เพิ่ม Unit Tests: `src/lib/__tests__/audio-slice-song-fidelity.test.ts` และ `src/lib/__tests__/audio-slice-buffer-reload.test.ts`
 
 ---
-**ผลการตรวจสอบ (Verification Results):**
-- Vitest Suite: 25 test suites, 203/203 passed (100%)
-- Next.js 16.3 Production Build: `npm run build` ผ่านสมบูรณ์แบบ 0 errors
+
+## 2. เมื่อกดขอคำใบ้เวลานับถอยหลังรีเซ็ทเอง (Hint request resets timer) - [แก้ไขแล้ว ✓]
+- **สาเหตุที่พบ (Root Cause):**
+  - ใน `GameView`, `useEffect` ที่คุม interval timer ขึ้นกับ dependency `handleTimeout`
+  - เมื่อกดขอคำใบ้ Supabase Realtime broadcast สถานะใหม่ ทำให้ callback `surrender` เปลี่ยน reference ส่งผลให้ `handleTimeout` เปลี่ยน reference และทำให้ timer effect cleanup แล้วเริ่มนับ 15 วินาทีใหม่
+- **การแก้ไข:**
+  - ใช้ `handleTimeoutRef` เพื่อ decouple callback reference ออกจาก timer effect dependency array
+  - เมื่อขอคำใบ้ timer จะไม่ re-run หรือ reset อีกต่อไป
+  - เพิ่ม Unit Test: `src/components/room/__tests__/non-buzzer-unlimited-timer.test.ts`
+
+---
+
+## 3. นำตัวนับถอยหลัง 15 วิ ออกจากโหมดทั่วไป (Unlimited Time for Non-Buzzer Modes) - [แก้ไขแล้ว ✓]
+- **ความต้องการ:**
+  - โหมดที่ไม่ใช่การกดกริ่ง (`audio-slice`, `ai-lyrics`, `translated-lyrics`) ให้เป็นเวลาไม่จำกัด (Unlimited Time) เพื่อไม่ให้กดดันเกินไป
+  - ตัวนับถอยหลังเวลาตอบ (Round / Buzzer Timeout) ให้เลือกปรับและแสดงผลเฉพาะในโหมดแย่งกดกริ่ง (`buzzer`) เท่านั้น
+  - ในโหมดทั่วไป ผู้เล่นสามารถเลือกรูปแบบการตัดสิน (Answer Resolution Mode) ได้ 2 แบบ:
+    1. **⚡ แย่งกันตอบ (Race):** ใครตอบถูกคนแรกชนะข้อนี้ทันทีและเฉลยเพลง คนตอบผิดหมดสิทธิ์ในข้อนั้น
+    2. **👥 รอตอบให้หมดทุกคน (Wait for All):** ทุกคนตอบได้โดยไม่จำกัดเวลา เมื่อตอบครบทุกคนหรือยอมแพ้ จึงเฉลยพร้อมกันและรวมคะแนน
+- **การแก้ไข:**
+  - `GameView`: แสดง progress bar นับถอยหลังเฉพาะ `gameMode === "buzzer"` และไม่รัน answer timeout ในโหมดอื่น
+  - `TVView`: แสดงตัวนับถอยหลังเฉพาะ `gameMode === "buzzer"`; โหมดอื่นแสดงแถบข้อความ "โหมดไม่จำกัดเวลา" พร้อมระบุแย่งกันตอบหรือรอตอบครบทุกคน
+  - `HostSettingsModal`: ส่วนตั้งเวลา 10-30 วิ แสดงเฉพาะโหมด `buzzer`; โหมดอื่นแสดงป้าย "เวลาในการตอบ: ไม่จำกัดเวลา (Unlimited)" และเปิดให้เลือกกติกาการเฉลยคำตอบ (Race vs Wait for All) อย่างชัดเจน
+  - `LobbyView`: สรุปการตั้งค่าห้องระบุชัดเจน เช่น "ไม่จำกัดเวลา (แย่งกันตอบ)" หรือ "ไม่จำกัดเวลา (รอตอบครบทุกคน)"
+  - เพิ่ม Unit Test: `src/components/room/__tests__/host-settings-modes-alignment.test.ts`

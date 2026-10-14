@@ -491,11 +491,18 @@ export function GameView({
     }
   }, [isSurrendering, isHost, onSkipRound, surrender, skipRound]);
 
+  const handleTimeoutRef = useRef(handleTimeout);
+  useEffect(() => {
+    handleTimeoutRef.current = handleTimeout;
+  });
+
   const handleSkipQuestion = handleSurrender;
 
-  // Interval countdown after slice plays for the first time
+  // Interval countdown after slice plays for the first time (Buzzer mode only)
   useEffect(() => {
-    if (!hasPlayedOnce || status !== "question_active") {
+    // Only buzzer mode has answer countdown timer; non-buzzer modes are unlimited.
+    if (gameMode !== "buzzer" || !hasPlayedOnce || status !== "question_active") {
+      setCountdownRemaining(null);
       return;
     }
 
@@ -506,7 +513,7 @@ export function GameView({
         if (prev === null) return answerTimeLimit;
         if (prev <= 1) {
           clearInterval(timer);
-          handleTimeout();
+          handleTimeoutRef.current?.();
           return 0;
         }
 
@@ -521,7 +528,7 @@ export function GameView({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [hasPlayedOnce, status, answerTimeLimit, handleTimeout]);
+  }, [gameMode, hasPlayedOnce, status, answerTimeLimit]);
 
   // Watchdog: If countdown hit 0 but status is still question_active after 2.5s, trigger state refetch & host safety finish
   useEffect(() => {
@@ -989,8 +996,8 @@ export function GameView({
               )}
             </div>
 
-            {/* 15s Answer Countdown Timer Bar (starts after audio slice finishes playing for the first time) */}
-            {countdownRemaining !== null && status === "question_active" && !isExcludedFromBuzz && (
+            {/* 15s Answer Countdown Timer Bar (Buzzer mode only, starts after slice finishes) */}
+            {gameMode === "buzzer" && countdownRemaining !== null && status === "question_active" && !isExcludedFromBuzz && (
               <div className="w-full max-w-sm sm:max-w-md mx-auto my-1 px-4 py-2 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col gap-1.5 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between text-xs font-bold">
                   <span className="flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
