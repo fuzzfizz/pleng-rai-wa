@@ -203,9 +203,15 @@ export class RoomStateStore {
     const isStale =
       Boolean(existing) &&
       ((typeof dbRoundState?.currentRound === "number" &&
-        dbRoundState.currentRound > (existing?.currentRound || 0)) ||
+        dbRoundState.currentRound !== (existing?.currentRound || 0)) ||
        (Array.isArray(room.played_song_ids) &&
-        room.played_song_ids.length > (existing?.currentRound || 0)));
+        room.played_song_ids.length !== (existing?.currentRound || 0)) ||
+       (room.current_song_id &&
+        existing?.currentSong?.id &&
+        room.current_song_id !== existing.currentSong.id) ||
+       (dbRoundState?.currentSong?.id &&
+        existing?.currentSong?.id &&
+        dbRoundState.currentSong.id !== existing.currentSong.id));
 
     // If existing in-memory state has currentSong and is not stale, sync any newer buzzer / status from DB if applicable
     if (existing && existing.currentSong && !isStale) {
@@ -233,24 +239,18 @@ export class RoomStateStore {
     }
 
     // Otherwise, rehydrate from room / DB
-    // Priority 1: Directly from serialized dbRoundState.currentSong (guarantees 100% round-song fidelity)
+    // Priority 1: Directly from serialized dbRoundState.currentSong matching room.current_song_id (guarantees 100% round-song fidelity)
     let resolvedSong: Song | undefined = song;
-    if (!resolvedSong && dbRoundState?.currentSong && dbRoundState.currentSong.title) {
+    if (
+      !resolvedSong &&
+      dbRoundState?.currentSong &&
+      dbRoundState.currentSong.title &&
+      (!room.current_song_id || dbRoundState.currentSong.id === room.current_song_id)
+    ) {
       try {
         resolvedSong = toSongDomain(dbRoundState.currentSong);
       } catch (err) {
         console.warn("[RoomStateStore] Failed to map dbRoundState.currentSong:", err);
-      }
-    }
-
-    if (!resolvedSong && room.songs) {
-      try {
-        const rawSong = Array.isArray(room.songs) ? room.songs[0] : room.songs;
-        if (rawSong && rawSong.title) {
-          resolvedSong = toSongDomain(rawSong);
-        }
-      } catch (err) {
-        console.warn("[RoomStateStore] Failed to map room.songs:", err);
       }
     }
 
@@ -262,6 +262,17 @@ export class RoomStateStore {
         }
       } catch (err) {
         console.warn("[RoomStateStore] Failed to fetch song by current_song_id:", err);
+      }
+    }
+
+    if (!resolvedSong && room.songs) {
+      try {
+        const rawSong = Array.isArray(room.songs) ? room.songs[0] : room.songs;
+        if (rawSong && rawSong.title) {
+          resolvedSong = toSongDomain(rawSong);
+        }
+      } catch (err) {
+        console.warn("[RoomStateStore] Failed to map room.songs:", err);
       }
     }
 
