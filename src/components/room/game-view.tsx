@@ -598,6 +598,23 @@ export function GameView({
     }
   }, [status, gameMode, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying, handleSetIsAudioPlaying]);
 
+  // Cleanly reload and reset audio buffer whenever activeQuestion.sliceUrl changes
+  const prevSliceUrlRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (activeQuestion?.sliceUrl && activeQuestion.sliceUrl !== prevSliceUrlRef.current) {
+      prevSliceUrlRef.current = activeQuestion.sliceUrl;
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current.load();
+        } catch (err) {
+          console.warn("[GameView] Failed to cleanly reload audio buffer:", err);
+        }
+      }
+    }
+  }, [activeQuestion?.sliceUrl]);
+
   // Clean up audio & TTS on unmount
   useEffect(() => {
     return () => {

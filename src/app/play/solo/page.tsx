@@ -112,6 +112,7 @@ function SoloPlayContent() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInteractedRef = useRef<boolean>(false);
 
   // Sync audio element volume with master volume in real-time
   useEffect(() => {
@@ -170,7 +171,10 @@ function SoloPlayContent() {
           librarySongs = songs;
           defaultLibrarySongsRef.current = songs;
           if (isMounted && !queryPlaylistId?.trim()) {
-            setSongsPool(songs);
+            // Only update songsPool if player hasn't already started playing/interacting with initial song
+            if (!hasInteractedRef.current) {
+              setSongsPool(songs);
+            }
             setIsLoadingSongs(false);
           }
         }
@@ -456,6 +460,7 @@ function SoloPlayContent() {
 
   // Play Audio Slice
   const handlePlaySlice = async () => {
+    hasInteractedRef.current = true;
     playClickSound();
     audioRef.current?.pause();
 
@@ -511,6 +516,7 @@ function SoloPlayContent() {
 
   // Start Buzzer Game Mode song stream
   const handleToggleBuzzerSong = () => {
+    hasInteractedRef.current = true;
     if (isPlayingAudio) {
       audioRef.current?.pause();
       setIsPlayingAudio(false);
@@ -536,6 +542,7 @@ function SoloPlayContent() {
 
   // Hit Buzzer!
   const handleBuzz = () => {
+    hasInteractedRef.current = true;
     if (isBuzzed || isRevealed) return;
     audioRef.current?.pause();
     setIsPlayingAudio(false);
