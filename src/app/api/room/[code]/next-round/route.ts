@@ -148,6 +148,7 @@ export async function POST(
     let filterGenreId: string | undefined = undefined;
     let filterGenreIds: string[] | undefined = undefined;
     let filterEra: string | undefined = undefined;
+    let filterEraIds: string[] | undefined = undefined;
     let filterArtist: string | undefined = undefined;
     let filterYearStart: number | undefined = undefined;
     let filterYearEnd: number | undefined = undefined;
@@ -156,9 +157,20 @@ export async function POST(
     if (songFilter) {
       if (songFilter.type === "genre") {
         filterGenreId = songFilter.genreId;
-        filterGenreIds = songFilter.genreIds;
+        filterGenreIds =
+          songFilter.genreIds && songFilter.genreIds.length > 0
+            ? songFilter.genreIds
+            : songFilter.genreId
+            ? [songFilter.genreId]
+            : undefined;
       } else if (songFilter.type === "era") {
         filterEra = songFilter.era;
+        filterEraIds =
+          songFilter.eraIds && songFilter.eraIds.length > 0
+            ? songFilter.eraIds
+            : songFilter.era
+            ? [songFilter.era]
+            : undefined;
       } else if (songFilter.type === "artist") {
         filterArtist = songFilter.artist;
       } else if (songFilter.type === "playlist") {
@@ -168,6 +180,13 @@ export async function POST(
       filterYearEnd = songFilter.yearEnd;
     } else {
       filterGenreId = settings.genreId;
+      filterGenreIds =
+        settings.genreIds && settings.genreIds.length > 0
+          ? settings.genreIds
+          : settings.genreId
+          ? [settings.genreId]
+          : undefined;
+      filterEraIds = settings.eraIds;
       filterPlaylistId = settings.playlistId;
     }
 
@@ -176,6 +195,7 @@ export async function POST(
       genreId: filterGenreId,
       genreIds: filterGenreIds,
       era: filterEra,
+      eraIds: filterEraIds,
       artist: filterArtist,
       yearStart: filterYearStart,
       yearEnd: filterYearEnd,

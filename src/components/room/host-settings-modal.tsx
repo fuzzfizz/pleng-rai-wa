@@ -140,15 +140,49 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
     }
   }
 
+  if (result.genreIds !== undefined) {
+    if (!Array.isArray(result.genreIds) || result.genreIds.length === 0) {
+      delete result.genreIds;
+    }
+  }
+
+  if (result.eraIds !== undefined) {
+    if (!Array.isArray(result.eraIds) || result.eraIds.length === 0) {
+      delete result.eraIds;
+    }
+  }
+
   if (result.songFilter !== undefined) {
     if (result.songFilter.type === "playlist") {
       result.playlistId = result.songFilter.playlistId?.trim() || undefined;
+      result.genreId = undefined;
+      result.genreIds = undefined;
+      result.eraIds = undefined;
     } else if (result.songFilter.type === "genre") {
       result.genreId = result.songFilter.genreId;
+      result.genreIds =
+        result.songFilter.genreIds && result.songFilter.genreIds.length > 0
+          ? result.songFilter.genreIds
+          : result.songFilter.genreId
+          ? [result.songFilter.genreId]
+          : undefined;
       result.playlistId = undefined;
+      result.eraIds = undefined;
+    } else if (result.songFilter.type === "era") {
+      result.eraIds =
+        result.songFilter.eraIds && result.songFilter.eraIds.length > 0
+          ? result.songFilter.eraIds
+          : result.songFilter.era
+          ? [result.songFilter.era]
+          : undefined;
+      result.playlistId = undefined;
+      result.genreId = undefined;
+      result.genreIds = undefined;
     } else if (result.songFilter.type === "all") {
       result.playlistId = undefined;
       result.genreId = undefined;
+      result.genreIds = undefined;
+      result.eraIds = undefined;
     }
   }
 
@@ -183,9 +217,10 @@ export function HostSettingsModal({
   } | null>(null);
   const [isClampedWarning, setIsClampedWarning] = useState(false);
 
-  // Sync draft whenever modal opens or parent settings update
+  // Sync draft only when modal transitions from closed to open, so live presence/settings updates don't reset in-progress edits
+  const prevIsOpenRef = React.useRef(isOpen);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setDraft({ ...settings });
       setIsSongSourceModalOpen(false);
       setErrorMessage(null);
@@ -193,6 +228,7 @@ export function HostSettingsModal({
       setSelectedTransferTarget("");
       setIsClampedWarning(false);
     }
+    prevIsOpenRef.current = isOpen;
   }, [isOpen, settings]);
 
   // Load song filter metadata
@@ -279,8 +315,24 @@ export function HostSettingsModal({
   const currentFilterConfig: SongFilterConfig = draft.songFilter || (
     draft.playlistId
       ? { type: "playlist", playlistId: draft.playlistId }
+      : draft.genreIds && draft.genreIds.length > 0
+      ? {
+          type: "genre",
+          genreIds: draft.genreIds,
+          genreId: draft.genreIds[0],
+          genreNames: filterMetadata?.genres
+            .filter((g) => draft.genreIds?.includes(g.id))
+            .map((g) => g.nameTh),
+        }
       : draft.genreId
-      ? { type: "genre", genreId: draft.genreId }
+      ? {
+          type: "genre",
+          genreId: draft.genreId,
+          genreIds: [draft.genreId],
+          genreName: filterMetadata?.genres.find((g) => g.id === draft.genreId)?.nameTh,
+        }
+      : draft.eraIds && draft.eraIds.length > 0
+      ? { type: "era", eraIds: draft.eraIds, era: draft.eraIds[0] }
       : { type: "all" }
   );
 
@@ -296,11 +348,16 @@ export function HostSettingsModal({
     }
     if (currentFilterConfig.type === "genre") {
       if (filterMetadata) {
-        const genreIds = currentFilterConfig.genreIds && currentFilterConfig.genreIds.length > 0
-          ? currentFilterConfig.genreIds
-          : currentFilterConfig.genreId
-          ? [currentFilterConfig.genreId]
-          : [];
+        const genreIds =
+          currentFilterConfig.genreIds && currentFilterConfig.genreIds.length > 0
+            ? currentFilterConfig.genreIds
+            : currentFilterConfig.genreId
+            ? [currentFilterConfig.genreId]
+            : draft.genreIds && draft.genreIds.length > 0
+            ? draft.genreIds
+            : draft.genreId
+            ? [draft.genreId]
+            : [];
         if (genreIds.length > 0) {
           const total = filterMetadata.genres
             .filter((g) => genreIds.includes(g.id))
@@ -312,9 +369,19 @@ export function HostSettingsModal({
     }
     if (currentFilterConfig.type === "era") {
       if (filterMetadata) {
-        const matched = filterMetadata.eras.find((e) => e.id === currentFilterConfig.era);
-        if (matched?.songCount !== undefined && matched.songCount > 0) {
-          return matched.songCount;
+        const eraIds =
+          currentFilterConfig.eraIds && currentFilterConfig.eraIds.length > 0
+            ? currentFilterConfig.eraIds
+            : currentFilterConfig.era
+            ? [currentFilterConfig.era]
+            : draft.eraIds && draft.eraIds.length > 0
+            ? draft.eraIds
+            : [];
+        if (eraIds.length > 0) {
+          const total = filterMetadata.eras
+            .filter((e) => eraIds.includes(e.id))
+            .reduce((sum, e) => sum + (e.songCount || 0), 0);
+          return Math.max(1, total);
         }
       }
       return 20;
@@ -326,7 +393,14 @@ export function HostSettingsModal({
       return 100;
     }
     return 100;
-  }, [currentFilterConfig, selectedPlaylist, filterMetadata]);
+  }, [
+    currentFilterConfig,
+    selectedPlaylist,
+    filterMetadata,
+    draft.genreIds,
+    draft.genreId,
+    draft.eraIds,
+  ]);
 
   // Auto-clamp draft.totalRounds if it exceeds maxAvailableSongs
   useEffect(() => {
@@ -340,6 +414,8 @@ export function HostSettingsModal({
     targetPlaylistId,
     currentFilterConfig.genreId,
     currentFilterConfig.genreIds,
+    currentFilterConfig.eraIds,
+    draft.totalRounds,
   ]);
 
   if (!isOpen) return null;
@@ -377,12 +453,30 @@ export function HostSettingsModal({
           : null;
       const effectiveGenreId =
         effectiveFilter.type === "genre" ? effectiveFilter.genreId : undefined;
+      const effectiveGenreIds =
+        effectiveFilter.type === "genre"
+          ? effectiveFilter.genreIds && effectiveFilter.genreIds.length > 0
+            ? effectiveFilter.genreIds
+            : effectiveFilter.genreId
+            ? [effectiveFilter.genreId]
+            : undefined
+          : undefined;
+      const effectiveEraIds =
+        effectiveFilter.type === "era"
+          ? effectiveFilter.eraIds && effectiveFilter.eraIds.length > 0
+            ? effectiveFilter.eraIds
+            : effectiveFilter.era
+            ? [effectiveFilter.era]
+            : undefined
+          : undefined;
 
       const payload = prepareSettingsPayload({
         ...draft,
         songFilter: effectiveFilter,
         playlistId: effectivePlaylistId,
         genreId: effectiveGenreId,
+        genreIds: effectiveGenreIds,
+        eraIds: effectiveEraIds,
       });
       const res = await onSaveSettings(payload);
       // If callback returns boolean false, keep modal open
@@ -1235,6 +1329,22 @@ export function HostSettingsModal({
             songFilter: newFilter,
             playlistId: newFilter.type === "playlist" ? newFilter.playlistId : undefined,
             genreId: newFilter.type === "genre" ? newFilter.genreId : undefined,
+            genreIds:
+              newFilter.type === "genre"
+                ? newFilter.genreIds && newFilter.genreIds.length > 0
+                  ? newFilter.genreIds
+                  : newFilter.genreId
+                  ? [newFilter.genreId]
+                  : undefined
+                : undefined,
+            eraIds:
+              newFilter.type === "era"
+                ? newFilter.eraIds && newFilter.eraIds.length > 0
+                  ? newFilter.eraIds
+                  : newFilter.era
+                  ? [newFilter.era]
+                  : undefined
+                : undefined,
           }));
         }}
       />

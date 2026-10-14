@@ -300,6 +300,7 @@ export interface GetRandomSongsOptions {
   genreId?: string;
   genreIds?: string[];
   era?: string;
+  eraIds?: string[];
   artist?: string;
   yearStart?: number;
   yearEnd?: number;
@@ -511,7 +512,9 @@ export async function getRandomSongs(
     query = query.eq("genre_id", options.genreId);
   }
 
-  if (options?.era) {
+  if (options?.eraIds && options.eraIds.length > 0) {
+    query = query.in("era", options.eraIds);
+  } else if (options?.era) {
     query = query.eq("era", options.era);
   }
 
@@ -540,6 +543,7 @@ export async function getRandomSongs(
   const hasFilters = Boolean(
     (options?.genreIds && options.genreIds.length > 0) ||
     options?.genreId ||
+    (options?.eraIds && options.eraIds.length > 0) ||
     options?.era ||
     options?.artist ||
     options?.yearStart !== undefined ||

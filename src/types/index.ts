@@ -135,6 +135,8 @@ export interface RoomSettings {
   totalRounds: number; // 0 for unlimited, or e.g. 5, 10, 20
   targetScore: number; // 0 for disabled, or e.g. 10
   genreId?: string; // all or specific genre
+  genreIds?: string[]; // multiple selected genres
+  eraIds?: string[]; // multiple selected eras
   playlistId?: string | null; // custom playlist
   songFilter?: SongFilterConfig;
   // Room listing & access control

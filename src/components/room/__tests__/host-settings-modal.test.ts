@@ -43,6 +43,47 @@ describe("HostSettingsModal - prepareSettingsPayload", () => {
     const p2 = prepareSettingsPayload({ answerInputMode: "free-text" });
     expect(p2.answerInputMode).toBe("free-text");
   });
+
+  it("handles multi-genre selection and preserves genreIds in payload", () => {
+    const payload = prepareSettingsPayload({
+      songFilter: {
+        type: "genre",
+        genreIds: ["rock-id", "pop-id"],
+        genreId: "rock-id",
+        genreNames: ["ร็อค", "ป็อป"],
+      },
+    });
+
+    expect(payload.genreId).toBe("rock-id");
+    expect(payload.genreIds).toEqual(["rock-id", "pop-id"]);
+    expect(payload.playlistId).toBeUndefined();
+    expect(payload.eraIds).toBeUndefined();
+  });
+
+  it("handles multi-era selection and preserves eraIds in payload", () => {
+    const payload = prepareSettingsPayload({
+      songFilter: {
+        type: "era",
+        eraIds: ["90s", "2000s"],
+        era: "90s",
+      },
+    });
+
+    expect(payload.eraIds).toEqual(["90s", "2000s"]);
+    expect(payload.genreId).toBeUndefined();
+    expect(payload.genreIds).toBeUndefined();
+    expect(payload.playlistId).toBeUndefined();
+  });
+
+  it("cleans up empty genreIds and eraIds arrays", () => {
+    const payload = prepareSettingsPayload({
+      genreIds: [],
+      eraIds: [] as any,
+    });
+
+    expect(payload.genreIds).toBeUndefined();
+    expect(payload.eraIds).toBeUndefined();
+  });
 });
 
 import {

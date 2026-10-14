@@ -155,6 +155,30 @@ export class RoomService {
       }
     }
 
+    if ("genreIds" in settings) {
+      if (
+        !settings.genreIds ||
+        !Array.isArray(settings.genreIds) ||
+        settings.genreIds.length === 0
+      ) {
+        delete updatedSettings.genreIds;
+      } else {
+        updatedSettings.genreIds = settings.genreIds;
+      }
+    }
+
+    if ("eraIds" in settings) {
+      if (
+        !settings.eraIds ||
+        !Array.isArray(settings.eraIds) ||
+        settings.eraIds.length === 0
+      ) {
+        delete updatedSettings.eraIds;
+      } else {
+        updatedSettings.eraIds = settings.eraIds;
+      }
+    }
+
     const { data, error } = await client
       .from("rooms")
       .update({ settings: updatedSettings as unknown as Json })
