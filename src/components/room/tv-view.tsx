@@ -42,6 +42,9 @@ export interface TVViewProps {
   onLeaveRoom?: () => void;
 }
 
+export const TV_LAST_ROUND_SUSPENSE_MESSAGE =
+  "🏁 จบรอบสุดท้ายแล้ว! กำลังเตรียมแท่นรับรางวัลและสรุปผู้ชนะ...";
+
 export interface LobbyReadyInfo {
   readyCount: number;
   totalCount: number;
@@ -125,6 +128,10 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   const tvSliceDuration = activeQuestion?.durationSec || roomRealtime.room?.settings?.sliceDurationSec || 2.0;
   const tvSliceRemaining = calculateSliceRemainingTime(tvAudioTime, tvSliceDuration);
   const tvSliceProgressPercent = Math.min(100, Math.max(0, (tvAudioTime / tvSliceDuration) * 100));
+
+  const isLastRound = Boolean(
+    totalRounds && totalRounds > 0 && currentRound && currentRound >= totalRounds
+  );
 
   // Reset tv audio time on new round or status change
   useEffect(() => {
@@ -897,58 +904,69 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
               </div>
 
               {/* Reveal Stage Live Scoreboard Standings */}
-              {sortedLeaderboard.length > 0 && (
-                <div className="w-full max-w-3xl mt-8 p-5 sm:p-6 rounded-3xl bg-stone-900/80 border border-amber-500/30 shadow-2xl backdrop-blur-md">
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-stone-800">
-                    <div className="flex items-center gap-2.5">
-                      <Trophy className="w-6 h-6 text-amber-400" />
-                      <h3 className="text-xl sm:text-2xl font-black text-amber-300">
-                        🏆 ตารางคะแนนล่าสุด (ใครกำลังนำอยู่)
-                      </h3>
+              {isLastRound ? (
+                <div className="w-full max-w-3xl mt-8 p-6 sm:p-8 rounded-3xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-200 text-center font-bold text-lg sm:text-xl flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
+                  <Trophy className="w-7 h-7 text-amber-400 animate-bounce" />
+                  <span>🏁 จบรอบสุดท้ายแล้ว! กำลังเตรียมแท่นรับรางวัลและสรุปผู้ชนะ...</span>
+                </div>
+              ) : (
+                sortedLeaderboard.length > 0 && (
+                  <div className="w-full max-w-3xl mt-8 p-5 sm:p-6 rounded-3xl bg-stone-900/80 border border-amber-500/30 shadow-2xl backdrop-blur-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-stone-800">
+                      <div className="flex items-center gap-2.5">
+                        <Trophy className="w-6 h-6 text-amber-400" />
+                        <h3 className="text-xl sm:text-2xl font-black text-amber-300">
+                          🏆 ตารางคะแนนล่าสุด (ใครกำลังนำอยู่)
+                        </h3>
+                      </div>
+                      <span className="text-xs font-bold text-stone-400 bg-stone-800 px-3 py-1 rounded-full">
+                        อันดับคะแนนสด
+                      </span>
                     </div>
-                    <span className="text-xs font-bold text-stone-400 bg-stone-800 px-3 py-1 rounded-full">
-                      อันดับคะแนนสด
-                    </span>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {sortedLeaderboard.slice(0, 3).map((p, idx) => {
-                      const rank = idx + 1;
-                      const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
-                      const avatar = getDeterministicAvatar(p);
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {sortedLeaderboard.slice(0, 3).map((p, idx) => {
+                        const rank = idx + 1;
+                        const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+                        const avatar = getDeterministicAvatar(p);
 
-                      return (
-                        <div
-                          key={p.id}
-                          className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
-                            rank === 1
-                              ? "bg-amber-500/15 border-amber-400/80 text-amber-200 shadow-lg shadow-amber-500/10"
-                              : "bg-stone-950/70 border-stone-800 text-stone-300"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="text-2xl shrink-0">{medal}</span>
-                            <span className="w-8 h-8 rounded-xl bg-stone-800 flex items-center justify-center text-lg shrink-0">
-                              {avatar}
-                            </span>
-                            <span className="font-extrabold text-base truncate">
-                              {p.displayName}
+                        return (
+                          <div
+                            key={p.id}
+                            className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                              rank === 1
+                                ? "bg-amber-500/15 border-amber-400/80 text-amber-200 shadow-lg shadow-amber-500/10"
+                                : "bg-stone-950/70 border-stone-800 text-stone-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="text-2xl shrink-0">{medal}</span>
+                              <span className="w-8 h-8 rounded-xl bg-stone-800 flex items-center justify-center text-lg shrink-0">
+                                {avatar}
+                              </span>
+                              <span className="font-extrabold text-base truncate">
+                                {p.displayName}
+                              </span>
+                            </div>
+                            <span className="font-mono font-black text-amber-400 text-lg shrink-0 ml-2">
+                              {p.score ?? 0}
                             </span>
                           </div>
-                          <span className="font-mono font-black text-amber-400 text-lg shrink-0 ml-2">
-                            {p.score ?? 0}
-                          </span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )
               )}
 
               {/* Host Next Round Cue */}
               <p className="text-sm text-stone-400 mt-6 font-medium">
                 {isHost
-                  ? "หัวหน้าห้อง: กด 'ข้อถัดไป' บนอุปกรณ์ควบคุมเพื่อเริ่มเล่นต่อ"
+                  ? isLastRound
+                    ? "หัวหน้าห้อง: กด 'สรุปคะแนน & ไปยังแท่นรับรางวัล' เพื่อเปิดหน้าผู้ชนะ"
+                    : "หัวหน้าห้อง: กด 'ข้อถัดไป' บนอุปกรณ์ควบคุมเพื่อเริ่มเล่นต่อ"
+                  : isLastRound
+                  ? "รอหัวหน้าห้องสรุปคะแนนและเปิดแท่นรับรางวัล..."
                   : "รอหัวหน้าห้องเริ่มข้อถัดไป..."}
               </p>
             </div>
@@ -988,13 +1006,21 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
             </div>
 
             {/* Leaderboard List */}
-            <div className="mt-4 flex flex-col gap-2.5 max-h-[460px] overflow-y-auto pr-1">
-              {sortedLeaderboard.length === 0 ? (
-                <div className="text-center py-8 text-stone-500 text-sm">
-                  ยังไม่มีผู้เล่นในห้อง
-                </div>
-              ) : (
-                sortedLeaderboard.map((player, idx) => {
+            {status === "revealing" && isLastRound ? (
+              <div className="mt-4 p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-center font-bold text-sm flex flex-col items-center justify-center gap-2">
+                <span className="text-3xl animate-bounce">🏆</span>
+                <span className="text-amber-300 font-extrabold text-base">ซ่อนคะแนนรอบสุดท้าย</span>
+                <span className="text-xs text-stone-400 font-normal">
+                  ลุ้นคะแนนสรุปและผู้ชนะบนแท่นรับรางวัล!
+                </span>
+              </div>
+            ) : sortedLeaderboard.length === 0 ? (
+              <div className="text-center py-8 text-stone-500 text-sm">
+                ยังไม่มีผู้เล่นในห้อง
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col gap-2.5 max-h-[460px] overflow-y-auto pr-1">
+                {sortedLeaderboard.map((player, idx) => {
                   const rank = idx + 1;
                   const isTop1 = rank === 1;
                   const isTop2 = rank === 2;
@@ -1092,9 +1118,9 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
+            )}
           </div>
 
           {/* Bottom Right: Mini Spectator Join QR Code */}

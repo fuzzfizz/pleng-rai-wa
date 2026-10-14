@@ -223,34 +223,34 @@ describe("Backend Logic & Architecture Fixes (Items 1, 2, 5, 6)", () => {
   // 3. Slicing Randomization Scope (entire_song vs hook)
   // =========================================================================
   describe("3. Slicing Randomization Scope", () => {
-    it("randomizes across entire song duration when sliceRegion is 'entire_song'", () => {
+    it("randomizes across entire song duration bounded by 15% and 90% when sliceRegion is 'entire_song'", () => {
       const song: SongHookMetadata = {
         hookStartSec: 60,
         hookEndSec: 80,
         durationSec: 180,
       };
 
-      // entire_song with randomFn = 0 (min start) -> 0.0
+      // entire_song with randomFn = 0 (min start) -> 180 * 0.15 = 27.0
       const minVal = calculateSliceStart(song, 2.0, () => 0, "entire_song");
-      expect(minVal).toBe(0.0);
+      expect(minVal).toBe(27.0);
 
-      // entire_song with randomFn = 1 (max start) -> 180 - 2 = 178.0
+      // entire_song with randomFn = 1 (max start) -> 180 * 0.90 = 162.0
       const maxVal = calculateSliceStart(song, 2.0, () => 1, "entire_song");
-      expect(maxVal).toBe(178.0);
+      expect(maxVal).toBe(162.0);
 
-      // entire_song with randomFn = 0.5 (mid start) -> 178 * 0.5 = 89.0
+      // entire_song with randomFn = 0.5 (mid start) -> 27 + 0.5 * (162 - 27) = 94.5
       const midVal = calculateSliceStart(song, 2.0, () => 0.5, "entire_song");
-      expect(midVal).toBe(89.0);
+      expect(midVal).toBe(94.5);
     });
 
-    it("falls back to 180s duration when song duration is missing in 'entire_song' mode", () => {
+    it("falls back to 180s duration when song duration is missing in 'entire_song' mode (max 90% = 162.0)", () => {
       const song: SongHookMetadata = {
         hookStartSec: 40,
         hookEndSec: 60,
       };
 
       const maxVal = calculateSliceStart(song, 2.0, () => 1, "entire_song");
-      expect(maxVal).toBe(178.0); // 180 - 2
+      expect(maxVal).toBe(162.0); // 180 * 0.90
     });
 
     it("retains chorus-bounded randomization when sliceRegion is 'hook' (default)", () => {

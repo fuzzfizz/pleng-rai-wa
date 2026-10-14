@@ -23,6 +23,14 @@ import type { Song, Player } from "@/types";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 import { getDeterministicAvatar } from "./player-card";
 
+export const LAST_ROUND_SUSPENSE_MESSAGE =
+  "🏁 จบรอบสุดท้ายแล้ว! ไปลุ้นคะแนนสรุปและผู้ชนะบนแท่นรับรางวัลกัน";
+export const LAST_ROUND_BUTTON_TEXT = "🏆 สรุปคะแนน & ไปยังแท่นรับรางวัล";
+
+export function checkIsLastRound(currentRound?: number, totalRounds?: number): boolean {
+  return Boolean(totalRounds && totalRounds > 0 && currentRound && currentRound >= totalRounds);
+}
+
 export interface RoundWinnerInfo {
   playerId: string;
   displayName: string;
@@ -157,8 +165,8 @@ export function RoundRevealCard({
     return sortedPlayers.find((p: Player) => p.id === currentPlayerId);
   }, [sortedPlayers, currentPlayerId]);
 
-  const isFinalRound = Boolean(
-    currentRound && totalRounds && totalRounds > 0 && currentRound >= totalRounds
+  const isLastRound = Boolean(
+    totalRounds && totalRounds > 0 && currentRound && currentRound >= totalRounds
   );
 
   // Trigger confetti burst on mount / winner change
@@ -440,7 +448,11 @@ export function RoundRevealCard({
       </div>
 
       {/* Round Reveal Leaderboard / Mini Scoreboard */}
-      {sortedPlayers.length > 0 && (
+      {isLastRound ? (
+        <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-center font-bold text-sm sm:text-base flex items-center justify-center gap-2">
+          <span>🏁 จบรอบสุดท้ายแล้ว! ไปลุ้นคะแนนสรุปและผู้ชนะบนแท่นรับรางวัลกัน</span>
+        </div>
+      ) : sortedPlayers.length > 0 ? (
         <div className="p-4 sm:p-5 rounded-2xl bg-stone-900/90 border border-amber-500/30 shadow-lg text-white">
           <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-stone-800">
             <div className="flex items-center gap-2">
@@ -511,7 +523,7 @@ export function RoundRevealCard({
             )}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Action / Next Round Progression */}
       <div className="pt-1">
@@ -531,9 +543,9 @@ export function RoundRevealCard({
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span>กำลังเตรียมข้อถัดไป...</span>
               </>
-            ) : isFinalRound ? (
+            ) : isLastRound ? (
               <>
-                <span>ดูผลสรุปการแข่งขัน (Game Over)</span>
+                <span>🏆 สรุปคะแนน & ไปยังแท่นรับรางวัล</span>
                 <Trophy className="w-5 h-5 text-stone-950" />
               </>
             ) : (
@@ -546,7 +558,11 @@ export function RoundRevealCard({
         ) : (
           <div className="w-full py-3.5 px-4 bg-stone-100 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-2xl flex items-center justify-center gap-2.5 text-stone-600 dark:text-slate-400 text-sm font-semibold">
             <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-            <span>รอ Host เริ่มข้อถัดไป...</span>
+            <span>
+              {isLastRound
+                ? "รอ Host สรุปคะแนนและเปิดแท่นรับรางวัล..."
+                : "รอ Host เริ่มข้อถัดไป..."}
+            </span>
           </div>
         )}
       </div>

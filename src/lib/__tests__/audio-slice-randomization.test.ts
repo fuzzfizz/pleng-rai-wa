@@ -101,16 +101,16 @@ describe("Audio Slice Randomization Utils", () => {
     });
 
     it("handles edge cases safely (hookStartSec: 0, corrupted hookEndSec, duration <= durationSec)", () => {
-      // 1. hookStartSec: 0
+      // 1. hookStartSec: 0 falls back to 25% of duration (25.0s) to avoid 0s intro silence
       const startZeroSong: SongHookMetadata = {
         hookStartSec: 0,
-        hookEndSec: 25,
+        hookEndSec: 50,
         duration: 100,
       };
       const zeroMin = calculateSliceStart(startZeroSong, 2.0, () => 0);
-      expect(zeroMin).toBe(0.0);
+      expect(zeroMin).toBe(25.0);
       const zeroMax = calculateSliceStart(startZeroSong, 2.0, () => 1);
-      expect(zeroMax).toBe(23.0);
+      expect(zeroMax).toBe(48.0);
 
       // 2. Corrupted hookEndSec (hookEndSec <= hookStartSec)
       const corruptedHook: SongHookMetadata = {
@@ -136,6 +136,39 @@ describe("Audio Slice Randomization Utils", () => {
       // 4. Null / undefined input
       expect(calculateSliceStart(null as any)).toBe(0);
       expect(calculateSliceStart(undefined as any)).toBe(0);
+    });
+
+    it("bounds entire_song slices strictly between 15% and 90% and never within first 0-5 seconds", () => {
+      const song: SongHookMetadata = {
+        duration: 200,
+      };
+
+      // 15% of 200 = 30.0s. 90% of 200 = 180.0s.
+      const minVal = calculateSliceStart(song, 2.0, () => 0, "entire_song");
+      expect(minVal).toBe(30.0);
+      expect(minVal).toBeGreaterThanOrEqual(5.0);
+
+      const maxVal = calculateSliceStart(song, 2.0, () => 1, "entire_song");
+      expect(maxVal).toBe(180.0);
+      expect(maxVal).toBeLessThanOrEqual(200 * 0.9);
+
+      // Mid point: 30 + 0.5 * (180 - 30) = 105.0
+      const midVal = calculateSliceStart(song, 2.0, () => 0.5, "entire_song");
+      expect(midVal).toBe(105.0);
+
+      // For song where 15% is less than 5 seconds (e.g. 20s song -> 15% is 3.0s), minStart must be clamped to at least 5.0s
+      const shortSong: SongHookMetadata = {
+        duration: 20,
+      };
+      const shortMin = calculateSliceStart(shortSong, 2.0, () => 0, "entire_song");
+      expect(shortMin).toBeGreaterThanOrEqual(5.0);
+
+      // Verify random variance for entire_song never dips below 15% or 5 seconds
+      for (let i = 0; i < 30; i++) {
+        const val = calculateSliceStart(song, 2.0, Math.random, "entire_song");
+        expect(val).toBeGreaterThanOrEqual(30.0);
+        expect(val).toBeLessThanOrEqual(180.0);
+      }
     });
 
     it("produces dynamic pseudo-random variance within range across multiple invocations", () => {

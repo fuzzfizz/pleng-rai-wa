@@ -1,12 +1,14 @@
 # รายการแก้ไขบั๊กและการปรับปรุง (Fixes & Improvements) โหมด audio slice
 
-- [แก้ไขแล้ว ✓] **แก้ไขปัญหาเมื่อเลือกเพลงหลายหมวดหมู่แล้วแต่จำนวนข้อที่เลือกยังจำกัดเหลือแค่หมวดหมู่เดียว (Multi-genre & Multi-era rounds selection)**:
-  - **สาเหตุ (Root Cause)**:
-    1. ใน `HostSettingsModal` การคำนวณ `maxAvailableSongs` และ fallback ใน `currentFilterConfig` อ้างอิงเฉพาะ `genreId` เดี่ยวและไม่ได้รวมเพลงจาก `genreIds` / `eraIds` ทุกอันที่เลือก
-    2. ฟังก์ชัน `prepareSettingsPayload` และ `handleSave` ทำการยุบค่าเหลือเพียง `genreId` ตัวแรกตัวเดียว ทำให้เมื่อบันทึกการตั้งค่าห้อง `genreIds` และ `eraIds` สูญหาย
-    3. `useEffect` ที่ซิงก์ `draft` ทำงานทุกครั้งที่ `settings` อัปเดต (เช่น เมื่อมีผู้เล่นอื่นส่ง heartbeat/presence) ทำให้ draft ถูกรีเซ็ตกลับเป็นค่าเดี่ยว
+- [แก้ไขแล้ว ✓] **กำหนดจำนวนผู้เล่นสูงสุดก่อนสร้างห้อง และแยกการตั้งค่าห้องออกจากกติกาเกม**:
   - **การแก้ไข**:
-    1. ปรับปรุง `currentFilterConfig` และ `maxAvailableSongs` ให้ดึง `songCount` ของทุกหมวดหมู่ใน `genreIds` และทุกยุคใน `eraIds` มารวมกันอย่างถูกต้อง (เช่น ร็อค 7 เพลง + ป็อป 4 เพลง = 11 เพลง)
-    2. อัปเดต `prepareSettingsPayload` และ `handleSave` ให้ส่งและบันทึก `genreIds` และ `eraIds` เข้า `RoomSettings`
-    3. เพิ่ม `prevIsOpenRef` ใน `HostSettingsModal` เพื่อป้องกันไม่ให้ presence/state update ในห้องมารีเซ็ต draft ขณะที่หัวห้องกำลังตั้งค่า
-    4. ปรับปรุง `SongService.getRandomSongs` และ `/api/room/[code]/next-round` ให้รองรับการค้นหาเพลงด้วย `genreIds` และ `eraIds` ครบถ้วน ไม่หยุดหรือตัดจบเร็วเมื่อหมดแค่หมวดหมู่แรก
+    1. ในหน้าสร้างห้อง ([`src/app/page.tsx`](file:///D:/pleng-rai-wa/src/app/page.tsx)): เพิ่มตัวเลือกกำหนดจำนวนผู้เล่นสูงสุด (`maxPlayers`: 4, 6, 8 [แนะนำ], 10, 12 คน) บันทึกลงการตั้งค่าห้องตั้งแต่แรก
+    2. สร้างหน้าต่างใหม่แยกออกมา ([`RoomManageModal`](file:///D:/pleng-rai-wa/src/components/room/room-manage-modal.tsx)): สำหรับจัดการความจุห้อง และโอนสิทธิ์หัวห้อง (Host Transfer) โดยเฉพาะ
+    3. นำการจัดการห้องออกจาก [`HostSettingsModal`](file:///D:/pleng-rai-wa/src/components/room/host-settings-modal.tsx) เพื่อให้โฟกัสเฉพาะกติกาและโหมดการเล่นเกม
+- [แก้ไขแล้ว ✓] **ล็อกปุ่มเริ่มเกม ต้องรอให้ผู้เล่นทุกคนกดพร้อมก่อน Host จึงจะกดเริ่มได้**:
+  - **การแก้ไข**: ใน [`LobbyView`](file:///D:/pleng-rai-wa/src/components/room/lobby-view.tsx) ปรับให้ปุ่ม `เริ่มเกม (Start Game)` ปิดใช้งาน (disabled) และแสดงสถานะ `⏳ รอผู้เล่นทุกคนกดพร้อมก่อนเริ่มเกม (X/Y คนพร้อมแล้ว)` จนกว่าผู้เล่นทุกคนที่ไม่ใช่ Host จะกดพร้อมครบ 100% จึงจะเปิดให้กดเริ่มเกมได้
+- [แก้ไขแล้ว ✓] **ป้องกันสุ่มตัดเสียงช่วงที่ไม่มีเสียง (ช่วง 15% - 90% ของความยาวเพลง)**:
+  - **สาเหตุ (Root Cause)**: ในโหมด `entire_song` เดิมเริ่มต้นสุ่มตั้งแต่ 0.0s ซึ่งเพลงส่วนใหญ่มีช่วงความเงียบก่อนเริ่มเพลง (Intro silence) 0-3 วินาทีแรก และโหมดฮุกหากไม่มีค่า `hookStartSec` จะ fallback เป็น 0s
+  - **การแก้ไข**: ปรับปรุง [`calculateSliceStart`](file:///D:/pleng-rai-wa/src/lib/audio-slice-utils.ts) ให้สุ่มเฉพาะช่วง 15% - 90% ของความยาวเพลง และเว้น 5.0 วินาทีแรกเด็ดขาด พร้อม fallback เพลงที่ไม่มีฮุกไปที่ 25% ของเพลง ป้องกันเสียงเงียบ 100%
+- [แก้ไขแล้ว ✓] **รอบสุดท้ายไม่ต้องแสดงคะแนนตอนเฉลย ให้แสดงในหน้าแท่นรับรางวัลแทน**:
+  - **การแก้ไข**: ใน [`RoundRevealCard`](file:///D:/pleng-rai-wa/src/components/room/round-reveal-card.tsx), [`TVView`](file:///D:/pleng-rai-wa/src/components/room/tv-view.tsx), และ [`GameView`](file:///D:/pleng-rai-wa/src/components/room/game-view.tsx) เมื่อเป็นรอบสุดท้าย (`isLastRound`) จะซ่อนตารางคะแนนทั้งหมด และแสดงแบนเนอร์ลุ้นระทึก `🏁 จบรอบสุดท้ายแล้ว! ไปลุ้นคะแนนสรุปและผู้ชนะบนแท่นรับรางวัลกัน` พร้อมเปลี่ยนปุ่ม Host เป็น `🏆 สรุปคะแนน & ไปยังแท่นรับรางวัล`

@@ -33,18 +33,21 @@ export function calculateSliceStart(
   const safeDuration = typeof durationSec === "number" && durationSec > 0 ? durationSec : 2.0;
 
   if (sliceRegion === "entire_song") {
-    const rawTotal =
+    const totalDuration =
       typeof song.duration === "number" && !isNaN(song.duration) && song.duration > 0
         ? song.duration
         : typeof song.durationSec === "number" && !isNaN(song.durationSec) && song.durationSec > 0
         ? song.durationSec
         : 180;
-    const totalDuration = rawTotal ?? 180;
-    const minStart = 0;
-    const maxStart = Math.max(0, totalDuration - safeDuration);
+
+    const minStart = Math.max(5.0, Math.round(totalDuration * 0.15 * 10) / 10);
+    const maxStart = Math.min(
+      Math.max(minStart, totalDuration - safeDuration - 5.0),
+      Math.round(totalDuration * 0.90 * 10) / 10
+    );
 
     if (maxStart <= minStart) {
-      return 0;
+      return Math.round(Math.min(minStart, Math.max(0, totalDuration - safeDuration)) * 10) / 10;
     }
 
     const rand = typeof randomFn === "function" ? randomFn() : Math.random();
@@ -54,14 +57,21 @@ export function calculateSliceStart(
     return Math.round(picked * 10) / 10;
   }
 
-  // Base hook start: ensure non-negative
+  const rawTotal =
+    typeof song.duration === "number" && !isNaN(song.duration) && song.duration > 0
+      ? song.duration
+      : typeof song.durationSec === "number" && !isNaN(song.durationSec) && song.durationSec > 0
+      ? song.durationSec
+      : null;
+
+  // Base hook start: ensure non-negative and avoid intro silence if missing
   const rawHookStart = song.hookStartSec;
-  const minStart = Math.max(
-    0,
-    typeof rawHookStart === "number" && !isNaN(rawHookStart) && rawHookStart > 0
-      ? rawHookStart
-      : 0
-  );
+  const hasValidHookStart =
+    typeof rawHookStart === "number" && !isNaN(rawHookStart) && rawHookStart > 0;
+
+  let minStart = hasValidHookStart
+    ? rawHookStart
+    : Math.max(5.0, Math.round(((rawTotal || 180) * 0.25) * 10) / 10);
 
   // Target chorus span: if hookEndSec is valid and larger than minStart + durationSec, use it.
   // Otherwise, default to estimating a 20-second chorus span.
@@ -74,19 +84,13 @@ export function calculateSliceStart(
   // Max start offset within the chorus
   let maxStart = Math.max(minStart, chorusEnd - safeDuration);
 
-  // If total song duration is known, constrain maxStart so slice does not exceed song length
-  const totalDuration =
-    typeof song.duration === "number" && !isNaN(song.duration)
-      ? song.duration
-      : typeof song.durationSec === "number" && !isNaN(song.durationSec)
-      ? song.durationSec
-      : null;
-
-  if (totalDuration !== null) {
-    if (totalDuration <= safeDuration) {
-      return Math.round(Math.min(minStart, Math.max(0, totalDuration)) * 10) / 10;
+  // If total song duration is known, constrain maxStart and minStart so slice does not exceed song length
+  if (rawTotal !== null) {
+    if (rawTotal <= safeDuration) {
+      return 0;
     }
-    maxStart = Math.min(maxStart, Math.max(minStart, totalDuration - safeDuration));
+    minStart = Math.min(minStart, Math.max(0, rawTotal - safeDuration));
+    maxStart = Math.min(maxStart, Math.max(minStart, rawTotal - safeDuration));
   }
 
   // If chorus range is too tight for the slice duration, fallback to minStart

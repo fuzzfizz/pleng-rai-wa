@@ -16,7 +16,6 @@ import {
   Clock,
   RotateCcw,
   Sparkles,
-  UserCheck,
   ChevronRight,
   AlertTriangle,
   Check,
@@ -33,10 +32,10 @@ export interface HostSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: RoomSettings;
-  players: Player[];
-  currentHostPlayerId: string;
+  players?: Player[];
+  currentHostPlayerId?: string;
   onSaveSettings: (settings: Partial<RoomSettings>) => Promise<boolean | void>;
-  onTransferHost: (newHostPlayerId: string) => Promise<boolean | void>;
+  onTransferHost?: (newHostPlayerId: string) => Promise<boolean | void>;
 }
 
 export const SLICE_DURATION_OPTIONS: { value: number; label: string }[] = [
@@ -204,10 +203,7 @@ export function HostSettingsModal({
   const [isSongSourceModalOpen, setIsSongSourceModalOpen] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
-  const [selectedTransferTarget, setSelectedTransferTarget] = useState<string>("");
-  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isTransferring, setIsTransferring] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [filterMetadata, setFilterMetadata] = useState<{
@@ -224,8 +220,6 @@ export function HostSettingsModal({
       setDraft({ ...settings });
       setIsSongSourceModalOpen(false);
       setErrorMessage(null);
-      setShowTransferConfirm(false);
-      setSelectedTransferTarget("");
       setIsClampedWarning(false);
     }
     prevIsOpenRef.current = isOpen;
@@ -304,13 +298,13 @@ export function HostSettingsModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isSaving && !isTransferring) {
+      if (e.key === "Escape" && !isSaving) {
         onClose();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, isSaving, isTransferring]);
+  }, [isOpen, onClose, isSaving]);
 
   const currentFilterConfig: SongFilterConfig = draft.songFilter || (
     draft.playlistId
@@ -420,9 +414,6 @@ export function HostSettingsModal({
 
   if (!isOpen) return null;
 
-  // Other players eligible to become host
-  const otherPlayers = players.filter((p) => p.id !== currentHostPlayerId);
-
   const isSelectedValid = Boolean(
     selectedPlaylist && isPlaylistPlayable(selectedPlaylist.songCount || 0)
   );
@@ -434,7 +425,6 @@ export function HostSettingsModal({
 
   const isSaveDisabled =
     isSaving ||
-    isTransferring ||
     isLoadingPlaylists ||
     Boolean(isPlaylistInvalid);
 
@@ -490,29 +480,6 @@ export function HostSettingsModal({
     }
   };
 
-  const handleExecuteTransfer = async () => {
-    if (!selectedTransferTarget) return;
-    try {
-      setIsTransferring(true);
-      setErrorMessage(null);
-      try {
-        soundEffects.click();
-      } catch {}
-
-      const res = await onTransferHost(selectedTransferTarget);
-      if (res !== false) {
-        setShowTransferConfirm(false);
-        onClose();
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || "ไม่สามารถโอนสิทธิ์ Host ได้");
-    } finally {
-      setIsTransferring(false);
-    }
-  };
-
-  const targetPlayer = otherPlayers.find((p) => p.id === selectedTransferTarget);
-
   return (
     <div
       role="dialog"
@@ -520,7 +487,7 @@ export function HostSettingsModal({
       aria-labelledby="host-settings-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
       onClick={() => {
-        if (!isSaving && !isTransferring) onClose();
+        if (!isSaving) onClose();
       }}
     >
       <div
@@ -546,7 +513,7 @@ export function HostSettingsModal({
 
           <button
             onClick={onClose}
-            disabled={isSaving || isTransferring}
+            disabled={isSaving}
             aria-label="ปิดหน้าต่าง"
             className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/80 rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
@@ -1177,113 +1144,6 @@ export function HostSettingsModal({
               *หมายเหตุ: ในโหมดกดกริ่ง (Buzzer) จะให้ตอบได้ 1 ครั้งต่อการกด เพื่อเปิดโอกาสให้ผู้อื่นแย่งกดตอบ
             </p>
           </div>
-
-          {/* 7.5. Max Players */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-                👥 จำนวนผู้เล่นสูงสุด (Max Players)
-              </label>
-              <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
-                {draft.maxPlayers || 8} คน
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {MAX_PLAYERS_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setDraft((prev) => ({ ...prev, maxPlayers: opt.value }))}
-                  className={`min-h-[44px] py-2.5 px-2 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
-                    (draft.maxPlayers || 8) === opt.value
-                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
-                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 8. Host Transfer Section */}
-          <div className="pt-4 border-t border-stone-200 dark:border-stone-800/80">
-            <label className="block text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-              <UserCheck className="w-4 h-4" />
-              <span>โอนสิทธิ์ความเป็น Host (Transfer Host)</span>
-            </label>
-
-            {otherPlayers.length === 0 ? (
-              <p className="text-xs text-stone-500 italic bg-stone-50 dark:bg-stone-950/40 p-3 rounded-2xl border border-stone-200 dark:border-stone-800/60">
-                ไม่มีผู้เล่นอื่นในห้อง สามารถโอนสิทธิ์ได้เมื่อมีเพื่อนคนอื่นเข้าร่วมห้องแล้ว
-              </p>
-            ) : (
-              <div className="space-y-3 bg-stone-50 dark:bg-stone-950/40 p-3.5 rounded-2xl border border-stone-200 dark:border-stone-800/60">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <select
-                    value={selectedTransferTarget}
-                    onChange={(e) => {
-                      setSelectedTransferTarget(e.target.value);
-                      setShowTransferConfirm(false);
-                    }}
-                    className="flex-1 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-white rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-amber-500 min-h-[44px]"
-                  >
-                    <option value="">-- เลือกผู้เล่นที่จะโอนสิทธิ์ให้ --</option>
-                    {otherPlayers.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.displayName} ({player.score ?? 0} คะแนน)
-                      </option>
-                    ))}
-                  </select>
-
-                  {!showTransferConfirm ? (
-                    <button
-                      type="button"
-                      disabled={!selectedTransferTarget || isTransferring}
-                      onClick={() => setShowTransferConfirm(true)}
-                      className="px-4 py-2 min-h-[44px] flex items-center justify-center rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      โอนสิทธิ์ Host
-                    </button>
-                  ) : null}
-                </div>
-
-                {showTransferConfirm && targetPlayer && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                    <p className="text-xs text-amber-800 dark:text-amber-200">
-                      ⚠️ ยืนยันโอนสิทธิ์ Host ให้{" "}
-                      <strong className="text-stone-900 dark:text-white font-semibold">{targetPlayer.displayName}</strong>{" "}
-                      ใช่หรือไม่? คุณจะกลายเป็นผู้เล่นธรรมดาทันที
-                    </p>
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setShowTransferConfirm(false)}
-                        className="px-3 py-1.5 min-h-[44px] flex items-center justify-center rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-medium cursor-pointer"
-                      >
-                        ยกเลิก
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isTransferring}
-                        onClick={handleExecuteTransfer}
-                        className="px-3.5 py-1.5 min-h-[44px] rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-50"
-                      >
-                        {isTransferring ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>กำลังโอนสิทธิ์...</span>
-                          </>
-                        ) : (
-                          <span>ยืนยันโอนสิทธิ์</span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Modal Footer */}
@@ -1291,7 +1151,7 @@ export function HostSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSaving || isTransferring}
+            disabled={isSaving}
             className="px-5 py-2.5 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 min-h-[44px]"
           >
             ยกเลิก

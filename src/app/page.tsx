@@ -49,6 +49,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
 import { ActiveRoomsTable } from "@/components/home/active-rooms-table";
 
+export const CREATE_MAX_PLAYERS_OPTIONS: { value: number; label: string }[] = [
+  { value: 4, label: "4 คน" },
+  { value: 6, label: "6 คน" },
+  { value: 8, label: "8 คน (แนะนำ)" },
+  { value: 10, label: "10 คน" },
+  { value: 12, label: "12 คน" },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const { profile } = useAuth();
@@ -61,6 +69,7 @@ export default function HomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [hostNickname, setHostNickname] = useState("");
   const [hostAvatar, setHostAvatar] = useState(PRESET_AVATARS[0].emoji);
+  const [maxPlayers, setMaxPlayers] = useState(8);
   const [roomPassword, setRoomPassword] = useState("");
   const [isPrivateRoom, setIsPrivateRoom] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -131,6 +140,7 @@ export default function HomePage() {
           hostDisplayName: hostNickname.trim(),
           hostAvatar,
           settings: {
+            maxPlayers,
             password: roomPassword.trim() || undefined,
             isPrivate: isPrivateRoom,
           },
@@ -416,6 +426,35 @@ export default function HomePage() {
                   <span className="absolute right-3.5 top-3.5 text-xs text-stone-500 font-mono">
                     {hostNickname.length}/25
                   </span>
+                </div>
+              </div>
+
+              {/* Max Players Selector */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+                    👥 จำนวนผู้เล่นสูงสุด (Max Players)
+                  </label>
+                  <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
+                    {maxPlayers} คน
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
+                  {CREATE_MAX_PLAYERS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={isCreating}
+                      onClick={() => setMaxPlayers(opt.value)}
+                      className={`min-h-[44px] py-2 px-1.5 rounded-xl border text-center transition-all cursor-pointer text-xs font-medium flex items-center justify-center ${
+                        maxPlayers === opt.value
+                          ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                          : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 

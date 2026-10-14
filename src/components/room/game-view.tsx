@@ -945,6 +945,9 @@ export function GameView({
 
   const modeLabel = getGameModeLabel(gameMode);
   const roundText = totalRounds > 0 ? `ข้อที่ ${currentRound}/${totalRounds}` : `ข้อที่ ${currentRound}`;
+  const isLastRound = Boolean(
+    totalRounds && totalRounds > 0 && currentRound && currentRound >= totalRounds
+  );
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0c0a09] text-stone-900 dark:text-white flex flex-col justify-between selection:bg-amber-500 selection:text-stone-950 relative overflow-hidden transition-colors duration-200">
@@ -1000,29 +1003,35 @@ export function GameView({
           </div>
 
           {/* Quick Player Scores Ribbon */}
-          <div className="flex items-center gap-2 overflow-x-auto max-w-[50%] sm:max-w-md lg:max-w-xl py-1 no-scrollbar">
-            {sortedPlayers.slice(0, 4).map((p, idx) => {
-              const isMe = myPlayer && p.id === myPlayer.id;
-              const avatar = getDeterministicAvatar({ id: p.id, avatarUrl: p.avatarUrl });
-              return (
-                <div
-                  key={p.id}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shrink-0 transition ${
-                    isMe
-                      ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50 shadow-sm"
-                      : "bg-white/80 dark:bg-stone-900/90 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-800"
-                  }`}
-                >
-                  <span className="text-[13px] lg:text-base">{avatar}</span>
-                  <span className="truncate max-w-[70px] sm:max-w-[90px] lg:max-w-[130px] lg:text-sm">{p.displayName}</span>
-                  {idx === 0 && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
-                  <span className="px-1.5 lg:px-2 py-0.2 rounded bg-stone-100 dark:bg-stone-950 text-amber-600 dark:text-amber-400 font-mono text-[11px] lg:text-xs">
-                    {p.score}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          {status === "revealing" && isLastRound ? (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs font-bold">
+              <span>🏁 ลุ้นคะแนนสรุปบนแท่นรับรางวัล!</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 overflow-x-auto max-w-[50%] sm:max-w-md lg:max-w-xl py-1 no-scrollbar">
+              {sortedPlayers.slice(0, 4).map((p, idx) => {
+                const isMe = myPlayer && p.id === myPlayer.id;
+                const avatar = getDeterministicAvatar({ id: p.id, avatarUrl: p.avatarUrl });
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shrink-0 transition ${
+                      isMe
+                        ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50 shadow-sm"
+                        : "bg-white/80 dark:bg-stone-900/90 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-800"
+                    }`}
+                  >
+                    <span className="text-[13px] lg:text-base">{avatar}</span>
+                    <span className="truncate max-w-[70px] sm:max-w-[90px] lg:max-w-[130px] lg:text-sm">{p.displayName}</span>
+                    {idx === 0 && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
+                    <span className="px-1.5 lg:px-2 py-0.2 rounded bg-stone-100 dark:bg-stone-950 text-amber-600 dark:text-amber-400 font-mono text-[11px] lg:text-xs">
+                      {p.score}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Settings Menu, Return to Lobby & Exit Button */}
           <div className="flex items-center gap-2 shrink-0">

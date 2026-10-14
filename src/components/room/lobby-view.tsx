@@ -26,11 +26,13 @@ import {
   Sliders,
   Loader2,
   Info,
+  Crown,
 } from "lucide-react";
 import { soundEffects, isMuted, setMuted } from "@/lib/sound-effects";
 import { QRCodeModal } from "./qr-code-modal";
 import { PlayerCard } from "./player-card";
 import { HostSettingsModal } from "./host-settings-modal";
+import { RoomManageModal } from "./room-manage-modal";
 
 export interface LobbyViewProps {
   roomCode: string;
@@ -101,6 +103,7 @@ export function LobbyView({
   const router = useRouter();
   const [isQrModalOpen, setQrModalOpen] = useState(false);
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [isRoomManageModalOpen, setRoomManageModalOpen] = useState(false);
   const [isCopiedCode, setIsCopiedCode] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isTogglingReady, setIsTogglingReady] = useState(false);
@@ -305,18 +308,33 @@ export function LobbyView({
             </button>
 
             {isHost && (
-              <button
-                onClick={() => {
-                  try {
-                    soundEffects.click();
-                  } catch {}
-                  setSettingsModalOpen(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
-              >
-                <Settings className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span>ตั้งค่าห้อง (Host)</span>
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    try {
+                      soundEffects.click();
+                    } catch {}
+                    setSettingsModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <Settings className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>ตั้งค่าห้องเกม</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    try {
+                      soundEffects.click();
+                    } catch {}
+                    setRoomManageModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>จัดการห้อง</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -370,8 +388,12 @@ export function LobbyView({
             <>
               <button
                 onClick={handleStartGameClick}
-                disabled={!hasOtherPlayers || isStarting}
-                className="w-full min-h-[44px] py-4 lg:py-5 px-8 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-lg lg:text-xl shadow-md shadow-amber-500/20 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                disabled={!hasOtherPlayers || !allNonHostReady || isStarting}
+                className={`w-full min-h-[44px] py-4 lg:py-5 px-8 rounded-2xl font-bold text-lg lg:text-xl flex items-center justify-center gap-2.5 transition-all ${
+                  !hasOtherPlayers || !allNonHostReady
+                    ? "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed shadow-none"
+                    : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-lg shadow-amber-500/30 ring-2 ring-amber-500/50 active:scale-[0.98] cursor-pointer"
+                }`}
               >
                 {isStarting ? (
                   <>
@@ -393,14 +415,13 @@ export function LobbyView({
                     ต้องการผู้เล่นอย่างน้อย 2 คนเพื่อเริ่มเกม (แชร์รหัสห้องหรือ QR Code ให้เพื่อน)
                   </span>
                 </div>
-              ) : allNonHostReady ? (
-                <div className="text-xs lg:text-sm text-emerald-600 dark:text-emerald-400 font-medium text-center">
-                  ✓ ผู้เล่นทุกคนพร้อมแล้ว! Host สามารถกดเริ่มเกมได้ทันที
+              ) : !allNonHostReady ? (
+                <div className="text-xs lg:text-sm text-amber-700 dark:text-amber-400 font-medium text-center">
+                  ⏳ รอผู้เล่นทุกคนกดพร้อมก่อนเริ่มเกม ({readyNonHostCount}/{nonHostPlayers.length} คนพร้อมแล้ว)
                 </div>
               ) : (
-                <div className="text-xs lg:text-sm text-stone-500 text-center">
-                  รอผู้เล่นคนอื่นกดพร้อม ({readyNonHostCount}/{nonHostPlayers.length}) หรือ Host
-                  สามารถกดเริ่มได้เลย
+                <div className="text-xs lg:text-sm text-emerald-600 dark:text-emerald-400 font-medium text-center">
+                  ✓ ผู้เล่นทุกคนพร้อมแล้ว! Host สามารถกดเริ่มเกมได้ทันที
                 </div>
               )}
             </>
@@ -451,6 +472,16 @@ export function LobbyView({
       <HostSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
+        settings={settings}
+        players={players}
+        currentHostPlayerId={myPlayer?.id || players.find((p) => p.isHost)?.id || ""}
+        onSaveSettings={onUpdateSettings}
+        onTransferHost={onTransferHost}
+      />
+
+      <RoomManageModal
+        isOpen={isRoomManageModalOpen}
+        onClose={() => setRoomManageModalOpen(false)}
         settings={settings}
         players={players}
         currentHostPlayerId={myPlayer?.id || players.find((p) => p.isHost)?.id || ""}
