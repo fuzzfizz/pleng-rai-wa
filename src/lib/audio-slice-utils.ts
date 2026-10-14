@@ -25,11 +25,34 @@ export interface SongHookMetadata {
 export function calculateSliceStart(
   song: SongHookMetadata,
   durationSec: number = 2.0,
-  randomFn: () => number = Math.random
+  randomFn: () => number = Math.random,
+  sliceRegion: "hook" | "entire_song" = "hook"
 ): number {
   if (!song) return 0;
 
   const safeDuration = typeof durationSec === "number" && durationSec > 0 ? durationSec : 2.0;
+
+  if (sliceRegion === "entire_song") {
+    const rawTotal =
+      typeof song.duration === "number" && !isNaN(song.duration) && song.duration > 0
+        ? song.duration
+        : typeof song.durationSec === "number" && !isNaN(song.durationSec) && song.durationSec > 0
+        ? song.durationSec
+        : 180;
+    const totalDuration = rawTotal ?? 180;
+    const minStart = 0;
+    const maxStart = Math.max(0, totalDuration - safeDuration);
+
+    if (maxStart <= minStart) {
+      return 0;
+    }
+
+    const rand = typeof randomFn === "function" ? randomFn() : Math.random();
+    const clampedRand = Math.max(0, Math.min(1, rand));
+    const picked = minStart + clampedRand * (maxStart - minStart);
+
+    return Math.round(picked * 10) / 10;
+  }
 
   // Base hook start: ensure non-negative
   const rawHookStart = song.hookStartSec;

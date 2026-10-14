@@ -6,7 +6,7 @@
 // celebratory confetti effect, audio hook player and host round progression button
 // ==========================================
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import confetti from "canvas-confetti";
 import {
   Trophy,
@@ -19,8 +19,9 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
-import type { Song } from "@/types";
+import type { Song, Player } from "@/types";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
+import { getDeterministicAvatar } from "./player-card";
 
 export interface RoundWinnerInfo {
   playerId: string;
@@ -32,6 +33,9 @@ export interface RoundWinnerInfo {
 export interface RoundRevealCardProps {
   song: Partial<Song> | null;
   winner: RoundWinnerInfo | null;
+  winners?: Array<{ playerId: string; displayName: string; scoreDelta: number }>;
+  players?: Player[];
+  currentPlayerId?: string;
   isHost: boolean;
   onNextRound: () => Promise<void>;
   isLoadingNext?: boolean;
@@ -87,11 +91,27 @@ export function getVinylAnimationClass(isPlaying: boolean): string {
 }
 
 /**
+ * Sorts players descending by score for round reveal leaderboard.
+ */
+export function getSortedRevealPlayers(players: Player[] = []): Player[] {
+  return [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+}
+
+/**
  * Formats winner announcement headline.
  */
 export function formatRoundWinnerAnnouncement(
-  winner: RoundWinnerInfo | null
+  winner: RoundWinnerInfo | null,
+  winners?: Array<{ playerId: string; displayName: string; scoreDelta: number }>
 ): string {
+  if (winners && winners.length > 1) {
+    return `🎉 ผู้ตอบถูกในรอบนี้ (${winners.length} คน)`;
+  }
+  if (winners && winners.length === 1) {
+    const w = winners[0];
+    const delta = typeof w.scoreDelta === "number" ? w.scoreDelta : 100;
+    return `🎉 ${w.displayName} ตอบถูก! (+${delta} คะแนน)`;
+  }
   if (!winner || !winner.displayName || !winner.playerId) {
     return "🏳️ ข้ามข้อนี้ / ไม่มีใครได้คะแนนในรอบนี้";
   }
@@ -102,6 +122,9 @@ export function formatRoundWinnerAnnouncement(
 export function RoundRevealCard({
   song,
   winner,
+  winners,
+  players = [],
+  currentPlayerId,
   isHost,
   onNextRound,
   isLoadingNext = false,
@@ -115,8 +138,24 @@ export function RoundRevealCard({
   const [duration, setDuration] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const hasWinner = Boolean(winner && winner.displayName && winner.playerId);
-  const announcement = formatRoundWinnerAnnouncement(winner);
+  const hasMultiWinners = Boolean(winners && winners.length > 1);
+  const hasWinner = Boolean(
+    (winner && winner.displayName && winner.playerId) ||
+    (winners && winners.length > 0)
+  );
+  const announcement = formatRoundWinnerAnnouncement(winner, winners);
+
+  const sortedPlayers = useMemo(() => getSortedRevealPlayers(players), [players]);
+  const top3Players = useMemo(() => sortedPlayers.slice(0, 3), [sortedPlayers]);
+  const currentPlayerRank = useMemo(() => {
+    if (!currentPlayerId) return -1;
+    const idx = sortedPlayers.findIndex((p: Player) => p.id === currentPlayerId);
+    return idx >= 0 ? idx + 1 : -1;
+  }, [sortedPlayers, currentPlayerId]);
+  const currentPlayer = useMemo(() => {
+    if (!currentPlayerId) return undefined;
+    return sortedPlayers.find((p: Player) => p.id === currentPlayerId);
+  }, [sortedPlayers, currentPlayerId]);
 
   const isFinalRound = Boolean(
     currentRound && totalRounds && totalRounds > 0 && currentRound >= totalRounds
@@ -273,7 +312,25 @@ export function RoundRevealCard({
           </h3>
         </div>
 
-        {hasWinner && winner?.answerText && (
+        {/* Multi-winner badge chips */}
+        {hasMultiWinners && winners && (
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2.5">
+            {winners.map((w) => (
+              <span
+                key={w.playerId}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40 shadow-sm"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>{w.displayName}</span>
+                <span className="font-mono text-amber-300 font-extrabold">
+                  (+{w.scoreDelta || 100})
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {!hasMultiWinners && hasWinner && winner?.answerText && (
           <p className="text-xs sm:text-sm lg:text-base text-amber-200/90 font-medium">
             คำตอบที่ถูกต้อง: &ldquo;<span className="font-bold underline decoration-amber-400/50">{winner.answerText}</span>&rdquo;
           </p>
@@ -381,6 +438,80 @@ export function RoundRevealCard({
           )}
         </div>
       </div>
+
+      {/* Round Reveal Leaderboard / Mini Scoreboard */}
+      {sortedPlayers.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-stone-900/90 border border-amber-500/30 shadow-lg text-white">
+          <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-stone-800">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
+              <h4 className="text-sm sm:text-base font-extrabold text-amber-300">
+                🏆 ตารางคะแนนล่าสุด (ใครกำลังนำอยู่)
+              </h4>
+            </div>
+            <span className="text-[11px] font-bold text-stone-400 bg-stone-800 px-2 py-0.5 rounded-full">
+              {sortedPlayers.length} ผู้เล่น
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {top3Players.map((p: Player, idx: number) => {
+              const rank = idx + 1;
+              const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+              const isCurrent = currentPlayerId && p.id === currentPlayerId;
+              const avatar = getDeterministicAvatar(p);
+
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm transition-all ${
+                    isCurrent
+                      ? "bg-amber-500/20 border border-amber-400/60 text-amber-200"
+                      : "bg-stone-950/60 border border-stone-800/80 text-stone-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-base shrink-0">{medal}</span>
+                    <span className="w-6 h-6 rounded-lg bg-stone-800 flex items-center justify-center text-sm shrink-0">
+                      {avatar}
+                    </span>
+                    <span className="font-bold truncate max-w-[150px] sm:max-w-[200px]">
+                      {p.displayName}
+                      {isCurrent && " (คุณ)"}
+                    </span>
+                  </div>
+                  <span className="font-mono font-black text-amber-400 shrink-0 ml-2">
+                    {p.score ?? 0} แต้ม
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* If current player is outside top 3, show their rank as well */}
+            {currentPlayerRank > 3 && currentPlayer && (
+              <>
+                <div className="text-center text-[10px] text-stone-500 py-0.5">• • •</div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm bg-amber-500/20 border border-amber-400/60 text-amber-200">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="font-mono font-bold text-xs text-stone-400 w-5">
+                      #{currentPlayerRank}
+                    </span>
+                    <span className="w-6 h-6 rounded-lg bg-stone-800 flex items-center justify-center text-sm shrink-0">
+                      {getDeterministicAvatar(currentPlayer)}
+                    </span>
+                    <span className="font-bold truncate max-w-[150px] sm:max-w-[200px]">
+                      {currentPlayer.displayName} (คุณ)
+                    </span>
+                  </div>
+                  <span className="font-mono font-black text-amber-400 shrink-0 ml-2">
+                    {currentPlayer.score ?? 0} แต้ม
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Action / Next Round Progression */}
       <div className="pt-1">

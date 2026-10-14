@@ -114,6 +114,7 @@ export interface SongFilterConfig {
   genreIds?: string[];
   genreNames?: string[];
   era?: string;
+  eraIds?: string[];
   artist?: string;
   yearStart?: number;
   yearEnd?: number;
@@ -128,6 +129,8 @@ export interface RoomSettings {
   lyricsType?: LyricsType;
   voiceGender?: AIVoiceGender;
   sliceDurationSec: number; // e.g. 1.0, 2.0, 5.0
+  sliceRandomRegion?: "hook" | "entire_song"; // "hook" = chorus only, "entire_song" = randomize across full song
+  maxPlayers?: number; // default 8, allowed 4 - 12
   roundTimeoutSec: number; // 0 for unlimited, or e.g. 15, 30
   totalRounds: number; // 0 for unlimited, or e.g. 5, 10, 20
   targetScore: number; // 0 for disabled, or e.g. 10

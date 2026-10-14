@@ -72,6 +72,7 @@ export interface RoomRealtimeState {
   isExcludedFromBuzz: boolean;
   revealedSong: Partial<Song> | null;
   roundWinner: RoundWinner | null;
+  roundWinners?: RoundWinner[];
   lastWrongGuess: WrongGuessRecord | null;
   wrongGuesses: WrongGuessRecord[];
   scores: Record<string, number>;
@@ -168,6 +169,7 @@ export function createInitialRoomRealtimeState(
     isExcludedFromBuzz: false,
     revealedSong: null,
     roundWinner: null,
+    roundWinners: [],
     lastWrongGuess: null,
     wrongGuesses: [],
     scores: {},
@@ -301,6 +303,7 @@ export function reduceRoomRealtimeEvent(
           nextState.lastWrongGuess = null;
           nextState.revealedSong = null;
           nextState.roundWinner = null;
+          nextState.roundWinners = [];
           nextState.revealedHints = { level: 0 };
           nextState.playerHintLevels = {};
           nextState.playerHints = {};
@@ -392,7 +395,7 @@ export function reduceRoomRealtimeEvent(
         }
 
         case "round_reveal": {
-          if (shouldPlay && payload?.winnerPlayerId) {
+          if (shouldPlay && (payload?.winnerPlayerId || (Array.isArray(payload?.winners) && payload.winners.length > 0))) {
             try {
               sfx.correct();
             } catch {}
@@ -400,7 +403,7 @@ export function reduceRoomRealtimeEvent(
           nextState.status = "revealing";
           nextState.buzzedPlayer = null;
           nextState.revealedSong = payload?.song || null;
-          nextState.roundWinner = payload?.winnerPlayerId
+          const singleWinner = payload?.winnerPlayerId
             ? {
                 playerId: payload.winnerPlayerId,
                 displayName: payload.winnerDisplayName || "ผู้ชนะ",
@@ -408,6 +411,12 @@ export function reduceRoomRealtimeEvent(
                 scoreDelta: typeof payload.scoreDelta === "number" ? payload.scoreDelta : 100,
               }
             : null;
+          nextState.roundWinner = singleWinner;
+          nextState.roundWinners = Array.isArray(payload?.winners) && payload.winners.length > 0
+            ? payload.winners
+            : singleWinner
+            ? [singleWinner]
+            : [];
           if (payload?.scores && typeof payload.scores === "object") {
             nextState.scores = { ...nextState.scores, ...payload.scores };
           }
@@ -444,6 +453,7 @@ export function reduceRoomRealtimeEvent(
             nextState.lastWrongGuess = null;
             nextState.revealedSong = null;
             nextState.roundWinner = null;
+            nextState.roundWinners = [];
             nextState.isAudioPlaying = false;
             nextState.revealedHints = { level: 0 };
             nextState.playerHintLevels = {};
@@ -898,6 +908,7 @@ export function useRoomRealtime(
       waitingForOthers?: boolean;
       canRetry?: boolean;
       remainingAttempts?: number;
+      scoreDelta?: number;
       error?: string;
     }> => {
       if (!state.myPlayer) return { success: false, error: "no_player" };
@@ -932,6 +943,12 @@ export function useRoomRealtime(
           remainingAttempts:
             typeof data.remainingAttempts === "number"
               ? data.remainingAttempts
+              : undefined,
+          scoreDelta:
+            typeof data.scoreDelta === "number"
+              ? data.scoreDelta
+              : typeof data.result?.scoreDelta === "number"
+              ? data.result.scoreDelta
               : undefined,
           error: data.error,
         };

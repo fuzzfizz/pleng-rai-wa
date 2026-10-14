@@ -35,7 +35,7 @@ import { buildRoomJoinUrl } from "./qr-code-modal";
 import { formatWrongGuessMessage, RESUME_AUDIO_CUE } from "./wrong-guess-banner";
 import { PodiumView, getSortedPodiumPlayers } from "./podium-view";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
-import { getWaitAllPlayerStatus } from "./game-view";
+import { getWaitAllPlayerStatus, calculateSliceRemainingTime } from "./game-view";
 
 export interface TVViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -104,6 +104,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [buzzerSecondsLeft, setBuzzerSecondsLeft] = useState(10);
   const [questionSecondsLeft, setQuestionSecondsLeft] = useState<number | null>(null);
+  const [tvAudioTime, setTvAudioTime] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const cleanCode = (roomCode || "").trim().toUpperCase();
@@ -117,6 +118,18 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
   const hasChoices = Boolean(activeQuestion?.choices && activeQuestion.choices.length > 0);
   const isMultipleChoice = answerInputMode === "multiple-choice" && hasChoices;
+
+  const roundWinners = roomRealtime.roundWinners || (roundWinner ? [roundWinner] : []);
+  const hasMultipleWinners = roundWinners.length > 1;
+
+  const tvSliceDuration = activeQuestion?.durationSec || roomRealtime.room?.settings?.sliceDurationSec || 2.0;
+  const tvSliceRemaining = calculateSliceRemainingTime(tvAudioTime, tvSliceDuration);
+  const tvSliceProgressPercent = Math.min(100, Math.max(0, (tvAudioTime / tvSliceDuration) * 100));
+
+  // Reset tv audio time on new round or status change
+  useEffect(() => {
+    setTvAudioTime(0);
+  }, [currentRound, status]);
 
   // Populate browser origin on mount
   useEffect(() => {
@@ -272,10 +285,12 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
           preload="auto"
           playsInline
           loop={gameMode === "buzzer" || gameMode === "audio-slice"}
+          onTimeUpdate={(e) => setTvAudioTime(e.currentTarget.currentTime)}
           onEnded={() => {
             if (audioRef.current) {
               audioRef.current.currentTime = 0;
             }
+            setTvAudioTime(0);
           }}
         />
       )}
@@ -492,6 +507,24 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   );
                 })}
               </div>
+
+              {/* Live Audio Slice Countdown for TV view */}
+              {isAudioPlaying && activeQuestion?.sliceUrl && (
+                <div className="flex flex-col items-center gap-2 -mt-4 mb-6 px-6 py-3 rounded-2xl bg-stone-900/90 border border-amber-500/40 shadow-[0_0_25px_rgba(245,158,11,0.25)] animate-in fade-in duration-200">
+                  <span className="text-lg sm:text-2xl font-black font-mono text-amber-300 flex items-center gap-2">
+                    <Volume2 className="w-6 h-6 text-amber-400 animate-pulse" />
+                    <span>
+                      กำลังเปิดเสียงตัวอย่าง: {tvSliceRemaining.toFixed(1)}s / {tvSliceDuration.toFixed(1)}s
+                    </span>
+                  </span>
+                  <div className="w-48 sm:w-64 h-2.5 bg-stone-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-100"
+                      style={{ width: `${tvSliceProgressPercent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* AI Lyrics Mode / Translated Lyrics Mode: Show speech prompt */}
               {(gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && activeQuestion?.lyrics && (
@@ -823,9 +856,32 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                 </div>
               )}
 
-              {/* Winner Spotlight or No Winner */}
+              {/* Winner Spotlight or Multi-Winner Spotlight or No Winner */}
               <div className="mt-8">
-                {roundWinner ? (
+                {hasMultipleWinners ? (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="inline-flex items-center gap-3 px-8 py-3.5 rounded-3xl bg-gradient-to-r from-emerald-500/20 via-teal-500/25 to-emerald-500/20 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_40px_rgba(16,185,129,0.3)]">
+                      <Trophy className="w-8 h-8 text-emerald-400 animate-bounce" />
+                      <span className="text-2xl sm:text-3xl font-black">
+                        🎉 ผู้ตอบถูกในรอบนี้ ({roundWinners.length} คน)
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-3 max-w-3xl mt-1">
+                      {roundWinners.map((w) => (
+                        <div
+                          key={w.playerId}
+                          className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-stone-900/90 border border-emerald-400/60 shadow-lg text-emerald-200"
+                        >
+                          <Trophy className="w-5 h-5 text-amber-400 shrink-0" />
+                          <span className="text-lg sm:text-xl font-extrabold">{w.displayName}</span>
+                          <span className="font-mono font-black text-amber-300 text-base sm:text-lg">
+                            (+{w.scoreDelta || 100})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : roundWinner ? (
                   <div className="inline-flex items-center gap-3 px-8 py-4 rounded-3xl bg-gradient-to-r from-emerald-500/20 via-teal-500/25 to-emerald-500/20 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_40px_rgba(16,185,129,0.3)]">
                     <Trophy className="w-8 h-8 text-emerald-400" />
                     <span className="text-2xl sm:text-3xl font-black">
@@ -835,10 +891,59 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-stone-800/80 border border-stone-700 text-stone-300 text-lg sm:text-xl font-bold">
-                    <span>🏳️ ข้ามข้อนี้ / ยอมแพ้ (ไม่มีใครได้คะแนน)</span>
+                    <span>🏳️ ข้ามข้อนี้ / ไม่มีใครตอบถูกในรอบนี้</span>
                   </div>
                 )}
               </div>
+
+              {/* Reveal Stage Live Scoreboard Standings */}
+              {sortedLeaderboard.length > 0 && (
+                <div className="w-full max-w-3xl mt-8 p-5 sm:p-6 rounded-3xl bg-stone-900/80 border border-amber-500/30 shadow-2xl backdrop-blur-md">
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-stone-800">
+                    <div className="flex items-center gap-2.5">
+                      <Trophy className="w-6 h-6 text-amber-400" />
+                      <h3 className="text-xl sm:text-2xl font-black text-amber-300">
+                        🏆 ตารางคะแนนล่าสุด (ใครกำลังนำอยู่)
+                      </h3>
+                    </div>
+                    <span className="text-xs font-bold text-stone-400 bg-stone-800 px-3 py-1 rounded-full">
+                      อันดับคะแนนสด
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {sortedLeaderboard.slice(0, 3).map((p, idx) => {
+                      const rank = idx + 1;
+                      const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+                      const avatar = getDeterministicAvatar(p);
+
+                      return (
+                        <div
+                          key={p.id}
+                          className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                            rank === 1
+                              ? "bg-amber-500/15 border-amber-400/80 text-amber-200 shadow-lg shadow-amber-500/10"
+                              : "bg-stone-950/70 border-stone-800 text-stone-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-2xl shrink-0">{medal}</span>
+                            <span className="w-8 h-8 rounded-xl bg-stone-800 flex items-center justify-center text-lg shrink-0">
+                              {avatar}
+                            </span>
+                            <span className="font-extrabold text-base truncate">
+                              {p.displayName}
+                            </span>
+                          </div>
+                          <span className="font-mono font-black text-amber-400 text-lg shrink-0 ml-2">
+                            {p.score ?? 0}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Host Next Round Cue */}
               <p className="text-sm text-stone-400 mt-6 font-medium">

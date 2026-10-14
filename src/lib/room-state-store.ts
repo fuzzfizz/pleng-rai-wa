@@ -56,6 +56,12 @@ export interface RoomRoundState {
   scores: Record<string, number>; // Running scores by playerId, minimum score clamped to 0
   winnerPlayerId?: string | null;
   roundWinnerPlayerId?: string | null;
+  winners?: Array<{
+    playerId: string;
+    displayName: string;
+    scoreDelta: number;
+    answerText?: string;
+  }>;
   revealedHintLevel?: number; // 0 = none, 1 = genre, 2 = year, 3 = artist
   revealedHints?: { genre?: string; year?: string; artist?: string };
   playerHintLevels?: Record<string, number>;
@@ -84,6 +90,12 @@ export interface SubmitAnswerResult {
   shouldReveal?: boolean;
   canRetry?: boolean;
   remainingAttempts?: number;
+  winners?: Array<{
+    playerId: string;
+    displayName: string;
+    scoreDelta: number;
+    answerText?: string;
+  }>;
 }
 
 export interface TimeoutBuzzerResult {
@@ -161,6 +173,7 @@ export class RoomStateStore {
       scores: { ...state.scores },
       winnerPlayerId: state.winnerPlayerId ?? null,
       roundWinnerPlayerId: state.roundWinnerPlayerId ?? null,
+      winners: state.winners ? [...state.winners] : undefined,
       revealedHintLevel: state.revealedHintLevel ?? 0,
       revealedHints: { ...(state.revealedHints || {}) },
       playerHintLevels: { ...(state.playerHintLevels || {}) },
@@ -213,10 +226,15 @@ export class RoomStateStore {
         room.current_song_id !== existing.currentSong.id) ||
        (dbRoundState?.currentSong?.id &&
         existing?.currentSong?.id &&
-        dbRoundState.currentSong.id !== existing.currentSong.id));
+        dbRoundState.currentSong.id !== existing.currentSong.id) ||
+       (room.status === "question_active" && existing?.roundStatus === "revealing"));
 
     // If existing in-memory state has currentSong and is not stale, sync any newer buzzer / status from DB if applicable
     if (existing && existing.currentSong && !isStale) {
+      if (room.status === "question_active" || room.status === "buzzed") {
+        existing.roundStatus =
+          (room.status as RoundStatus) || dbRoundState?.roundStatus || existing.roundStatus;
+      }
       if (dbRoundState) {
         if (dbRoundState.buzzedPlayerId && !existing.buzzedPlayerId) {
           existing.buzzedPlayerId = dbRoundState.buzzedPlayerId;
@@ -331,6 +349,7 @@ export class RoomStateStore {
           : { ...(existing?.scores || {}) },
       winnerPlayerId: dbRoundState?.winnerPlayerId ?? null,
       roundWinnerPlayerId: dbRoundState?.roundWinnerPlayerId ?? null,
+      winners: Array.isArray(dbRoundState?.winners) ? [...dbRoundState.winners] : undefined,
       revealedHintLevel:
         typeof dbRoundState?.revealedHintLevel === "number"
           ? dbRoundState.revealedHintLevel
@@ -504,6 +523,10 @@ export class RoomStateStore {
       options?.roomSettings?.gameMode ||
       state.gameMode ||
       state.settings?.gameMode;
+
+    if (gameMode !== "buzzer" && state.roundStatus === "revealing") {
+      state.roundStatus = "question_active";
+    }
 
     const isStandardBuzzer =
       state.roundStatus === "buzzed" && state.buzzedPlayerId === playerId;
@@ -693,6 +716,14 @@ export class RoomStateStore {
         state.winnerPlayerId = correctSubs.length > 0 ? correctSubs[0].playerId : null;
         state.roundWinnerPlayerId = state.winnerPlayerId;
 
+        const winners = correctSubs.map((s) => ({
+          playerId: s.playerId,
+          displayName: s.displayName,
+          scoreDelta: s.scoreDelta,
+          answerText: s.answerText,
+        }));
+        state.winners = winners;
+
         return {
           success: true,
           isCorrect: check.isCorrect,
@@ -707,6 +738,7 @@ export class RoomStateStore {
           shouldReveal: true,
           canRetry: false,
           remainingAttempts: 0,
+          winners,
         };
       } else {
         state.roundStatus = "question_active";
@@ -1181,6 +1213,12 @@ export class RoomStateStore {
       const correctSubs = Object.values(state.playerSubmissions || {}).filter((s) => s.isCorrect);
       state.winnerPlayerId = correctSubs.length > 0 ? correctSubs[0].playerId : null;
       state.roundWinnerPlayerId = state.winnerPlayerId;
+      state.winners = correctSubs.map((s) => ({
+        playerId: s.playerId,
+        displayName: s.displayName,
+        scoreDelta: s.scoreDelta,
+        answerText: s.answerText,
+      }));
       state.buzzedPlayerId = null;
       state.buzzedPlayerName = null;
       state.buzzedAt = null;

@@ -211,7 +211,12 @@ export async function POST(
 
     // Build audio slice URL & lyrics
     const durationSec = settings.sliceDurationSec || 2.0;
-    const startSec = calculateSliceStart(song, durationSec);
+    const startSec = calculateSliceStart(
+      song,
+      durationSec,
+      Math.random,
+      settings.sliceRandomRegion || "hook"
+    );
     const sliceUrl = `/api/audio/slice?id=${encodeURIComponent(song.id)}&start=${startSec}&duration=${durationSec}`;
 
     let lyrics: string | undefined = undefined;

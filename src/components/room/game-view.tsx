@@ -130,6 +130,20 @@ export function toggleOrReplayAudio(
 }
 
 /**
+ * Calculates remaining playback seconds for audio slice preview.
+ */
+export function calculateSliceRemainingTime(
+  currentTime: number,
+  durationSec: number
+): number {
+  if (typeof durationSec !== "number" || isNaN(durationSec) || durationSec <= 0) {
+    return 0;
+  }
+  const curr = typeof currentTime === "number" && !isNaN(currentTime) && currentTime >= 0 ? currentTime : 0;
+  return Math.max(0, durationSec - curr);
+}
+
+/**
  * Determines whether the player is allowed to submit an answer this round.
  */
 export function canSubmitAnswer(isExcludedFromBuzz: boolean): boolean {
@@ -398,9 +412,14 @@ export function GameView({
 
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
+  const [sliceCurrentTime, setSliceCurrentTime] = useState<number>(0);
   const [myExclusionReason, setMyExclusionReason] = useState<
     "surrendered" | "timed_out" | "wrong_guess" | "submitted_waiting" | null
   >(null);
+  const [playerAttemptResult, setPlayerAttemptResult] = useState<
+    "correct" | "wrong_exhausted" | null
+  >(null);
+  const [lastCorrectScoreDelta, setLastCorrectScoreDelta] = useState<number>(100);
 
   const isWaitAll = room?.settings?.answerResolutionMode === "wait_all";
   const waitAllStatus = useMemo(
@@ -414,11 +433,26 @@ export function GameView({
     [players, excludedPlayerIds, myPlayer?.id, myExclusionReason]
   );
 
+  const sliceDurationSec =
+    activeQuestion?.durationSec ||
+    room?.settings?.sliceDurationSec ||
+    2.0;
+  const sliceSecondsRemaining = calculateSliceRemainingTime(
+    sliceCurrentTime,
+    sliceDurationSec
+  );
+  const sliceProgressPercent = Math.min(
+    100,
+    Math.max(0, (sliceCurrentTime / sliceDurationSec) * 100)
+  );
+
   // Reset countdown and exclusion reason on new round or status change
   useEffect(() => {
     setHasPlayedOnce(false);
     setCountdownRemaining(null);
+    setSliceCurrentTime(0);
     setMyExclusionReason(null);
+    setPlayerAttemptResult(null);
   }, [currentRound, status]);
 
   // Safety timer to start countdown if audio autoplay is delayed or for AI lyrics modes
@@ -466,9 +500,11 @@ export function GameView({
   const handleAudioEnded = useCallback(() => {
     handleSetIsAudioPlaying(false);
     setHasPlayedOnce(true);
+    setSliceCurrentTime(0);
   }, [handleSetIsAudioPlaying]);
 
   const handleToggleOrReplayAudio = useCallback(() => {
+    setSliceCurrentTime(0);
     toggleOrReplayAudio(audioRef.current, isAudioPlaying, handleSetIsAudioPlaying);
   }, [isAudioPlaying, handleSetIsAudioPlaying]);
 
@@ -755,6 +791,12 @@ export function GameView({
             setShowSuggestions(false);
           } else {
             setWrongAttemptFeedback(null);
+            if (res.isCorrect === true) {
+              setPlayerAttemptResult("correct");
+              setLastCorrectScoreDelta(typeof res.scoreDelta === "number" ? res.scoreDelta : 100);
+            } else if (res.isCorrect === false && !res.canRetry) {
+              setPlayerAttemptResult("wrong_exhausted");
+            }
             if (res.waitingForOthers) {
               setMyExclusionReason("submitted_waiting");
             } else if (res.isCorrect === false) {
@@ -929,10 +971,14 @@ export function GameView({
           src={activeQuestion.sliceUrl}
           preload="auto"
           loop={shouldLoopAudio(gameMode)}
+          onTimeUpdate={(e) => {
+            setSliceCurrentTime(e.currentTarget.currentTime);
+          }}
           onEnded={handleAudioEnded}
           onError={() => {
             handleSetIsAudioPlaying(false);
             setHasPlayedOnce(true);
+            setSliceCurrentTime(0);
           }}
         />
       )}
@@ -1040,6 +1086,9 @@ export function GameView({
           <RoundRevealCard
             song={revealedSong}
             winner={roundWinner}
+            winners={roomRealtime.roundWinners}
+            players={players}
+            currentPlayerId={myPlayer?.id}
             isHost={isHost}
             onNextRound={handleNextRound}
             isLoadingNext={isLoadingNext}
@@ -1089,6 +1138,21 @@ export function GameView({
                       />
                     ))}
                   </div>
+
+                  {/* Live countdown & progress badge when audio is playing in audio-slice mode */}
+                  {isAudioPlaying && gameMode === "audio-slice" && (
+                    <div className="flex items-center gap-2 h-10 lg:h-12 px-3.5 py-2 bg-amber-500/15 border border-amber-500/40 rounded-full shadow-sm text-amber-800 dark:text-amber-200 animate-in fade-in duration-200">
+                      <span className="text-xs lg:text-sm font-bold font-mono">
+                        🔊 เล่นตัวอย่าง: {sliceSecondsRemaining.toFixed(1)}s
+                      </span>
+                      <div className="w-12 sm:w-16 h-2 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-100"
+                          style={{ width: `${sliceProgressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {gameMode === "audio-slice" && (
                     <button
@@ -1242,11 +1306,27 @@ export function GameView({
                       <span>⏰ คุณตอบไม่ทันในข้อนี้ (หมดเวลา)</span>
                     </div>
                   ) : myExclusionReason === "submitted_waiting" ? (
-                    <div className="w-full p-3.5 sm:p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-bold flex flex-col gap-2.5 shadow-sm animate-in fade-in">
-                      <div className="flex items-center justify-center gap-2 text-center">
-                        <Loader2 className="w-4 h-4 text-emerald-500 animate-spin shrink-0" />
-                        <span>✓ บันทึกคำตอบแล้ว รอเพื่อนๆ ตอบครบทุกคน...</span>
-                      </div>
+                    <div
+                      className={`w-full p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm font-bold flex flex-col gap-2.5 shadow-sm animate-in fade-in ${
+                        playerAttemptResult === "wrong_exhausted"
+                          ? "bg-rose-500/15 border-rose-500/40 text-rose-800 dark:text-rose-200"
+                          : "bg-emerald-500/15 border-emerald-500/40 text-emerald-800 dark:text-emerald-200"
+                      }`}
+                    >
+                      {playerAttemptResult === "correct" ? (
+                        <div className="flex items-center justify-center gap-2 text-center text-emerald-700 dark:text-emerald-300 font-extrabold text-sm sm:text-base">
+                          <span>🎉 ตอบถูกต้อง! (+{lastCorrectScoreDelta} คะแนน) (รอเพื่อนๆ ตอบครบทุกคน...)</span>
+                        </div>
+                      ) : playerAttemptResult === "wrong_exhausted" ? (
+                        <div className="flex items-center justify-center gap-2 text-center text-rose-600 dark:text-rose-400 font-extrabold text-sm sm:text-base">
+                          <span>❌ ยังไม่ถูกต้อง และหมดสิทธิ์ตอบในข้อนี้แล้ว (รอเพื่อนๆ ตอบครบทุกคน...)</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2 text-center">
+                          <Loader2 className="w-4 h-4 text-emerald-500 animate-spin shrink-0" />
+                          <span>✓ บันทึกคำตอบแล้ว รอเพื่อนๆ ตอบครบทุกคน...</span>
+                        </div>
+                      )}
                       {waitAllStatus.pendingPlayers.length > 0 ? (
                         <p className="text-center font-semibold text-xs sm:text-sm text-stone-700 dark:text-stone-300">
                           {waitAllStatus.summaryText}

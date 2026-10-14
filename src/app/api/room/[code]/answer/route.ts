@@ -85,6 +85,11 @@ export async function POST(
       );
     }
 
+    // Fallback check: If currentRoundState.roundStatus === "revealing" but room?.status === "question_active", update currentRoundState.roundStatus = "question_active"
+    if (currentRoundState && currentRoundState.roundStatus === "revealing" && room?.status === "question_active") {
+      currentRoundState.roundStatus = "question_active";
+    }
+
     const isSurrender = cleanAnswerText === "(ยอมแพ้)" || Boolean(body.isSurrender);
     const roomSettings = room?.settings || currentRoundState?.settings;
     const effectiveGameMode =
@@ -92,9 +97,11 @@ export async function POST(
       roomSettings?.gameMode ||
       "buzzer";
     const effectiveRoundStatus =
-      currentRoundState?.roundStatus ||
-      (room?.status as RoundStatus) ||
-      "question_active";
+      room?.status === "question_active" && effectiveGameMode !== "buzzer"
+        ? "question_active"
+        : (currentRoundState?.roundStatus ||
+           (room?.status as RoundStatus) ||
+           "question_active");
     let effectiveBuzzedPlayerId =
       currentRoundState?.buzzedPlayerId ||
       roomSettings?.round_state?.buzzedPlayerId ||
@@ -189,14 +196,32 @@ export async function POST(
 
       // 2. If all players have surrendered or guessed wrong, broadcast round_reveal
       if (result.allExcluded) {
+        const winnerId = result.roundState?.winnerPlayerId || null;
+        const winnerSub = winnerId ? result.roundState?.playerSubmissions?.[winnerId] : null;
+        const winnerDisplayName = winnerSub?.displayName || (winnerId ? "ผู้ชนะ" : null);
+        const scoreDelta = winnerSub?.scoreDelta || 0;
+
+        const winners =
+          result.roundState?.winners ||
+          (winnerId
+            ? [
+                {
+                  playerId: winnerId,
+                  displayName: winnerDisplayName,
+                  scoreDelta,
+                },
+              ]
+            : []);
+
         await RealtimeBroadcastService.broadcast(cleanCode, "round_reveal", {
           song: result.fullSong || result.roundState?.currentSong,
-          winnerPlayerId: null,
-          winnerDisplayName: null,
-          answerText: null,
-          scoreDelta: 0,
+          winnerPlayerId: winnerId,
+          winnerDisplayName,
+          answerText: winnerSub?.answerText || null,
+          scoreDelta,
           scores: result.roundState?.scores || {},
-          skipped: true,
+          skipped: !winnerId,
+          winners,
         });
       }
 
@@ -216,7 +241,7 @@ export async function POST(
       effectiveBuzzedPlayerId === cleanPlayerId;
     const isDirectAnswerAllowed =
       effectiveGameMode !== "buzzer" &&
-      effectiveRoundStatus === "question_active";
+      (effectiveRoundStatus === "question_active" || room?.status === "question_active");
 
     if (!currentRoundState || (!isBuzzerHolder && !isDirectAnswerAllowed)) {
       return NextResponse.json(
@@ -387,17 +412,32 @@ export async function POST(
 
       const winnerId = result.roundState?.winnerPlayerId || null;
       const winnerSub = winnerId ? result.roundState?.playerSubmissions?.[winnerId] : null;
+      const winnerDisplayName = winnerSub?.displayName || (winnerId ? "ผู้ชนะ" : null);
+      const scoreDelta = winnerSub?.scoreDelta || result.scoreDelta;
+
+      const winners =
+        result.roundState?.winners ||
+        (winnerId
+          ? [
+              {
+                playerId: winnerId,
+                displayName: winnerDisplayName,
+                scoreDelta: scoreDelta,
+              },
+            ]
+          : []);
 
       const revealPayload = {
         winnerPlayerId: winnerId,
-        winnerDisplayName: winnerSub?.displayName || (winnerId ? "ผู้ชนะ" : null),
+        winnerDisplayName,
         answerText: winnerSub?.answerText || cleanAnswerText,
         matchedAs: winnerSub?.matchedAs || result.matchedAs,
         similarity: winnerSub?.similarity || result.similarity,
-        scoreDelta: winnerSub?.scoreDelta || result.scoreDelta,
+        scoreDelta,
         scores: result.scores,
         song: result.fullSong || currentRoundState?.currentSong,
         skipped: !winnerId,
+        winners,
       };
 
       await RealtimeBroadcastService.broadcast(
@@ -416,6 +456,7 @@ export async function POST(
         newScore: result.newScore,
         scores: result.scores,
         song: result.fullSong,
+        winners,
       });
     }
 

@@ -20,6 +20,8 @@ export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   lyricsType: "intro",
   voiceGender: "female",
   sliceDurationSec: 2.0,
+  sliceRandomRegion: "hook",
+  maxPlayers: 8,
   roundTimeoutSec: 15,
   totalRounds: 10,
   targetScore: 0,

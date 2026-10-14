@@ -128,7 +128,30 @@ export async function POST(req: NextRequest) {
       (typeof existingPlayerId === "string" && existingPlayerId.trim().length > 0) ||
       (typeof existingSessionToken === "string" && existingSessionToken.trim().length > 0);
 
-    let updatedCount = typeof currentSettings.playerCount === "number" ? currentSettings.playerCount : 1;
+    const rawMax = typeof currentSettings.maxPlayers === "number" ? currentSettings.maxPlayers : 8;
+    const maxPlayers = Math.max(4, Math.min(12, rawMax));
+
+    const currentPlayerCount =
+      Array.isArray(room.players) && room.players.length > 0
+        ? room.players.length
+        : typeof currentSettings.playerCount === "number" && currentSettings.playerCount > 0
+        ? currentSettings.playerCount
+        : 1;
+
+    if (!isHost && !isReconnecting) {
+      if (currentPlayerCount >= maxPlayers) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `ห้องนี้มีผู้เล่นเต็มแล้ว (สูงสุด ${maxPlayers} คน)`,
+            isRoomFull: true,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    let updatedCount = currentPlayerCount;
     if (!isHost && !isReconnecting) {
       updatedCount = Math.max(1, updatedCount + 1);
       await RoomService.updateRoomSettings(cleanCode, { playerCount: updatedCount }).catch(() => {});

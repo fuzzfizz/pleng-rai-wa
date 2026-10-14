@@ -62,6 +62,14 @@ export const ROUND_TIMEOUT_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "ไม่จำกัด (Unlimited)" },
 ];
 
+export const MAX_PLAYERS_OPTIONS: { value: number; label: string }[] = [
+  { value: 4, label: "4 คน" },
+  { value: 6, label: "6 คน" },
+  { value: 8, label: "8 คน (แนะนำ)" },
+  { value: 10, label: "10 คน" },
+  { value: 12, label: "12 คน" },
+];
+
 /**
  * Validates and normalizes settings updates before saving.
  */
@@ -84,6 +92,17 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
   if (result.sliceDurationSec !== undefined) {
     const val = Number(result.sliceDurationSec);
     result.sliceDurationSec = isNaN(val) || val <= 0 ? 2.0 : Math.min(20.0, Math.max(0.5, val));
+  }
+
+  if (result.sliceRandomRegion !== undefined) {
+    if (!["hook", "entire_song"].includes(result.sliceRandomRegion)) {
+      result.sliceRandomRegion = "hook";
+    }
+  }
+
+  if (result.maxPlayers !== undefined) {
+    const val = Number(result.maxPlayers);
+    result.maxPlayers = isNaN(val) || val < 2 ? 8 : Math.min(20, Math.max(2, val));
   }
 
   if (result.totalRounds !== undefined) {
@@ -593,6 +612,58 @@ export function HostSettingsModal({
                   </button>
                 ))}
               </div>
+
+              {/* Slice Region Selection */}
+              <div className="mt-4 pt-3 border-t border-stone-200 dark:border-stone-800/80">
+                <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
+                  ขอบเขตการสุ่มท่อนเพลง (Slice Region)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setDraft((prev) => ({ ...prev, sliceRandomRegion: "hook" }))}
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                      (draft.sliceRandomRegion || "hook") === "hook"
+                        ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm text-stone-900 dark:text-white">
+                        🎯 เฉพาะท่อนฮุก (Hook Only)
+                      </span>
+                      {(draft.sliceRandomRegion || "hook") === "hook" && (
+                        <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                      สุ่มเฉพาะในท่อนฮุก (มาตรฐาน ฟังง่าย คุ้นหู)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDraft((prev) => ({ ...prev, sliceRandomRegion: "entire_song" }))}
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                      draft.sliceRandomRegion === "entire_song"
+                        ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm text-stone-900 dark:text-white">
+                        🔥 สุ่มจากทั้งเพลง (Entire Song)
+                      </span>
+                      {draft.sliceRandomRegion === "entire_song" && (
+                        <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                      สุ่มจากทุกช่วงของเพลง (โหมดยาก ท้าทายเซียนเพลง มีโอกาสเจออินโทร/เวิร์ส/ฮุก)
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1011,6 +1082,34 @@ export function HostSettingsModal({
             <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1.5 italic">
               *หมายเหตุ: ในโหมดกดกริ่ง (Buzzer) จะให้ตอบได้ 1 ครั้งต่อการกด เพื่อเปิดโอกาสให้ผู้อื่นแย่งกดตอบ
             </p>
+          </div>
+
+          {/* 7.5. Max Players */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+                👥 จำนวนผู้เล่นสูงสุด (Max Players)
+              </label>
+              <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
+                {draft.maxPlayers || 8} คน
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {MAX_PLAYERS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, maxPlayers: opt.value }))}
+                  className={`min-h-[44px] py-2.5 px-2 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
+                    (draft.maxPlayers || 8) === opt.value
+                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 8. Host Transfer Section */}

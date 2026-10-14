@@ -82,8 +82,14 @@ export function getSongFilterLabel(filter?: SongFilterConfig, customPlaylistTitl
     return `🎸 แนวเพลง: ${filter.genreName || "ตามหมวดหมู่"}`;
   }
   if (filter.type === "era") {
-    const matched = ERA_OPTIONS.find((e) => e.id === filter.era);
-    return `📼 ${matched ? matched.label : `ยุค ${filter.era}`}`;
+    if (filter.eraIds && filter.eraIds.length > 1) {
+      if (filter.eraIds.length === ERA_OPTIONS.length) {
+        return `📼 ยุคเพลง: ทุกยุคสมัย (${filter.eraIds.length} ยุค)`;
+      }
+      return `📼 ยุคเพลง (${filter.eraIds.length} ยุค): ${filter.eraIds.join(", ")}`;
+    }
+    const matched = ERA_OPTIONS.find((e) => e.id === (filter.eraIds?.[0] || filter.era));
+    return `📼 ${matched ? matched.label : `ยุค ${filter.era || "ไม่ระบุ"}`}`;
   }
   if (filter.type === "artist") return `🎤 ศิลปิน: ${filter.artist}`;
   if (filter.type === "playlist") {
@@ -211,7 +217,9 @@ export function SongSourceModal({
   // Validation
   const isDraftValid = useMemo(() => {
     if (draft.type === "all") return true;
-    if (draft.type === "era") return Boolean(draft.era);
+    if (draft.type === "era") {
+      return Boolean(draft.era || (draft.eraIds && draft.eraIds.length > 0));
+    }
     if (draft.type === "genre") {
       return Boolean((draft.genreIds && draft.genreIds.length > 0) || draft.genreId);
     }
@@ -314,10 +322,14 @@ export function SongSourceModal({
             type="button"
             onClick={() => {
               setActiveTab("era");
-              if (draft.type !== "era" || !draft.era) {
+              if (
+                draft.type !== "era" ||
+                (!draft.era && (!draft.eraIds || draft.eraIds.length === 0))
+              ) {
                 setDraft({
                   type: "era",
                   era: "2000s",
+                  eraIds: ["2000s"],
                   yearStart: 2000,
                   yearEnd: 2009,
                 });
@@ -431,61 +443,122 @@ export function SongSourceModal({
           )}
 
           {/* TAB 2: ERA / YEAR */}
-          {activeTab === "era" && (
-            <div className="space-y-4">
-              <div className="text-xs font-semibold text-stone-600 dark:text-stone-300 flex items-center justify-between">
-                <span>เลือกยุคสมัยของบทเพลง:</span>
-                <span className="text-[11px] text-stone-400">คลิกที่การ์ดเพื่อเลือก</span>
-              </div>
+          {activeTab === "era" && (() => {
+            const selectedEraIds =
+              draft.type === "era"
+                ? draft.eraIds && draft.eraIds.length > 0
+                  ? draft.eraIds
+                  : draft.era
+                  ? [draft.era]
+                  : []
+                : [];
+            const totalEraSongs = ERA_OPTIONS
+              .filter((e) => selectedEraIds.includes(e.id))
+              .reduce((sum, e) => sum + (eraCounts[e.id] ?? 0), 0);
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {ERA_OPTIONS.map((era) => {
-                  const isSelected = draft.type === "era" && draft.era === era.id;
-                  const count = eraCounts[era.id] ?? 0;
-                  return (
-                    <div
-                      key={era.id}
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-stone-600 dark:text-stone-300">
+                  <div className="flex items-center gap-2">
+                    <span>เลือกยุคสมัยของบทเพลง (เลือกได้หลายยุค):</span>
+                    {selectedEraIds.length > 0 && (
+                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        เลือกแล้ว {selectedEraIds.length} ยุค (รวม {totalEraSongs} เพลง)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allEraIds = ERA_OPTIONS.map((e) => e.id);
+                        setDraft({
+                          type: "era",
+                          era: allEraIds[0],
+                          eraIds: allEraIds,
+                        });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      ✓ เลือกทุกยุค
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setDraft({
                           type: "era",
-                          era: era.id,
-                          yearStart: era.yearStart,
-                          yearEnd: era.yearEnd,
+                          era: undefined,
+                          eraIds: [],
                         });
                       }}
-                      className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-2 min-h-[90px] ${
-                        isSelected
-                          ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
-                          : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50"
-                      }`}
+                      className="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 text-[11px] font-bold transition-all cursor-pointer"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-2xl">{era.icon}</span>
-                          <div>
-                            <div className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
-                              <span>{era.label}</span>
-                              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                                {count} เพลง
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                              {era.subtitle}
+                      ✕ ล้างค่า
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {ERA_OPTIONS.map((era) => {
+                    const isSelected = selectedEraIds.includes(era.id);
+                    const count = eraCounts[era.id] ?? 0;
+                    return (
+                      <div
+                        key={era.id}
+                        onClick={() => {
+                          let newEraIds: string[];
+                          if (isSelected) {
+                            newEraIds = selectedEraIds.filter((id) => id !== era.id);
+                          } else {
+                            newEraIds = [...selectedEraIds, era.id];
+                          }
+                          const singleEra =
+                            newEraIds.length === 1
+                              ? ERA_OPTIONS.find((e) => e.id === newEraIds[0])
+                              : undefined;
+
+                          setDraft({
+                            type: "era",
+                            eraIds: newEraIds,
+                            era: newEraIds[0] || undefined,
+                            yearStart: singleEra ? singleEra.yearStart : undefined,
+                            yearEnd: singleEra ? singleEra.yearEnd : undefined,
+                          });
+                        }}
+                        className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-2 min-h-[90px] ${
+                          isSelected
+                            ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                            : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-2xl">{era.icon}</span>
+                            <div>
+                              <div className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
+                                <span>{era.label}</span>
+                                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                                  {count} เพลง
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                                {era.subtitle}
+                              </div>
                             </div>
                           </div>
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+                          )}
                         </div>
-                        {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* TAB 3: GENRE */}
           {activeTab === "genre" && (() => {
@@ -503,20 +576,54 @@ export function SongSourceModal({
 
             return (
               <div className="space-y-4">
-                <div className="flex items-center justify-between text-xs font-semibold text-stone-600 dark:text-stone-300">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-stone-600 dark:text-stone-300">
                   <div className="flex items-center gap-2">
                     <span>เลือกหมวดหมู่แนวเพลง (เลือกได้หลายหมวดหมู่):</span>
                     {selectedGenreIds.length > 0 && (
                       <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                        เลือกแล้ว {selectedGenreIds.length} หมวด ({totalGenreSongs} เพลง)
+                        เลือกแล้ว {selectedGenreIds.length} หมวด (รวม {totalGenreSongs} เพลง)
                       </span>
                     )}
                   </div>
-                  {isLoadingFilters && (
-                    <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px]">
-                      <Loader2 className="w-3 h-3 animate-spin" /> โหลดหมวดหมู่...
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allIds = displayGenres.map((g) => g.id);
+                        const allNames = displayGenres.map((g) => g.nameTh);
+                        setDraft({
+                          type: "genre",
+                          genreIds: allIds,
+                          genreNames: allNames,
+                          genreId: allIds[0] || undefined,
+                          genreName: allNames[0] || undefined,
+                        });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      ✓ เลือกทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraft({
+                          type: "genre",
+                          genreIds: [],
+                          genreNames: [],
+                          genreId: undefined,
+                          genreName: undefined,
+                        });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      ✕ ล้างทั้งหมด
+                    </button>
+                    {isLoadingFilters && (
+                      <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px] ml-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> โหลดหมวดหมู่...
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -553,7 +660,7 @@ export function SongSourceModal({
                         <div className="flex items-center justify-between">
                           <span className="text-2xl">{g.icon || "🎵"}</span>
                           {isSelected && (
-                            <div className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center">
+                            <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
                               <Check className="w-3.5 h-3.5 stroke-[3]" />
                             </div>
                           )}
