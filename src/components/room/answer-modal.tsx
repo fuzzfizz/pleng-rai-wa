@@ -47,7 +47,18 @@ export function AnswerModal({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const modalSuggestionsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const totalSec = Math.max(1, timeRemainingSec);
+
+  // Scroll highlighted autocomplete suggestion into view smoothly
+  useEffect(() => {
+    if (highlightedIndex >= 0 && modalSuggestionsRef.current[highlightedIndex]) {
+      modalSuggestionsRef.current[highlightedIndex]?.scrollIntoView?.({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    }
+  }, [highlightedIndex]);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -296,6 +307,9 @@ export function AnswerModal({
                     return (
                       <button
                         key={song.id || idx}
+                        ref={(el) => {
+                          modalSuggestionsRef.current[idx] = el;
+                        }}
                         type="button"
                         onClick={() => handleSubmit(song.title)}
                         className={`w-full text-left px-3 py-2.5 lg:py-3 lg:px-4 min-h-[44px] rounded-xl flex items-center justify-between text-sm lg:text-base transition group cursor-pointer ${

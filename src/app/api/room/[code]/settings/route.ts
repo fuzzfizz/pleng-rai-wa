@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/lib/services/room-service";
+import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { isValidRoomCode } from "@/lib/room-code";
 import type { RoomSettings } from "@/types";
 
@@ -89,6 +90,11 @@ export async function POST(
     if (settings && typeof settings === "object" && !Array.isArray(settings)) {
       updatedRoom = await RoomService.updateRoomSettings(cleanCode, settings);
     }
+
+    await RealtimeBroadcastService.broadcast(cleanCode, "room_settings", {
+      settings: updatedRoom.settings,
+      room: updatedRoom,
+    });
 
     return NextResponse.json({
       success: true,

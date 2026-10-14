@@ -5,7 +5,7 @@
 // Host controls for Game Mode, Timing, Rounds, Input Mode & Host Transfer
 // ==========================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import type { Player, RoomSettings, GameMode, AnswerInputMode, LyricsType, Playlist, AIVoiceGender, SongFilterConfig } from "@/types";
 import {
   X,
@@ -107,6 +107,9 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
   if (result.maxWrongGuesses !== undefined) {
     const val = Number(result.maxWrongGuesses);
     result.maxWrongGuesses = isNaN(val) || val < 0 ? 1 : val;
+    if (result.answerResolutionMode === "wait_all" && result.maxWrongGuesses === 0) {
+      result.maxWrongGuesses = 1;
+    }
   }
 
   if (result.playlistId !== undefined) {
@@ -154,6 +157,13 @@ export function HostSettingsModal({
   const [isTransferring, setIsTransferring] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [filterMetadata, setFilterMetadata] = useState<{
+    genres: { id: string; nameTh: string; songCount?: number }[];
+    eras: { id: string; label: string; songCount?: number }[];
+    totalSongs: number;
+  } | null>(null);
+  const [isClampedWarning, setIsClampedWarning] = useState(false);
+
   // Sync draft whenever modal opens or parent settings update
   useEffect(() => {
     if (isOpen) {
@@ -162,8 +172,37 @@ export function HostSettingsModal({
       setErrorMessage(null);
       setShowTransferConfirm(false);
       setSelectedTransferTarget("");
+      setIsClampedWarning(false);
     }
   }, [isOpen, settings]);
+
+  // Load song filter metadata
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    fetch("/api/songs/filters")
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && data.filters) {
+          setFilterMetadata({
+            genres: data.filters.genres || [],
+            eras: data.filters.eras || [],
+            totalSongs: data.filters.totalSongs || 0,
+          });
+        }
+      })
+      .catch((err) => console.warn("Failed to load song filters in host settings modal:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  // Normalize wait_all maxWrongGuesses
+  useEffect(() => {
+    if (draft.answerResolutionMode === "wait_all" && draft.maxWrongGuesses === 0) {
+      setDraft((prev) => ({ ...prev, maxWrongGuesses: 1 }));
+    }
+  }, [draft.answerResolutionMode, draft.maxWrongGuesses]);
 
   // Load playlists when modal opens
   useEffect(() => {
@@ -218,11 +257,6 @@ export function HostSettingsModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose, isSaving, isTransferring]);
 
-  if (!isOpen) return null;
-
-  // Other players eligible to become host
-  const otherPlayers = players.filter((p) => p.id !== currentHostPlayerId);
-
   const currentFilterConfig: SongFilterConfig = draft.songFilter || (
     draft.playlistId
       ? { type: "playlist", playlistId: draft.playlistId }
@@ -236,6 +270,64 @@ export function HostSettingsModal({
     : draft.playlistId;
 
   const selectedPlaylist = playlists.find((p) => p.id === targetPlaylistId);
+
+  const maxAvailableSongs = useMemo(() => {
+    if (currentFilterConfig.type === "playlist") {
+      return selectedPlaylist?.songCount ?? 20;
+    }
+    if (currentFilterConfig.type === "genre") {
+      if (filterMetadata) {
+        const genreIds = currentFilterConfig.genreIds && currentFilterConfig.genreIds.length > 0
+          ? currentFilterConfig.genreIds
+          : currentFilterConfig.genreId
+          ? [currentFilterConfig.genreId]
+          : [];
+        if (genreIds.length > 0) {
+          const total = filterMetadata.genres
+            .filter((g) => genreIds.includes(g.id))
+            .reduce((sum, g) => sum + (g.songCount || 0), 0);
+          return Math.max(1, total);
+        }
+      }
+      return 20;
+    }
+    if (currentFilterConfig.type === "era") {
+      if (filterMetadata) {
+        const matched = filterMetadata.eras.find((e) => e.id === currentFilterConfig.era);
+        if (matched?.songCount !== undefined && matched.songCount > 0) {
+          return matched.songCount;
+        }
+      }
+      return 20;
+    }
+    if (currentFilterConfig.type === "all") {
+      if (filterMetadata && filterMetadata.totalSongs > 0) {
+        return filterMetadata.totalSongs;
+      }
+      return 100;
+    }
+    return 100;
+  }, [currentFilterConfig, selectedPlaylist, filterMetadata]);
+
+  // Auto-clamp draft.totalRounds if it exceeds maxAvailableSongs
+  useEffect(() => {
+    if (maxAvailableSongs > 0 && draft.totalRounds > maxAvailableSongs) {
+      setDraft((prev) => ({ ...prev, totalRounds: maxAvailableSongs }));
+      setIsClampedWarning(true);
+    }
+  }, [
+    maxAvailableSongs,
+    currentFilterConfig.type,
+    targetPlaylistId,
+    currentFilterConfig.genreId,
+    currentFilterConfig.genreIds,
+  ]);
+
+  if (!isOpen) return null;
+
+  // Other players eligible to become host
+  const otherPlayers = players.filter((p) => p.id !== currentHostPlayerId);
+
   const isSelectedValid = Boolean(
     selectedPlaylist && isPlaylistPlayable(selectedPlaylist.songCount || 0)
   );
@@ -650,15 +742,36 @@ export function HostSettingsModal({
 
           {/* 4. Total Rounds */}
           <div>
-            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
-              🎯 จำนวนข้อทั้งหมด (Total Rounds)
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+                🎯 จำนวนข้อทั้งหมด (Total Rounds)
+              </label>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                เพลงที่มี: {maxAvailableSongs} เพลง
+              </span>
+            </div>
+
+            {/* Warning banner if user tried to enter or was clamped to max available songs */}
+            {isClampedWarning && (
+              <div className="mb-2.5 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                <span>⚠️ เกินจำนวนเพลงที่เลือกไว้ (ระบบปรับเป็น {maxAvailableSongs} ข้อตามจำนวนเพลงที่มี)</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {TOTAL_ROUNDS_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setDraft((prev) => ({ ...prev, totalRounds: opt.value }))}
+                  onClick={() => {
+                    if (maxAvailableSongs > 0 && opt.value > maxAvailableSongs) {
+                      setDraft((prev) => ({ ...prev, totalRounds: maxAvailableSongs }));
+                      setIsClampedWarning(true);
+                    } else {
+                      setDraft((prev) => ({ ...prev, totalRounds: opt.value }));
+                      setIsClampedWarning(false);
+                    }
+                  }}
                   className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
                     draft.totalRounds === opt.value
                       ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
@@ -668,6 +781,32 @@ export function HostSettingsModal({
                   {opt.label}
                 </button>
               ))}
+            </div>
+
+            {/* Custom Rounds Input */}
+            <div className="flex items-center gap-2.5 mt-3 pt-3 border-t border-stone-200 dark:border-stone-800/80">
+              <span className="text-xs text-stone-600 dark:text-stone-400 font-medium">หรือกำหนดจำนวนข้อเอง:</span>
+              <input
+                type="number"
+                min={1}
+                max={maxAvailableSongs}
+                value={draft.totalRounds || ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (isNaN(val) || val <= 0) {
+                    setDraft((prev) => ({ ...prev, totalRounds: 1 }));
+                    setIsClampedWarning(false);
+                  } else if (maxAvailableSongs > 0 && val > maxAvailableSongs) {
+                    setDraft((prev) => ({ ...prev, totalRounds: maxAvailableSongs }));
+                    setIsClampedWarning(true);
+                  } else {
+                    setDraft((prev) => ({ ...prev, totalRounds: val }));
+                    setIsClampedWarning(false);
+                  }
+                }}
+                className="w-20 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-white text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <span className="text-xs text-stone-500 dark:text-stone-400">ข้อ</span>
             </div>
           </div>
 
@@ -803,7 +942,13 @@ export function HostSettingsModal({
 
                 <button
                   type="button"
-                  onClick={() => setDraft((prev) => ({ ...prev, answerResolutionMode: "wait_all" }))}
+                  onClick={() =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      answerResolutionMode: "wait_all",
+                      maxWrongGuesses: prev.maxWrongGuesses === 0 ? 1 : prev.maxWrongGuesses,
+                    }))
+                  }
                   className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                     draft.answerResolutionMode === "wait_all"
                       ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
@@ -829,13 +974,26 @@ export function HostSettingsModal({
             <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
               ❌ จำนวนครั้งที่ตอบผิดได้ต่อข้อ (Allowed Wrong Guesses)
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { value: 1, label: "1 ครั้ง (ค่าเริ่มต้น)" },
-                { value: 2, label: "2 ครั้ง" },
-                { value: 3, label: "3 ครั้ง" },
-                { value: 0, label: "ไม่จำกัด" },
-              ].map((opt) => (
+            <div
+              className={
+                draft.answerResolutionMode === "wait_all"
+                  ? "grid grid-cols-3 gap-2"
+                  : "grid grid-cols-2 sm:grid-cols-4 gap-2"
+              }
+            >
+              {(draft.answerResolutionMode === "wait_all"
+                ? [
+                    { value: 1, label: "1 ครั้ง (ค่าเริ่มต้น)" },
+                    { value: 2, label: "2 ครั้ง" },
+                    { value: 3, label: "3 ครั้ง" },
+                  ]
+                : [
+                    { value: 1, label: "1 ครั้ง (ค่าเริ่มต้น)" },
+                    { value: 2, label: "2 ครั้ง" },
+                    { value: 3, label: "3 ครั้ง" },
+                    { value: 0, label: "ไม่จำกัด" },
+                  ]
+              ).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"

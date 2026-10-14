@@ -298,6 +298,7 @@ export async function deleteSong(id: string): Promise<boolean> {
 
 export interface GetRandomSongsOptions {
   genreId?: string;
+  genreIds?: string[];
   era?: string;
   artist?: string;
   yearStart?: number;
@@ -467,6 +468,7 @@ export async function getRandomSongs(
       // Fall back to general song pool
       return getRandomSongs(count, {
         genreId: options.genreId,
+        genreIds: options.genreIds,
         era: options.era,
         artist: options.artist,
         yearStart: options.yearStart,
@@ -482,8 +484,8 @@ export async function getRandomSongs(
       const filtered = playlistSongs.filter((s) => !excludeSet.has(s.id));
 
       if (filtered.length === 0) {
-        // If all songs are excluded, recycle all songs from the playlist
-        availableSongs = [...playlistSongs];
+        // When unplayed songs are exhausted, do not recycle during gameplay
+        return [];
       } else {
         availableSongs = filtered;
       }
@@ -503,7 +505,9 @@ export async function getRandomSongs(
     .from("songs")
     .select("*, genres(id, name_th, name_en, slug, icon)");
 
-  if (options?.genreId) {
+  if (options?.genreIds && options.genreIds.length > 0) {
+    query = query.in("genre_id", options.genreIds);
+  } else if (options?.genreId) {
     query = query.eq("genre_id", options.genreId);
   }
 
@@ -534,6 +538,7 @@ export async function getRandomSongs(
   );
 
   const hasFilters = Boolean(
+    (options?.genreIds && options.genreIds.length > 0) ||
     options?.genreId ||
     options?.era ||
     options?.artist ||
@@ -554,7 +559,8 @@ export async function getRandomSongs(
     const unplayed = songs.filter((s) => !excludeSet.has(s.id));
 
     if (unplayed.length === 0) {
-      // If all songs matching the filter are excluded, recycle all songs
+      // When unplayed songs are exhausted, do not recycle during gameplay
+      return [];
     } else {
       songs = unplayed;
     }

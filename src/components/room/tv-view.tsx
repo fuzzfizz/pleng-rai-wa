@@ -35,6 +35,7 @@ import { buildRoomJoinUrl } from "./qr-code-modal";
 import { formatWrongGuessMessage, RESUME_AUDIO_CUE } from "./wrong-guess-banner";
 import { PodiumView, getSortedPodiumPlayers } from "./podium-view";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
+import { getWaitAllPlayerStatus } from "./game-view";
 
 export interface TVViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -94,6 +95,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     isHost,
     isMuted,
     isAudioPlaying,
+    excludedPlayerIds = [],
     nextRound,
     toggleMute,
   } = roomRealtime;
@@ -105,6 +107,12 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const cleanCode = (roomCode || "").trim().toUpperCase();
+
+  const isWaitAll = roomRealtime.room?.settings?.answerResolutionMode === "wait_all";
+  const waitAllStatus = useMemo(
+    () => getWaitAllPlayerStatus(players, excludedPlayerIds),
+    [players, excludedPlayerIds]
+  );
 
   const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
   const hasChoices = Boolean(activeQuestion?.choices && activeQuestion.choices.length > 0);
@@ -552,15 +560,65 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                     : "ใครกดกริ่งคนแรก จะได้สิทธิ์ตอบคำถามและรับคะแนนทันที!"}
                 </p>
 
-                {/* Mode Indicator / Resolution cue */}
+                {/* Mode Indicator / Resolution cue & Wait for All player badges */}
                 {gameMode !== "buzzer" ? (
-                  <div className="mt-6 flex items-center justify-center gap-2.5 px-6 py-2.5 rounded-2xl bg-stone-950/70 border border-amber-500/30 text-amber-300 text-sm sm:text-base font-bold w-fit mx-auto shadow-inner">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span>
-                      {roomRealtime.room?.settings?.answerResolutionMode === "wait_all"
-                        ? "โหมดไม่จำกัดเวลา • รอตอบครบทุกคนแล้วสรุปคะแนน"
-                        : "โหมดไม่จำกัดเวลา • ใครตอบถูกคนแรกชนะ"}
-                    </span>
+                  <div className="mt-6 flex flex-col items-center gap-4 w-full">
+                    <div className="flex items-center justify-center gap-2.5 px-6 py-2.5 rounded-2xl bg-stone-950/70 border border-amber-500/30 text-amber-300 text-sm sm:text-base font-bold w-fit mx-auto shadow-inner">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span>
+                        {isWaitAll
+                          ? "โหมดไม่จำกัดเวลา • รอตอบครบทุกคนแล้วสรุปคะแนน"
+                          : "โหมดไม่จำกัดเวลา • ใครตอบถูกคนแรกชนะ"}
+                      </span>
+                    </div>
+
+                    {/* Wait for All live player status badges */}
+                    {isWaitAll && (
+                      <div className="w-full max-w-2xl mx-auto p-4 sm:p-5 rounded-3xl bg-stone-950/80 border border-stone-800 shadow-xl flex flex-col items-center gap-3 backdrop-blur-md animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between w-full px-2 text-xs sm:text-sm font-bold text-stone-300">
+                          <span className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-amber-400" />
+                            <span>
+                              สถานะการตอบ ({waitAllStatus.submittedPlayers.length}/{players.length} คน)
+                            </span>
+                          </span>
+                          {waitAllStatus.pendingPlayers.length > 0 ? (
+                            <span className="text-amber-400 font-semibold text-xs truncate max-w-[280px]">
+                              {waitAllStatus.summaryText}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400 font-semibold text-xs">
+                              ✓ ตอบครบทุกคนแล้ว
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Player Badges */}
+                        <div className="flex flex-wrap items-center justify-center gap-2 w-full pt-1">
+                          {players.map((p) => {
+                            const isSubmitted = (excludedPlayerIds || []).includes(p.id);
+                            return (
+                              <span
+                                key={p.id}
+                                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all ${
+                                  isSubmitted
+                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm"
+                                    : "bg-stone-800 text-stone-400 border border-stone-700 animate-pulse"
+                                }`}
+                              >
+                                <span className={isSubmitted ? "text-emerald-400 font-black" : "text-amber-400 font-black"}>
+                                  {isSubmitted ? "✓" : "⏳"}
+                                </span>
+                                <span className="truncate max-w-[130px]">{p.displayName}</span>
+                                <span className="text-[10px] opacity-75">
+                                  {isSubmitted ? "(ตอบแล้ว)" : "(กำลังคิด)"}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   questionSecondsLeft !== null && (
@@ -901,6 +959,21 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                             <span className="text-[11px] font-extrabold text-amber-400 flex items-center gap-1">
                               <Zap className="w-3 h-3 fill-amber-400" />
                               <span>กำลังตอบคำถาม...</span>
+                            </span>
+                          )}
+                          {isWaitAll && status === "question_active" && (
+                            <span
+                              className={`text-[11px] font-extrabold flex items-center gap-1 ${
+                                (excludedPlayerIds || []).includes(player.id)
+                                  ? "text-emerald-400"
+                                  : "text-amber-400 animate-pulse"
+                              }`}
+                            >
+                              <span>
+                                {(excludedPlayerIds || []).includes(player.id)
+                                  ? "✓ ตอบแล้ว"
+                                  : "⏳ กำลังคิด..."}
+                              </span>
                             </span>
                           )}
                         </div>

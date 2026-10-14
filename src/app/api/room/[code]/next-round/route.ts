@@ -146,6 +146,7 @@ export async function POST(
     // Extract filter options from settings.songFilter (or fallback to legacy genreId / playlistId)
     const songFilter = settings.songFilter;
     let filterGenreId: string | undefined = undefined;
+    let filterGenreIds: string[] | undefined = undefined;
     let filterEra: string | undefined = undefined;
     let filterArtist: string | undefined = undefined;
     let filterYearStart: number | undefined = undefined;
@@ -155,6 +156,7 @@ export async function POST(
     if (songFilter) {
       if (songFilter.type === "genre") {
         filterGenreId = songFilter.genreId;
+        filterGenreIds = songFilter.genreIds;
       } else if (songFilter.type === "era") {
         filterEra = songFilter.era;
       } else if (songFilter.type === "artist") {
@@ -172,6 +174,7 @@ export async function POST(
     // Fetch random unplayed song
     const songs = await SongService.getRandomSongs(1, {
       genreId: filterGenreId,
+      genreIds: filterGenreIds,
       era: filterEra,
       artist: filterArtist,
       yearStart: filterYearStart,
@@ -184,18 +187,22 @@ export async function POST(
       await RoomService.updateRoomStatus(cleanCode, "game_over");
       RoomStateStore.setGameOver(cleanCode);
 
+      const noMoreSongsMessage = `เล่นครบทุกเพลงในคลัง/เพลย์ลิสต์แล้ว (รวม ${completedRounds} ข้อ) สรุปคะแนนผู้ชนะ!`;
+
       await RealtimeBroadcastService.broadcast(cleanCode, "game_over", {
         gameOver: true,
         round: completedRounds,
         totalRounds: settings.totalRounds,
         finalScores: existingRoundState?.scores || {},
         reason: "no_more_songs",
+        message: noMoreSongsMessage,
       });
 
       return NextResponse.json({
         success: true,
         gameOver: true,
-        message: "เพลงหมดคลังแล้ว",
+        reason: "no_more_songs",
+        message: noMoreSongsMessage,
         finalScores: existingRoundState?.scores || {},
       });
     }
@@ -228,6 +235,7 @@ export async function POST(
       try {
         decoys = await SongService.getRandomSongs(3, {
           genreId: filterGenreId,
+          genreIds: filterGenreIds,
           era: filterEra,
           artist: filterArtist,
           yearStart: filterYearStart,

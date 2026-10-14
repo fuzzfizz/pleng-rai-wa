@@ -161,7 +161,7 @@ export function createInitialRoomRealtimeState(
     status: "lobby",
     currentRound: 0,
     totalRounds: 0,
-    gameMode: "buzzer",
+    gameMode: "audio-slice",
     activeQuestion: null,
     buzzedPlayer: null,
     isMyBuzz: false,
@@ -365,6 +365,29 @@ export function reduceRoomRealtimeEvent(
           } else {
             nextState.isAudioPlaying = true;
           }
+
+          if (payload?.excluded !== false) {
+            if (payload?.playerId) {
+              const currentExcluded = nextState.excludedPlayerIds || [];
+              if (!currentExcluded.includes(payload.playerId)) {
+                nextState.excludedPlayerIds = [...currentExcluded, payload.playerId];
+              }
+              if (nextState.myPlayer && payload.playerId === nextState.myPlayer.id) {
+                nextState.isExcludedFromBuzz = true;
+              }
+            }
+          } else {
+            if (payload?.playerId) {
+              if (nextState.excludedPlayerIds) {
+                nextState.excludedPlayerIds = nextState.excludedPlayerIds.filter(
+                  (id) => id !== payload.playerId
+                );
+              }
+              if (nextState.myPlayer && payload.playerId === nextState.myPlayer.id) {
+                nextState.isExcludedFromBuzz = false;
+              }
+            }
+          }
           break;
         }
 
@@ -517,6 +540,33 @@ export function reduceRoomRealtimeEvent(
           break;
         }
 
+        case "room_settings": {
+          const newSettings = payload?.settings || payload?.room?.settings;
+          nextState.room = {
+            ...nextState.room,
+            ...payload?.room,
+            settings: newSettings || nextState.room?.settings,
+          };
+          if (newSettings?.gameMode) {
+            nextState.gameMode = newSettings.gameMode as GameMode;
+          } else if (payload?.room?.settings?.gameMode) {
+            nextState.gameMode = payload.room.settings.gameMode as GameMode;
+          }
+          if (newSettings?.totalRounds !== undefined) {
+            nextState.totalRounds = Number(newSettings.totalRounds) || nextState.totalRounds;
+          }
+          if (payload?.room?.host_player_id && nextState.myPlayer) {
+            const isHost = nextState.myPlayer.id === payload.room.host_player_id;
+            nextState.isHost = isHost;
+            nextState.myPlayer = { ...nextState.myPlayer, isHost };
+            nextState.players = nextState.players.map((p) => ({
+              ...p,
+              isHost: p.id === payload.room.host_player_id,
+            }));
+          }
+          break;
+        }
+
         case "room_dissolved": {
           nextState.error = payload?.reason || "หัวหน้าห้องออกจากห้องแล้ว ห้องถูกยุบเรียบร้อย";
           nextState.status = "game_over";
@@ -558,8 +608,8 @@ export function reduceRoomRealtimeEvent(
   );
   nextState.isExcludedFromBuzz = Boolean(
     myId && (
-      nextState.wrongGuesses.some((g) => g.playerId === myId) ||
-      Boolean(nextState.excludedPlayerIds && nextState.excludedPlayerIds.includes(myId))
+      Boolean(nextState.excludedPlayerIds && nextState.excludedPlayerIds.includes(myId)) ||
+      (nextState.isExcludedFromBuzz && nextState.wrongGuesses.some((g) => g.playerId === myId))
     )
   );
   nextState.isHost = Boolean(
@@ -777,6 +827,9 @@ export function useRoomRealtime(
       })
       .on("broadcast", { event: "player_submitted" }, ({ payload }) => {
         handleBroadcast("player_submitted", payload);
+      })
+      .on("broadcast", { event: "room_settings" }, ({ payload }) => {
+        handleBroadcast("room_settings", payload);
       });
 
     channel.subscribe(async (status) => {
@@ -839,7 +892,14 @@ export function useRoomRealtime(
   const submitAnswer = useCallback(
     async (
       answerText: string
-    ): Promise<{ success: boolean; isCorrect?: boolean; waitingForOthers?: boolean; error?: string }> => {
+    ): Promise<{
+      success: boolean;
+      isCorrect?: boolean;
+      waitingForOthers?: boolean;
+      canRetry?: boolean;
+      remainingAttempts?: number;
+      error?: string;
+    }> => {
       if (!state.myPlayer) return { success: false, error: "no_player" };
       if (state.isExcludedFromBuzz) {
         return { success: false, error: "already_excluded" };
@@ -868,6 +928,11 @@ export function useRoomRealtime(
           success: Boolean(data.success),
           isCorrect: Boolean(data.isCorrect),
           waitingForOthers: Boolean(data.waitingForOthers),
+          canRetry: Boolean(data.canRetry),
+          remainingAttempts:
+            typeof data.remainingAttempts === "number"
+              ? data.remainingAttempts
+              : undefined,
           error: data.error,
         };
       } catch (err: any) {

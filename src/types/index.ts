@@ -111,6 +111,8 @@ export interface SongFilterConfig {
   type: SongFilterType;
   genreId?: string;
   genreName?: string;
+  genreIds?: string[];
+  genreNames?: string[];
   era?: string;
   artist?: string;
   yearStart?: number;

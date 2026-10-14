@@ -82,6 +82,8 @@ export interface SubmitAnswerResult {
   fullSong?: Song;
   waitingForOthers?: boolean;
   shouldReveal?: boolean;
+  canRetry?: boolean;
+  remainingAttempts?: number;
 }
 
 export interface TimeoutBuzzerResult {
@@ -596,30 +598,73 @@ export class RoomStateStore {
       const newScore = Math.max(0, currentScore + scoreDelta);
       state.scores[playerId] = newScore;
 
-      state.playerSubmissions[playerId] = {
-        playerId,
-        displayName: displayName || "ผู้เล่น",
-        answerText,
-        isCorrect: check.isCorrect,
-        scoreDelta,
-        matchedAs: check.matchedAs,
-        similarity: check.similarity,
-        timestamp: new Date().toISOString(),
-      };
+      const maxWrongGuesses =
+        options?.roomSettings?.maxWrongGuesses ??
+        state.settings?.maxWrongGuesses ??
+        1;
 
-      if (!state.excludedPlayerIds.includes(playerId)) {
-        state.excludedPlayerIds.push(playerId);
-      }
+      if (check.isCorrect) {
+        state.playerSubmissions[playerId] = {
+          playerId,
+          displayName: displayName || "ผู้เล่น",
+          answerText,
+          isCorrect: true,
+          scoreDelta,
+          matchedAs: check.matchedAs,
+          similarity: check.similarity,
+          timestamp: new Date().toISOString(),
+        };
 
-      if (!check.isCorrect) {
+        if (!state.excludedPlayerIds.includes(playerId)) {
+          state.excludedPlayerIds.push(playerId);
+        }
+      } else {
         if (!state.playerWrongCounts) state.playerWrongCounts = {};
         state.playerWrongCounts[playerId] = (state.playerWrongCounts[playerId] || 0) + 1;
+        const wrongCount = state.playerWrongCounts[playerId];
+
         state.wrongGuesses.push({
           playerId,
           displayName: displayName || "ผู้เล่น",
           answerText,
           timestamp: new Date().toISOString(),
         });
+
+        const canRetry = maxWrongGuesses > 0 && wrongCount < maxWrongGuesses;
+
+        if (canRetry) {
+          state.roundStatus = "question_active";
+          return {
+            success: true,
+            isCorrect: false,
+            matchedAs: check.matchedAs,
+            similarity: check.similarity,
+            scoreDelta,
+            newScore,
+            scores: { ...state.scores },
+            roundState: state,
+            waitingForOthers: false,
+            shouldReveal: false,
+            canRetry: true,
+            remainingAttempts: maxWrongGuesses - wrongCount,
+          };
+        }
+
+        // Exhausted attempts: mark as completed and exclude
+        state.playerSubmissions[playerId] = {
+          playerId,
+          displayName: displayName || "ผู้เล่น",
+          answerText,
+          isCorrect: false,
+          scoreDelta,
+          matchedAs: check.matchedAs,
+          similarity: check.similarity,
+          timestamp: new Date().toISOString(),
+        };
+
+        if (!state.excludedPlayerIds.includes(playerId)) {
+          state.excludedPlayerIds.push(playerId);
+        }
       }
 
       const effectiveTotalPlayers =
@@ -660,6 +705,8 @@ export class RoomStateStore {
           fullSong: state.currentSong,
           waitingForOthers: false,
           shouldReveal: true,
+          canRetry: false,
+          remainingAttempts: 0,
         };
       } else {
         state.roundStatus = "question_active";
@@ -674,6 +721,8 @@ export class RoomStateStore {
           roundState: state,
           waitingForOthers: true,
           shouldReveal: false,
+          canRetry: false,
+          remainingAttempts: 0,
         };
       }
     }
@@ -734,20 +783,29 @@ export class RoomStateStore {
       // Wrong guess: -20 points (clamped to 0)
       if (!state.playerWrongCounts) state.playerWrongCounts = {};
       state.playerWrongCounts[playerId] = (state.playerWrongCounts[playerId] || 0) + 1;
+      const wrongCount = state.playerWrongCounts[playerId];
+      const maxWrong =
+        options?.roomSettings?.maxWrongGuesses ??
+        state.settings?.maxWrongGuesses ??
+        1;
+
       const currentScore = state.scores[playerId] || 0;
       const newScore = Math.max(0, currentScore - 20);
       state.scores[playerId] = newScore;
+
+      const canRetry = isStandardBuzzer
+        ? false
+        : (maxWrong === 0 || (maxWrong > 0 && wrongCount < maxWrong));
+      const remainingAttempts = isStandardBuzzer
+        ? 0
+        : (maxWrong === 0 ? 999 : Math.max(0, maxWrong - wrongCount));
 
       if (isStandardBuzzer) {
         if (!state.excludedPlayerIds.includes(playerId)) {
           state.excludedPlayerIds.push(playerId);
         }
       } else {
-        const maxWrong = state.settings?.maxWrongGuesses ?? 1;
-        if (
-          answerText === "(ยอมแพ้)" ||
-          (maxWrong > 0 && state.playerWrongCounts[playerId] >= maxWrong)
-        ) {
+        if (answerText === "(ยอมแพ้)" || !canRetry) {
           if (!state.excludedPlayerIds.includes(playerId)) {
             state.excludedPlayerIds.push(playerId);
           }
@@ -830,6 +888,9 @@ export class RoomStateStore {
         scores: { ...state.scores },
         roundState: state,
         fullSong: state.roundStatus === "revealing" ? state.currentSong : undefined,
+        shouldReveal,
+        canRetry,
+        remainingAttempts,
       };
     }
   }

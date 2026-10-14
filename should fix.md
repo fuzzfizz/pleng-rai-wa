@@ -1,39 +1,72 @@
 # รายการแก้ไขบั๊กและการปรับปรุง (Fixes & Improvements) โหมด audio slice
 
-## 1. บั๊กบางครั้งเฉลยเพลงผิด (Wrong song revealed in audio-slice mode) - [แก้ไขแล้ว ✓]
-- **สาเหตุที่พบ (Root Cause):**
-  1. ในระดับ Server State (`RoomStateStore.ensureRoundState`), การตรวจสอบ `isStale` เช็คเฉพาะ `currentRound > existing.currentRound` ทำให้เมื่อห้องถูกรีเซ็ต/เริ่มเกมใหม่ (เช่น เล่นจบ 5 ข้อแล้วเริ่มรอบ 1 ใหม่) หรือเมื่อข้ามเพลง/เปลี่ยนเพลงในรอบเดียวกัน Server memory ยังคงถือ `currentSong` เดิมจากรอบก่อนหน้า
-  2. ในระดับ Client Audio Playback (`GameView`), การเปลี่ยน `activeQuestion?.sliceUrl` ไม่ได้รีเซ็ต buffer ด้วย `audio.pause()`, `audio.currentTime = 0` และ `audio.load()` ทำให้เว็บบราวเซอร์เล่น audio slice buffer เดิมค้าง
-  3. ใน Solo Play (`src/app/play/solo/page.tsx`), เมื่อโหลดคลังเพลงจาก Supabase DB เสร็จทีหลัง โค้ด shuffle ใหม่ไปแทนที่ `songsPool[0]` ขณะที่ผู้เล่นกำลังตอบเพลงแรก
+## 1. โหมดตั้งต้นเมื่อเข้าห้องมาควรตั้งไว้ที่โหมด audio slice - [แก้ไขแล้ว ✓]
 - **การแก้ไข:**
-  - เพิ่มเงื่อนไข invalidate stale state ใน `RoomStateStore.ensureRoundState`: เมื่อรอบไม่ตรงกัน (`!==`) หรือ `room.current_song_id !== existing.currentSong.id` ให้ rehydrate เพลงที่ถูกต้องจากฐานข้อมูลทันที
-  - เพิ่ม audio buffer cleanup ใน `GameView`: เมื่อ `sliceUrl` เปลี่ยน ให้สั่ง pause, currentTime = 0 และ `load()` ใหม่เสมอ
-  - เพิ่ม `hasInteractedRef` ใน Solo Play ป้องกัน pool swap ขณะเริ่มเล่น
-  - เพิ่ม Unit Tests: `src/lib/__tests__/audio-slice-song-fidelity.test.ts` และ `src/lib/__tests__/audio-slice-buffer-reload.test.ts`
+  - อัปเดต `DEFAULT_ROOM_SETTINGS.gameMode = "audio-slice"` ใน [`src/lib/services/room-service.ts`](file:///D:/pleng-rai-wa/src/lib/services/room-service.ts)
+  - ปรับ default state ใน [`src/hooks/use-room-realtime.ts`](file:///D:/pleng-rai-wa/src/hooks/use-room-realtime.ts) ให้เริ่มต้นที่ `"audio-slice"` แทน `"buzzer"`
 
 ---
 
-## 2. เมื่อกดขอคำใบ้เวลานับถอยหลังรีเซ็ทเอง (Hint request resets timer) - [แก้ไขแล้ว ✓]
+## 2. เริ่มเกมเพลงไม่เล่นเอง 1 รอบก่อน (ต้องมากดฟังซ้ำแทน) - [แก้ไขแล้ว ✓]
 - **สาเหตุที่พบ (Root Cause):**
-  - ใน `GameView`, `useEffect` ที่คุม interval timer ขึ้นกับ dependency `handleTimeout`
-  - เมื่อกดขอคำใบ้ Supabase Realtime broadcast สถานะใหม่ ทำให้ callback `surrender` เปลี่ยน reference ส่งผลให้ `handleTimeout` เปลี่ยน reference และทำให้ timer effect cleanup แล้วเริ่มนับ 15 วินาทีใหม่
+  - เกิดการชนกันของ `useEffect` โหลด buffer เสียง (`audio.load()`) และ `useEffect` เล่นเสียง (`audio.play()`) เมื่อขึ้นรอบใหม่ ส่งผลให้เบราว์เซอร์โยน `AbortError` และ catch block บังคับเซ็ต `isAudioPlaying = false` ทันที
 - **การแก้ไข:**
-  - ใช้ `handleTimeoutRef` เพื่อ decouple callback reference ออกจาก timer effect dependency array
-  - เมื่อขอคำใบ้ timer จะไม่ re-run หรือ reset อีกต่อไป
-  - เพิ่ม Unit Test: `src/components/room/__tests__/non-buzzer-unlimited-timer.test.ts`
+  - รวมการจัดการ buffer และการเล่นรอบแรกให้ทำงานสอดคล้องกันผ่าน `prevSliceKeyRef` (`${currentRound}:${activeQuestion.sliceUrl}`) ใน [`src/components/room/game-view.tsx`](file:///D:/pleng-rai-wa/src/components/room/game-view.tsx)
+  - เมื่อขึ้นรอบใหม่ ระบบจะ reset buffer, load และสั่งเล่นอัตโนมัติ 1 รอบทันที เมื่อเล่นจบ `<audio onEnded={...}>` จะตั้ง `isAudioPlaying = false` และปลดล็อกปุ่มฟังซ้ำให้ใช้งานต่อได้
 
 ---
 
-## 3. นำตัวนับถอยหลัง 15 วิ ออกจากโหมดทั่วไป (Unlimited Time for Non-Buzzer Modes) - [แก้ไขแล้ว ✓]
-- **ความต้องการ:**
-  - โหมดที่ไม่ใช่การกดกริ่ง (`audio-slice`, `ai-lyrics`, `translated-lyrics`) ให้เป็นเวลาไม่จำกัด (Unlimited Time) เพื่อไม่ให้กดดันเกินไป
-  - ตัวนับถอยหลังเวลาตอบ (Round / Buzzer Timeout) ให้เลือกปรับและแสดงผลเฉพาะในโหมดแย่งกดกริ่ง (`buzzer`) เท่านั้น
-  - ในโหมดทั่วไป ผู้เล่นสามารถเลือกรูปแบบการตัดสิน (Answer Resolution Mode) ได้ 2 แบบ:
-    1. **⚡ แย่งกันตอบ (Race):** ใครตอบถูกคนแรกชนะข้อนี้ทันทีและเฉลยเพลง คนตอบผิดหมดสิทธิ์ในข้อนั้น
-    2. **👥 รอตอบให้หมดทุกคน (Wait for All):** ทุกคนตอบได้โดยไม่จำกัดเวลา เมื่อตอบครบทุกคนหรือยอมแพ้ จึงเฉลยพร้อมกันและรวมคะแนน
+## 3. Autocomplete ให้เลื่อน Scroll ตามลูกศรขึ้น/ลง - [แก้ไขแล้ว ✓]
 - **การแก้ไข:**
-  - `GameView`: แสดง progress bar นับถอยหลังเฉพาะ `gameMode === "buzzer"` และไม่รัน answer timeout ในโหมดอื่น
-  - `TVView`: แสดงตัวนับถอยหลังเฉพาะ `gameMode === "buzzer"`; โหมดอื่นแสดงแถบข้อความ "โหมดไม่จำกัดเวลา" พร้อมระบุแย่งกันตอบหรือรอตอบครบทุกคน
-  - `HostSettingsModal`: ส่วนตั้งเวลา 10-30 วิ แสดงเฉพาะโหมด `buzzer`; โหมดอื่นแสดงป้าย "เวลาในการตอบ: ไม่จำกัดเวลา (Unlimited)" และเปิดให้เลือกกติกาการเฉลยคำตอบ (Race vs Wait for All) อย่างชัดเจน
-  - `LobbyView`: สรุปการตั้งค่าห้องระบุชัดเจน เช่น "ไม่จำกัดเวลา (แย่งกันตอบ)" หรือ "ไม่จำกัดเวลา (รอตอบครบทุกคน)"
-  - เพิ่ม Unit Test: `src/components/room/__tests__/host-settings-modes-alignment.test.ts`
+  - เพิ่ม ref callback และ `useEffect` ตรวจจับ `highlightedIndex` ใน [`src/components/room/game-view.tsx`](file:///D:/pleng-rai-wa/src/components/room/game-view.tsx) และ [`src/components/room/answer-modal.tsx`](file:///D:/pleng-rai-wa/src/components/room/answer-modal.tsx)
+  - เรียก `element.scrollIntoView({ block: "nearest", behavior: "smooth" })` เพื่อให้ตัวเลือกที่กำลังไฮไลต์เลื่อนตามสายตาตลอดเวลาแม้จะเลื่อนเกินความสูงของกล่อง `max-h-48`
+
+---
+
+## 4. โหมดรอทุกคนตอบ (Wait for All) แสดงว่าเหลือใครที่ยังไม่ตอบ - [แก้ไขแล้ว ✓]
+- **การแก้ไข:**
+  - เพิ่มฟังก์ชันคำนวณ `getWaitAllPlayerStatus` แยกรายชื่อคนที่ส่งคำตอบแล้ว (`submittedPlayers`) และคนที่ยังไม่ตอบ (`pendingPlayers`)
+  - **บนจอมือถือผู้เล่น (`GameView`):** แสดง Badge ผู้เล่นทุกคน พร้อมข้อความสรุปชัดเจน เช่น *"⏳ กำลังรออีก 2 คน: สมชาย, สมหญิง"*
+  - **บนจอทีวี (`TVView`):** แสดง Live Card ตรงกลางจอและแถบ Scoreboard ด้านข้างว่าใครตอบแล้ว (`✓ ตอบแล้ว`) และใครกำลังคิดอยู่ (`⏳ กำลังคิด...`)
+
+---
+
+## 5. จำนวนครั้งที่ตอบผิดแบบไม่จำกัด แสดงเฉพาะโหมดแย่งกันตอบ (Race) - [แก้ไขแล้ว ✓]
+- **การแก้ไข:**
+  - ใน [`src/components/room/host-settings-modal.tsx`](file:///D:/pleng-rai-wa/src/components/room/host-settings-modal.tsx):
+    - เมื่อเลือกกติกา `wait_all` ตัวเลือกจะแสดงเฉพาะ `1 ครั้ง`, `2 ครั้ง`, `3 ครั้ง` (ซ่อนตัวเลือก `0 / ไม่จำกัด`)
+    - เพิ่ม Auto-normalization ใน `prepareSettingsPayload` หากเป็น `wait_all` และค่าเป็น 0 จะปรับเป็น 1 เสมอ
+    - ในโหมด `race` จะแสดงตัวเลือกครบทั้ง `1`, `2`, `3` และ `ไม่จำกัด` ตามเดิม
+
+---
+
+## 6. หัวห้องเปลี่ยนโหมดแล้ว ผู้เล่นในห้องซิงค์เห็นแบบ Real-time - [แก้ไขแล้ว ✓]
+- **การแก้ไข:**
+  - ใน [`src/app/api/room/[code]/settings/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/%5Bcode%5D/settings/route.ts): เพิ่มการ broadcast event `room_settings` เมื่อมีการบันทึกการตั้งค่าหรือโอนสิทธิ์ Host
+  - ใน [`src/hooks/use-room-realtime.ts`](file:///D:/pleng-rai-wa/src/hooks/use-room-realtime.ts): เพิ่ม listener รับ event `room_settings` และ dispatch อัปเดต `room.settings`, `gameMode`, `totalRounds` และสถานะ Host ทันที
+  - ส่งผลให้ผู้เล่นทุกคนและจอทีวีเห็นการเปลี่ยนโหมดห้องพร้อมกันทันที
+
+---
+
+## 7. ตอบผิดได้ 2-3 ครั้ง แจ้งผลถูก/ผิด และให้สิทธิ์ตอบต่อตามที่กำหนด - [แก้ไขแล้ว ✓]
+- **การแก้ไข:**
+  - ปรับปรุงตรรกะใน [`src/lib/room-state-store.ts`](file:///D:/pleng-rai-wa/src/lib/room-state-store.ts):
+    - เมื่อตอบผิด จะตรวจสอบ `wrongCount < maxWrong`
+    - หากยังไม่ครบโควตา จะ **ไม่ exclude ผู้เล่น** และส่ง response `canRetry: true, remainingAttempts: maxWrong - wrongCount`
+  - ปรับปรุง [`src/app/api/room/[code]/answer/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/%5Bcode%5D/answer/route.ts) และ [`src/hooks/use-room-realtime.ts`](file:///D:/pleng-rai-wa/src/hooks/use-room-realtime.ts) ให้ broadcast `wrong_guess` โดย exclude ผู้เล่นเฉพาะเมื่อสิทธิ์ตอบหมดแล้วเท่านั้น
+  - ใน [`src/components/room/game-view.tsx`](file:///D:/pleng-rai-wa/src/components/room/game-view.tsx): แสดงแบนเนอร์แจ้งเตือน `"❌ ยังไม่ถูกต้อง! (เหลือสิทธิ์ตอบอีก X ครั้ง)"` และเคลียร์ช่องพิมพ์ให้พิมพ์ตอบต่อได้ทันทีโดยไม่ถูกล็อก
+
+---
+
+## 8. ระบบเลือกหลายหมวดหมู่ (Multi-Genre), กำหนดจำนวนข้อเอง พร้อม Auto-clamp และจบเกมเมื่อเพลงหมด - [แก้ไขแล้ว ✓]
+- **การแก้ไข:**
+  - **Multi-Genre Selection:**
+    - ขยาย `SongFilterConfig` ใน [`src/types/index.ts`](file:///D:/pleng-rai-wa/src/types/index.ts) ให้รองรับ `genreIds?: string[]`
+    - ปรับ [`src/components/common/song-source-modal.tsx`](file:///D:/pleng-rai-wa/src/components/common/song-source-modal.tsx) ให้สามารถคลิกเลือกหมวดหมู่แนวเพลงได้หลายหมวดพร้อมกัน พร้อมแสดงยอดรวมเพลง
+    - ปรับ [`src/lib/services/song-service.ts`](file:///D:/pleng-rai-wa/src/lib/services/song-service.ts) และ [`src/app/api/room/[code]/next-round/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/%5Bcode%5D/next-round/route.ts) ให้ query เพลงด้วย `query.in("genre_id", genreIds)`
+  - **Custom Rounds Input & Auto-Clamp:**
+    - ใน [`src/components/room/host-settings-modal.tsx`](file:///D:/pleng-rai-wa/src/components/room/host-settings-modal.tsx) เพิ่มช่องระบุจำนวนข้อเอง (Custom Input) ควบคู่กับปุ่มทางลัด
+    - คำนวณ `maxAvailableSongs` หากกรอกจำนวนข้อเกินจำนวนเพลงที่มีจริง ระบบจะ auto-clamp ลดลงมาเท่ากับเพลงที่มี พร้อมแสดงข้อความเตือนเด่นชัด: `"⚠️ เกินจำนวนเพลงที่เลือกไว้ (ระบบปรับเป็น X ข้อตามจำนวนเพลงที่มี)"`
+  - **Graceful Game Over:**
+    - ตัดระบบวนเพลงซ้ำ (song recycling) ใน `SongService.getRandomSongs` ออกเด็ดขาด
+    - เมื่อเพลงหมดก่อนถึงจำนวนข้อที่ตั้งไว้ ระบบจะจบเกมอย่างสง่างามด้วยข้อความ: `"เล่นครบทุกเพลงในคลัง/เพลย์ลิสต์แล้ว (รวม X ข้อ) สรุปคะแนนผู้ชนะ!"`

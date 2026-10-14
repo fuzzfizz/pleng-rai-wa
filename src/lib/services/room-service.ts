@@ -14,7 +14,7 @@ export interface CreateRoomResult {
 }
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
-  gameMode: "buzzer",
+  gameMode: "audio-slice",
   answerInputMode: "autocomplete",
   answerResolutionMode: "race",
   lyricsType: "intro",

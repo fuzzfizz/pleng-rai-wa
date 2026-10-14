@@ -29,9 +29,10 @@ import {
   Play,
   Pause,
   Clock,
+  Users,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
-import type { Song, GameMode } from "@/types";
+import type { Song, GameMode, Player } from "@/types";
 import { ttsReader } from "@/lib/tts-reader";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
 import { soundEffects } from "@/lib/sound-effects";
@@ -259,6 +260,48 @@ export async function executeResetToLobby(
   return await resetToLobbyFn();
 }
 
+export interface WaitAllPlayerStatusResult {
+  submittedPlayers: Player[];
+  pendingPlayers: Player[];
+  summaryText: string;
+}
+
+/**
+ * Resolves submitted and pending players in wait_all resolution mode,
+ * taking into account roomRealtime.excludedPlayerIds and personal submitted_waiting state.
+ */
+export function getWaitAllPlayerStatus(
+  players: Player[] = [],
+  excludedPlayerIds: string[] = [],
+  myPlayerId?: string | null,
+  myExclusionReason?: string | null
+): WaitAllPlayerStatusResult {
+  const isSubmitted = (p: Player) => {
+    if (excludedPlayerIds.includes(p.id)) return true;
+    if (myPlayerId && p.id === myPlayerId && myExclusionReason === "submitted_waiting") {
+      return true;
+    }
+    return false;
+  };
+
+  const submittedPlayers = players.filter(isSubmitted);
+  const pendingPlayers = players.filter((p) => !isSubmitted(p));
+
+  let summaryText = "";
+  if (pendingPlayers.length > 0) {
+    const names = pendingPlayers.map((p) => p.displayName).join(", ");
+    summaryText = `กำลังรออีก ${pendingPlayers.length} คน: ${names}`;
+  } else {
+    summaryText = "ทุกคนตอบครบแล้ว กำลังประมวลผล...";
+  }
+
+  return {
+    submittedPlayers,
+    pendingPlayers,
+    summaryText,
+  };
+}
+
 export function GameView({
   roomRealtime,
   songLibrary = [],
@@ -287,6 +330,7 @@ export function GameView({
     setIsAudioPlaying: realtimeSetIsAudioPlaying,
     revealedHints,
     playerHintLevels,
+    excludedPlayerIds = [],
     buzz,
     submitAnswer,
     nextRound,
@@ -358,6 +402,18 @@ export function GameView({
     "surrendered" | "timed_out" | "wrong_guess" | "submitted_waiting" | null
   >(null);
 
+  const isWaitAll = room?.settings?.answerResolutionMode === "wait_all";
+  const waitAllStatus = useMemo(
+    () =>
+      getWaitAllPlayerStatus(
+        players,
+        excludedPlayerIds,
+        myPlayer?.id,
+        myExclusionReason
+      ),
+    [players, excludedPlayerIds, myPlayer?.id, myExclusionReason]
+  );
+
   // Reset countdown and exclusion reason on new round or status change
   useEffect(() => {
     setHasPlayedOnce(false);
@@ -421,6 +477,7 @@ export function GameView({
   const [isBuzzing, setIsBuzzing] = useState(false);
   const [isRequestingHint, setIsRequestingHint] = useState(false);
   const [clickedWrongChoices, setClickedWrongChoices] = useState<string[]>([]);
+  const [wrongAttemptFeedback, setWrongAttemptFeedback] = useState<string | null>(null);
   const [isSurrendering, setIsSurrendering] = useState(false);
   const [isAbortModalOpen, setIsAbortModalOpen] = useState(false);
   const [isSubmittingAbort, setIsSubmittingAbort] = useState(false);
@@ -442,6 +499,7 @@ export function GameView({
   // Reset wrong choices when currentRound changes or status transitions
   useEffect(() => {
     setClickedWrongChoices([]);
+    setWrongAttemptFeedback(null);
   }, [currentRound, status]);
 
   // Sync wrong guess to clickedWrongChoices and exclusion reason
@@ -571,7 +629,9 @@ export function GameView({
     return subscribeMasterVolume(applyVolume);
   }, []);
 
-  // 1.5. Audio / TTS Playback Orchestration
+  // 1.5. Coordinated Audio / TTS Playback & Clean Buffer Reload
+  const prevSliceKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
     // Mode: AI Lyrics or Translated Lyrics
     if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
@@ -587,40 +647,78 @@ export function GameView({
       return;
     }
 
-    // Mode: Audio Slice or Buzzer with audio slice URL
-    if (status === "question_active" && activeQuestion?.sliceUrl && audioRef.current) {
-      audioRef.current.volume = getMasterVolume();
-      audioRef.current.muted = isMasterMuted() || getMasterVolume() === 0;
-      if (isAudioPlaying) {
-        audioRef.current.play().catch((err) => {
-          console.warn("[GameView] Audio play error (browser autoplay policy):", err);
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (status !== "question_active") {
+      audio.pause();
+      if (status === "lobby" || status === "game_over") {
+        prevSliceKeyRef.current = null;
+      }
+      return;
+    }
+
+    if (!activeQuestion?.sliceUrl) {
+      audio.pause();
+      return;
+    }
+
+    // Question is active and sliceUrl is present:
+    const currentSliceKey = `${currentRound}:${activeQuestion.sliceUrl}`;
+    const isNewSlice = prevSliceKeyRef.current !== currentSliceKey;
+
+    if (isNewSlice) {
+      prevSliceKeyRef.current = currentSliceKey;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = getMasterVolume();
+        audio.muted = isMasterMuted() || getMasterVolume() === 0;
+        audio.load();
+      } catch (err) {
+        console.warn("[GameView] Failed to cleanly reload audio buffer:", err);
+      }
+
+      // Automatically play 1 round once (respecting master volume)
+      handleSetIsAudioPlaying(true);
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((err) => {
+          console.warn("[GameView] Audio autoplay error (browser autoplay policy):", err);
           handleSetIsAudioPlaying(false);
           setHasPlayedOnce(true);
         });
-      } else {
-        audioRef.current.pause();
       }
-    } else if (audioRef.current) {
-      audioRef.current.pause();
-    }
-  }, [status, gameMode, activeQuestion?.sliceUrl, activeQuestion?.lyrics, isAudioPlaying, handleSetIsAudioPlaying]);
-
-  // Cleanly reload and reset audio buffer whenever activeQuestion.sliceUrl changes
-  const prevSliceUrlRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (activeQuestion?.sliceUrl && activeQuestion.sliceUrl !== prevSliceUrlRef.current) {
-      prevSliceUrlRef.current = activeQuestion.sliceUrl;
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-          audioRef.current.load();
-        } catch (err) {
-          console.warn("[GameView] Failed to cleanly reload audio buffer:", err);
+    } else {
+      // Not a new slice: synchronize playback state with isAudioPlaying toggle
+      audio.volume = getMasterVolume();
+      audio.muted = isMasterMuted() || getMasterVolume() === 0;
+      if (isAudioPlaying) {
+        if (audio.paused) {
+          const playPromise = audio.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch((err) => {
+              console.warn("[GameView] Audio play error:", err);
+              handleSetIsAudioPlaying(false);
+            });
+          }
+        }
+      } else {
+        if (!audio.paused) {
+          audio.pause();
         }
       }
     }
-  }, [activeQuestion?.sliceUrl]);
+  }, [
+    status,
+    gameMode,
+    currentRound,
+    activeQuestion?.sliceUrl,
+    activeQuestion?.lyrics,
+    isAudioPlaying,
+    handleSetIsAudioPlaying,
+    roomRealtime.room?.settings?.voiceGender,
+  ]);
 
   // Clean up audio & TTS on unmount
   useEffect(() => {
@@ -648,11 +746,20 @@ export function GameView({
       setIsSubmittingAnswer(true);
       try {
         const res = await submitAnswer(answerText);
-        if (res && res.success === true) {
-          if (res.waitingForOthers) {
-            setMyExclusionReason("submitted_waiting");
-          } else if (res.isCorrect === false) {
-            setMyExclusionReason("wrong_guess");
+        if (res) {
+          if (res.isCorrect === false && res.canRetry) {
+            setWrongAttemptFeedback(
+              `❌ ยังไม่ถูกต้อง! (เหลือสิทธิ์ตอบอีก ${res.remainingAttempts ?? 0} ครั้ง)`
+            );
+            setDirectAnswer("");
+            setShowSuggestions(false);
+          } else {
+            setWrongAttemptFeedback(null);
+            if (res.waitingForOthers) {
+              setMyExclusionReason("submitted_waiting");
+            } else if (res.isCorrect === false) {
+              setMyExclusionReason("wrong_guess");
+            }
           }
         }
       } finally {
@@ -669,6 +776,17 @@ export function GameView({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const directInputRef = useRef<HTMLInputElement | null>(null);
+  const directSuggestionsRef = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Scroll highlighted autocomplete suggestion into view smoothly
+  useEffect(() => {
+    if (highlightedIndex >= 0 && directSuggestionsRef.current[highlightedIndex]) {
+      directSuggestionsRef.current[highlightedIndex]?.scrollIntoView?.({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    }
+  }, [highlightedIndex]);
 
   // Clear direct answer input on round or status change
   useEffect(() => {
@@ -1124,9 +1242,51 @@ export function GameView({
                       <span>⏰ คุณตอบไม่ทันในข้อนี้ (หมดเวลา)</span>
                     </div>
                   ) : myExclusionReason === "submitted_waiting" ? (
-                    <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
-                      <Loader2 className="w-4 h-4 text-emerald-500 animate-spin shrink-0" />
-                      <span>✓ บันทึกคำตอบแล้ว รอเพื่อนๆ ตอบครบทุกคน...</span>
+                    <div className="w-full p-3.5 sm:p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-bold flex flex-col gap-2.5 shadow-sm animate-in fade-in">
+                      <div className="flex items-center justify-center gap-2 text-center">
+                        <Loader2 className="w-4 h-4 text-emerald-500 animate-spin shrink-0" />
+                        <span>✓ บันทึกคำตอบแล้ว รอเพื่อนๆ ตอบครบทุกคน...</span>
+                      </div>
+                      {waitAllStatus.pendingPlayers.length > 0 ? (
+                        <p className="text-center font-semibold text-xs sm:text-sm text-stone-700 dark:text-stone-300">
+                          {waitAllStatus.summaryText}
+                        </p>
+                      ) : (
+                        <p className="text-center font-semibold text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">
+                          ✓ ทุกคนตอบครบแล้ว กำลังประมวลผล...
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2 border-t border-emerald-500/20">
+                        {players.map((p) => {
+                          const isSubmitted =
+                            (excludedPlayerIds || []).includes(p.id) ||
+                            (p.id === myPlayer?.id && myExclusionReason === "submitted_waiting");
+                          return (
+                            <span
+                              key={p.id}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                isSubmitted
+                                  ? "bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border border-emerald-500/40 shadow-xs"
+                                  : "bg-stone-200/80 dark:bg-stone-800/80 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700 animate-pulse"
+                              }`}
+                            >
+                              <span
+                                className={
+                                  isSubmitted
+                                    ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                                    : "text-amber-500 font-bold"
+                                }
+                              >
+                                {isSubmitted ? "✓" : "⏳"}
+                              </span>
+                              <span className="truncate max-w-[120px]">{p.displayName}</span>
+                              <span className="text-[10px] opacity-75">
+                                {isSubmitted ? "(ตอบแล้ว)" : "(ยังไม่ตอบ)"}
+                              </span>
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : (myExclusionReason === "surrendered" || (!myExclusionReason && lastWrongGuess?.playerId !== myPlayer?.id)) ? (
                     <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-stone-500/15 border border-stone-400/40 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
@@ -1137,6 +1297,12 @@ export function GameView({
                       <span>❌ คุณตอบผิดในข้อนี้แล้ว (รอข้อถัดไป)</span>
                     </div>
                   )
+                )}
+
+                {!isExcludedFromBuzz && wrongAttemptFeedback && (
+                  <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
+                    <span>{wrongAttemptFeedback}</span>
+                  </div>
                 )}
 
                 {answerInputMode === "multiple-choice" ? (
@@ -1224,6 +1390,9 @@ export function GameView({
                             return (
                               <button
                                 key={song.id || idx}
+                                ref={(el) => {
+                                  directSuggestionsRef.current[idx] = el;
+                                }}
                                 type="button"
                                 onPointerDown={(e) => {
                                   e.preventDefault();

@@ -358,6 +358,8 @@ export async function POST(
         success: true,
         isCorrect: result.isCorrect,
         waitingForOthers: true,
+        canRetry: result.canRetry,
+        remainingAttempts: result.remainingAttempts,
         matchedAs: result.matchedAs,
         similarity: result.similarity,
         scoreDelta: result.scoreDelta,
@@ -530,6 +532,9 @@ export async function POST(
         scores: result.scores,
         resumeAudio: effectiveGameMode === "buzzer",
         wrongGuesses: result.roundState?.wrongGuesses || [],
+        excluded: result.canRetry ? false : true,
+        canRetry: Boolean(result.canRetry),
+        remainingAttempts: result.remainingAttempts,
       };
 
       await RealtimeBroadcastService.broadcast(
@@ -546,6 +551,9 @@ export async function POST(
         scores: result.scores,
         resumeAudio: effectiveGameMode === "buzzer",
         wrongGuesses: result.roundState?.wrongGuesses || [],
+        canRetry: result.canRetry,
+        remainingAttempts: result.remainingAttempts,
+        waitingForOthers: result.waitingForOthers,
       });
     }
   } catch (error) {
