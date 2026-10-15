@@ -39,8 +39,9 @@ export async function POST(
       );
     }
 
-    const { settings, newHostPlayerId, sessionToken } = body as {
+    const { settings, newHostPlayerId, sessionToken, playerId } = body as {
       sessionToken?: string;
+      playerId?: string;
       settings?: Partial<RoomSettings>;
       newHostPlayerId?: string;
     };
@@ -59,12 +60,20 @@ export async function POST(
     const bearerToken = authHeader
       ? authHeader.replace(/^Bearer\s+/i, "").trim()
       : undefined;
-    const callerToken =
-      typeof sessionToken === "string" && sessionToken.trim().length > 0
-        ? sessionToken.trim()
-        : bearerToken;
 
-    if (!callerToken || callerToken !== currentRoom.host_player_id) {
+    const candidateTokens = [
+      typeof sessionToken === "string" ? sessionToken : undefined,
+      typeof playerId === "string" ? playerId : undefined,
+      bearerToken,
+    ];
+
+    const isHost = typeof RoomService.isCallerHost === "function"
+      ? RoomService.isCallerHost(currentRoom, candidateTokens)
+      : candidateTokens.some(
+          (t) => Boolean(t && (t === currentRoom.host_player_id || t === currentRoom.hostPlayerId))
+        );
+
+    if (!isHost) {
       return NextResponse.json(
         {
           success: false,

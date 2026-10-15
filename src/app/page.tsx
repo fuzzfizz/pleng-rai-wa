@@ -57,6 +57,13 @@ export const CREATE_MAX_PLAYERS_OPTIONS: { value: number; label: string }[] = [
   { value: 12, label: "12 คน" },
 ];
 
+/**
+ * Resolves room code input placeholder based on mobile breakpoint.
+ */
+export function getRoomCodePlaceholder(isMobile: boolean): string {
+  return isMobile ? "รหัสห้อง 6 หลัก" : "กรอกรหัสห้อง (เช่น ABC123)";
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { profile } = useAuth();
@@ -81,6 +88,7 @@ export default function HomePage() {
   // 3D Vinyl Interactive state
   const [isVinylPlaying, setIsVinylPlaying] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -88,6 +96,14 @@ export default function HomePage() {
     if (last && isValidRoomCode(last)) {
       setLastRoomCode(last);
     }
+    const checkMobile = () => {
+      if (typeof window !== "undefined") {
+        setIsMobile(window.innerWidth < 640);
+      }
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Pre-fill host nickname and avatar if authenticated
@@ -201,7 +217,7 @@ export default function HomePage() {
         <div className="relative w-full flex flex-col lg:flex-row items-center justify-between">
           {/* Left Column: Hero Text & Action Box (z-20, overlays turntable if they overlap) */}
           <div className="relative z-20 w-full lg:max-w-xl xl:max-w-2xl flex flex-col items-center lg:items-start text-center lg:text-left order-2 lg:order-1 pointer-events-auto">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-5xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-3 lg:mb-4 leading-tight drop-shadow-sm">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-5xl font-extrabold tracking-tight text-stone-900 dark:text-white mb-3 lg:mb-4 leading-tight drop-shadow-sm">
               ฟังแป๊บเดียว... <br />
               <span className="text-gradient">
                 จะรู้ไหมว่า "เพลงไรวะ?"
@@ -213,7 +229,7 @@ export default function HomePage() {
             </p>
 
             {/* Action Box */}
-            <div className="w-full max-w-md lg:max-w-xl mx-auto lg:mx-0 bg-white/95 dark:bg-stone-900/95 border border-stone-200/90 dark:border-stone-800/90 rounded-3xl p-6 lg:p-8 shadow-2xl backdrop-blur-xl">
+            <div className="w-full max-w-md lg:max-w-xl mx-auto lg:mx-0 bg-white/95 dark:bg-stone-900/95 border border-stone-200/90 dark:border-stone-800/90 rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl backdrop-blur-xl">
               <div className="flex flex-col gap-3">
                 <button
                   type="button"
@@ -239,18 +255,18 @@ export default function HomePage() {
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="กรอกรหัสห้อง (เช่น ABC123)"
+                      placeholder={getRoomCodePlaceholder(isMounted && isMobile)}
                       value={roomCode}
                       onChange={(e) => {
                         setRoomCode(e.target.value.toUpperCase());
                         if (joinError) setJoinError(null);
                       }}
                       maxLength={6}
-                      className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl px-4 lg:px-5 py-3 min-h-[44px] lg:min-h-[52px] text-base sm:text-sm lg:text-lg text-center tracking-widest font-mono text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors uppercase"
+                      className="flex-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl px-3 sm:px-4 lg:px-5 py-3 min-h-[44px] lg:min-h-[52px] text-sm sm:text-base lg:text-lg text-center tracking-wider sm:tracking-widest font-mono text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:border-amber-500 transition-colors uppercase"
                     />
                     <button
                       type="submit"
-                      className="bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-white px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] lg:min-h-[52px] lg:min-w-[52px]"
+                      className="bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-white px-3.5 sm:px-5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] lg:min-h-[52px] lg:min-w-[52px] shrink-0"
                       title="เข้าร่วมห้อง"
                     >
                       <ArrowRight className="w-4 h-4" />

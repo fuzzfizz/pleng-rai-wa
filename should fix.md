@@ -1,25 +1,46 @@
 # รายการแก้ไขบั๊กและการปรับปรุง (Fixes & Improvements) โหมด audio slice
 
-- [แก้ไขแล้ว ✓] **เมื่อกดสมัคร/เข้าสู่ระบบด้วย Google แจ้ง {"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"} (Google OAuth Safe Verification & Pre-flight UX)**:
-  - **สาเหตุ (Root Cause)**: ใน `@supabase/supabase-js` ฟังก์ชัน `signInWithOAuth` มีพฤติกรรมเริ่มต้นที่จะ redirect browser ทันที เมื่อ Google provider ถูกปิดใน Supabase Dashboard เบราว์เซอร์ของผู้ใช้จะถูกส่งไปหน้า JSON ดิบที่ Supabase
-  - **การแก้ไข**:
-    1. ใน [`src/hooks/use-auth.ts`](file:///D:/pleng-rai-wa/src/hooks/use-auth.ts) (`performGoogleSignIn`): ส่ง `options: { redirectTo, skipBrowserRedirect: true }` ไปยัง `supabase.auth.signInWithOAuth`
-    2. ทำ Pre-flight verification ยิง `fetch(data.url, { method: "GET" })` ตรวจสอบสถานะก่อนเปลี่ยนหน้า
-    3. หากได้ HTTP 400 หรือเนื้อหาระบุ `"Unsupported provider"` / `"provider is not enabled"` / `"validation_failed"` จะระงับการ redirect ทั้งหมด และคืนค่าแจ้งเตือนภาษาไทยที่ชัดเจน: *"ระบบ Google Sign-in ยังไม่ได้เปิดใช้งานในเซิร์ฟเวอร์ Supabase (กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน หรือเล่นแบบ Guest ได้ทันที)"*
-    4. หากเปิดใช้งานสำเร็จ (สถานะ 200/302) จะนำทางไปยังหน้า Google Login ผ่าน `window.location.assign(data.url)` อย่างปลอดภัย
-    5. ใน [`src/components/auth/auth-modal.tsx`](file:///D:/pleng-rai-wa/src/components/auth/auth-modal.tsx) จัดการแสดงกล่องแจ้งเตือนสีเหลือง (Amber Alert) สวยงาม ไม่ปิด Modal พร้อมปุ่มลัดสลับไปสมัคร/ล็อกอินด้วยอีเมลทันที
-    6. เขียน Unit test ครอบคลุมใน [`src/hooks/__tests__/google-auth-safe-check.test.ts`](file:///D:/pleng-rai-wa/src/hooks/__tests__/google-auth-safe-check.test.ts) ผ่าน 100% (20/20 tests)
-- [แก้ไขแล้ว ✓] **ปัญหาเมื่อหัวห้องออกแต่ผู้ที่อยู่ในห้องกลับไม่ได้สิท host และห้องหายไปจาก active room (Host Migration & Active Room Retention)**:
-  - **สาเหตุ (Root Cause)**: ใน [`src/app/api/room/[code]/leave/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/%5Bcode%5D/leave/route.ts) เดิม เมื่อ Host ออกจากห้อง ระบบจะเรียก `RoomService.deleteRoomByCode` ลบห้องทิ้งทันที และกระจายอีเวนต์ `room_dissolved` ทำให้:
-    1. ห้องถูกลบออกจากฐานข้อมูล Supabase และหายไปจากรายการห้องแข่งขันที่เปิดอยู่ (`/api/room/list`)
-    2. ผู้เล่นคนอื่นที่ยังค้างอยู่ในห้องถูกเตะออกจากเกมและไม่มีใครได้รับสิทธิ์เป็น Host สืบต่อ
-  - **การแก้ไข**:
-    1. ใน [`src/app/api/room/[code]/leave/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/%5Bcode%5D/leave/route.ts): ปรับปรุงให้ตรวจสอบว่าหาก Host ออกจากห้อง แต่ยังมีผู้เล่นอื่นเหลืออยู่ (`remainingCount > 0` หรือ `remainingPlayersList.length > 0`) ระบบจะไม่ลบห้องเด็ดขาด โดยจะทำการส่งมอบตำแหน่ง Host (Host Migration) ให้ผู้เล่นคนถัดไปอัตโนมัติ โดยให้ความสำคัญกับผู้เล่นมนุษย์ก่อนหน้าจอทีวี (TV Spectator)
-    2. อัปเดต `rooms.host_player_id` ในฐานข้อมูล Supabase เป็น Player ID ของ Host คนใหม่
-    3. อัปเดต `rooms.settings`: `hostDisplayName`, `hostAvatar`, `playerCount`, และ `players`
-    4. กระจายอีเวนต์ Realtime `host_changed`, `room_settings`, และ `player_left` แบบเรียลไทม์
-    5. ห้องจะถูกลบออกจากฐานข้อมูล Supabase ทันทีเฉพาะเมื่อผู้เล่นทุกคนออกจากห้องจนหมดครบ 100% (`remainingCount <= 0` และไม่มีผู้เล่นเหลืออยู่)
-    6. ใน [`src/hooks/use-room-realtime.ts`](file:///D:/pleng-rai-wa/src/hooks/use-room-realtime.ts): รองรับการรับอีเวนต์ `host_changed` และเลื่อนขั้นผู้เล่นที่ได้รับเลือกเป็น Host ทันที (`isHost: true`, `myPlayer.isHost: true`) พร้อมบันทึก `sessionStorage.setItem('pleng_host_' + code, 'true')` ปลดล็อกปุ่มเริ่มเกม, การตั้งค่า, และข้ามเพลง
-    7. ใน [`src/app/room/[code]/page.tsx`](file:///D:/pleng-rai-wa/src/app/room/%5Bcode%5D/page.tsx): ปรับ `sendLeaveSignal` ให้ส่ง `remainingPlayers` และ `candidateHost` แนบไปใน Request Body เสมอ พร้อมซิงก์ State ของ Host เมื่อได้รับการโปรโมต
-    8. ใน [`src/app/api/room/join/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/join/route.ts): รักษาและอัปเดต `room.settings.players` ให้มีข้อมูลผู้เล่นครบถ้วน
-    9. เขียน Unit test ครอบคลุมใน [`src/app/api/room/__tests__/host-migration-leave.test.ts`](file:///D:/pleng-rai-wa/src/app/api/room/__tests__/host-migration-leave.test.ts) ผ่าน 100% (12/12 tests)
+### 1. [แก้ไขแล้ว ✓] การแสดงผล Responsive บนมือถือ (Mobile Responsiveness Polish)
+- **ปัญหาเดิม:** Navbar อัดกันแน่นจนล้นจอ, ปุ่มกรอกรหัสห้องเลยขอบหน้าจอ, Typography/Headers บนมือถือดูแน่นเกินไป
+- **สาเหตุ (Root Cause):**
+  - ใน `nav-header.tsx` ปุ่มเข้าสู่ระบบยาวเกินไป (~160px) เมื่อรวมกับ Logo, SettingsMenu และ Hamburger บนจอ 360px-375px จะล้นหน้าจอ
+  - ใน `page.tsx` Action Box มี padding `p-6` กว้างเกินไปสำหรับมือถือ และช่อง Input ใช้ข้อความ Placeholder ยาวพร้อม tracking กว้าง ทำให้ดันปุ่มลูกศรเลยขอบจอ
+- **การแก้ไข (Solution):**
+  - ใน `nav-header.tsx`: บนหน้าจอมือถือ (`< sm`) ย่อข้อความปุ่มเป็น "เข้าสู่ระบบ", จำกัด `max-w` ของชื่อผู้ใช้บนมือถือ (`max-w-[70px] xs:max-w-[100px]`), และปรับระยะห่าง (`gap-1.5 sm:gap-3`)
+  - ใน `page.tsx`: ปรับ Padding ของ Action Box เป็น `p-4 sm:p-6 lg:p-8`, ใช้ placeholder ย่อบนมือถือ `"รหัสห้อง 6 หลัก"`, ปรับ `tracking-wider sm:tracking-widest` และขนาดฟอนต์ให้พอดีกับจอ 320px-390px โดยไม่มี horizontal scroll
+  - ปรับขนาดหัวข้อ Hero เป็น `text-2xl sm:text-4xl md:text-5xl` ตัดปัญหาข้อความเบียดแน่น
+
+### 2. [แก้ไขแล้ว ✓] อิงชื่อและอวาตาร์จากโปรไฟล์อัตโนมัติเมื่อเข้าห้อง (Profile Auto-fill on Room Join)
+- **ปัญหาเดิม:** ผู้ใช้ที่ล็อกอินระบบไว้แล้วเมื่อเข้าห้องยังต้องกรอกชื่อเล่นและเลือกอวาตาร์ใหม่ซ้ำซ้อน
+- **สาเหตุ (Root Cause):** ใน `src/app/room/[code]/page.tsx` ค่าเริ่มต้นของ `nickname` กำหนดเป็น `""` และไม่มี effect ซิงค์ข้อมูลจาก `useAuth().profile`
+- **การแก้ไข (Solution):**
+  - เพิ่มระบบตรวจจับ `profile?.displayName` เมื่อผู้ใช้ล็อกอินอยู่ จะทำการ pre-fill `nickname` และ `selectedAvatar` ให้อัตโนมัติทันที
+  - เพิ่มป้าย Badge แสดงสถานะ `"กำลังเข้าร่วมในชื่อโปรไฟล์: {profile.displayName} (คุณสามารถเปลี่ยนชื่อเล่นสำหรับห้องนี้ได้)"`
+  - อนุญาตให้กด "เข้าร่วมห้อง" ได้ในคลิกเดียวโดยไม่ต้องพิมพ์ใหม่ พร้อมคงชื่อเดิมไว้หากผู้ใช้พิมพ์แก้ไขเอง
+
+### 3. [แก้ไขแล้ว ✓] แทนที่ปุ่มเปิด/ปิดเสียงใน Lobby ด้วยเมนูตั้งค่าเต็มรูปแบบ (Lobby Settings UI Replacement)
+- **ปัญหาเดิม:** ในห้องไม่มีส่วนตั้งค่าให้ใช้ มีเพียงปุ่มเปิด/ปิดเสียงเดี่ยวๆ
+- **สาเหตุ (Root Cause):** ใน `lobby-view.tsx` มีเพียงปุ่ม toggle mute เสียงเอฟเฟกต์ ไม่ได้นำคอมโพเนนต์เมนูการตั้งค่ามาใช้งาน
+- **การแก้ไข (Solution):**
+  - นำเข้าและวางคอมโพเนนต์ `<SettingsMenu />` แทนที่ปุ่ม mute เดิมใน Header ของ `LobbyView`
+  - รองรับการปรับ Master Volume, SFX Volume, Dark/Light Theme และ Haptics อย่างครบถ้วน สอดคล้องกับหน้าเกมอื่น
+
+### 4. [แก้ไขแล้ว ✓] ปิดหน้าต่างการตั้งค่าอัตโนมัติเมื่อกดบันทึกสำเร็จ (Settings Modal Auto-close on Save)
+- **ปัญหาเดิม:** เมื่อตั้งค่าห้องแล้วกด Save หน้าต่างตั้งค่าไม่ปิด ต้องกดปิดเอง
+- **สาเหตุ (Root Cause):**
+  - API endpoint `/api/room/[code]/settings` ปฏิเสธคำขอด้วย 403 Forbidden เพราะตรวจสอบสิทธิ์ด้วย `callerToken !== room.host_player_id` (เนื่องจาก `sessionToken` ไม่ตรงกับ `playerId`) ทำให้คืนค่า `false`
+  - ใน `HostSettingsModal` ฟังก์ชัน `handleSave` มีเงื่อนไข `if (res !== false) onClose()` เมื่อได้ `false` จึงไม่ยอมปิด Modal
+- **การแก้ไข (Solution):**
+  - แก้ไขการยืนยันตัวตนโฮสต์ใน API settings ให้รองรับทั้ง `sessionToken` และ `playerId` (ทำให้บันทึกสำเร็จ ไม่ติด 403)
+  - ปรับปรุง `handleSave` ใน `HostSettingsModal` ให้เรียก `onClose()` ทันทีเมื่อ `onSaveSettings` สำเร็จ และแจ้งเตือนข้อผิดพลาดหากไม่สำเร็จ
+
+### 5. [แก้ไขแล้ว ✓] แก้ไขข้อผิดพลาด 403 Forbidden เมื่อกดเริ่มเกม (Game Start 403 Forbidden Resolution)
+- **ปัญหาเดิม:** เมื่อโฮสต์กด "เริ่มเกมเลย!" เกิด Error `Failed to load resource: the server responded with a status of 403 ()`
+- **สาเหตุ (Root Cause):**
+  - เมื่อสร้างห้องหรือเข้าร่วมห้อง `playerId` และ `sessionToken` ถูกสร้างเป็นคนละ UUID
+  - คอลัมน์ `rooms.host_player_id` บันทึก `playerId` ไว้ แต่ Client Hook `use-room-realtime.ts` ส่ง `callerToken = myPlayer.sessionToken`
+  - ใน `/api/room/[code]/next-round/route.ts` ทำการตรวจสอบ `if (callerToken !== room.host_player_id)` จึงไม่ตรงกันและส่ง HTTP 403 Forbidden เสมอ
+- **การแก้ไข (Solution):**
+  - เพิ่มฟังก์ชัน Helper `RoomService.isCallerHost(room, tokens)` ตรวจสอบสิทธิ์โดยจับคู่กับทั้ง `room.host_player_id` และรายการผู้เล่นที่เป็น Host ใน `room.settings.players` (รองรับทั้ง `id` และ `sessionToken`)
+  - อัปเดต API endpoints ที่เกี่ยวข้อง: `next-round`, `settings`, และ `skip` ให้ใช้ `RoomService.isCallerHost`
+  - อัปเดต `use-room-realtime.ts` ให้ส่งทั้ง `playerId` และ `sessionToken` ใน Request Body อย่างถูกต้อง

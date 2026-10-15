@@ -470,5 +470,64 @@ export class RoomService {
 
     return activeRooms;
   }
+
+  /**
+   * Helper to verify if any of the provided candidate tokens belongs to the room host.
+   * Compares provided candidate tokens against room.host_player_id, room.hostPlayerId,
+   * or the host player's id / sessionToken in room.settings.players or room.players.
+   */
+  static isCallerHost(room: any, tokens: (string | undefined | null)[]): boolean {
+    if (!room || typeof room !== "object") return false;
+    if (!Array.isArray(tokens) || tokens.length === 0) return false;
+
+    // Collect all non-empty token strings from tokens
+    const validTokens = new Set<string>();
+    for (const t of tokens) {
+      if (typeof t === "string" && t.trim().length > 0) {
+        validTokens.add(t.trim());
+      }
+    }
+
+    if (validTokens.size === 0) return false;
+
+    // Check if any token matches room.host_player_id or room.hostPlayerId
+    const hostPlayerId =
+      (typeof room.host_player_id === "string" && room.host_player_id.trim()) ||
+      (typeof room.hostPlayerId === "string" && room.hostPlayerId.trim()) ||
+      null;
+
+    if (hostPlayerId && validTokens.has(hostPlayerId)) {
+      return true;
+    }
+
+    // Check if any token matches the id or sessionToken of the host player in room.settings?.players or room.players
+    const settings = typeof room.settings === "object" && room.settings !== null ? room.settings : {};
+    const playersList: any[] = Array.isArray(settings.players)
+      ? settings.players
+      : Array.isArray(room.players)
+      ? room.players
+      : [];
+
+    for (const player of playersList) {
+      if (!player || typeof player !== "object") continue;
+      const isHost =
+        Boolean(player.isHost) ||
+        Boolean(hostPlayerId && (player.id === hostPlayerId || player.playerId === hostPlayerId));
+
+      if (isHost) {
+        if (typeof player.id === "string" && validTokens.has(player.id.trim())) {
+          return true;
+        }
+        if (typeof player.playerId === "string" && validTokens.has(player.playerId.trim())) {
+          return true;
+        }
+        if (typeof player.sessionToken === "string" && validTokens.has(player.sessionToken.trim())) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
 }
 

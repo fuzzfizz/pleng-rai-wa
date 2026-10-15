@@ -1087,7 +1087,8 @@ export function useRoomRealtime(
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          sessionToken: token,
+          sessionToken: state.myPlayer.sessionToken,
+          playerId: state.myPlayer.id,
           playAgain: isPlayAgain,
           isNewGame: isPlayAgain,
         }),
@@ -1139,7 +1140,8 @@ export function useRoomRealtime(
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            sessionToken: token,
+            sessionToken: state.myPlayer.sessionToken,
+            playerId: state.myPlayer.id,
             settings: {
               ...settings,
               ...("playlistId" in settings ? { playlistId: settings.playlistId ?? null } : {}),
@@ -1276,10 +1278,17 @@ export function useRoomRealtime(
   const skipRound = useCallback(async (): Promise<boolean> => {
     if (!state.roomCode) return false;
     try {
+      const token = state.myPlayer?.sessionToken || state.myPlayer?.id;
       const res = await fetch(`/api/room/${state.roomCode}/skip`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId: state.myPlayer?.id }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          playerId: state.myPlayer?.id,
+          sessionToken: state.myPlayer?.sessionToken,
+        }),
       });
       const data = await res.json();
       return Boolean(data.success);
@@ -1287,7 +1296,7 @@ export function useRoomRealtime(
       console.error("Error skipping round:", err);
       return false;
     }
-  }, [state.roomCode, state.myPlayer?.id]);
+  }, [state.roomCode, state.myPlayer?.id, state.myPlayer?.sessionToken]);
 
   // Action: surrender (neutral surrender for any player including host, no score penalty)
   const surrender = useCallback(

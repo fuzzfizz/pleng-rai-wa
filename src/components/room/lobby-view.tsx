@@ -18,8 +18,6 @@ import {
   Settings,
   Tv,
   ExternalLink,
-  Volume2,
-  VolumeX,
   Play,
   LogOut,
   Sparkles,
@@ -28,7 +26,8 @@ import {
   Info,
   Crown,
 } from "lucide-react";
-import { soundEffects, isMuted, setMuted } from "@/lib/sound-effects";
+import { soundEffects } from "@/lib/sound-effects";
+import { SettingsMenu } from "@/components/common/settings-menu";
 import { QRCodeModal } from "./qr-code-modal";
 import { PlayerCard } from "./player-card";
 import { HostSettingsModal } from "./host-settings-modal";
@@ -107,27 +106,8 @@ export function LobbyView({
   const [isCopiedCode, setIsCopiedCode] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isTogglingReady, setIsTogglingReady] = useState(false);
-  const [sfxMuted, setSfxMuted] = useState(false);
 
   const cleanCode = (roomCode || "").trim().toUpperCase();
-
-  // Initialize SFX state on mount
-  useEffect(() => {
-    try {
-      setSfxMuted(isMuted());
-    } catch {}
-  }, []);
-
-  const handleToggleSfx = useCallback(() => {
-    try {
-      const nextMuted = !sfxMuted;
-      setMuted(nextMuted);
-      setSfxMuted(nextMuted);
-      if (!nextMuted) {
-        soundEffects.click();
-      }
-    } catch {}
-  }, [sfxMuted]);
 
   const handleCopyCode = useCallback(async () => {
     try {
@@ -236,19 +216,8 @@ export function LobbyView({
             <ExternalLink className="w-3 h-3 text-amber-600 dark:text-amber-400" />
           </Link>
 
-          {/* Sound FX Toggle */}
-          <button
-            onClick={handleToggleSfx}
-            className={`p-2 lg:px-3 lg:py-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full border text-xs lg:text-sm transition-colors cursor-pointer ${
-              sfxMuted
-                ? "bg-white/80 dark:bg-stone-900/80 border-stone-200 dark:border-stone-800 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
-                : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 shadow-sm"
-            }`}
-            title={sfxMuted ? "เปิดเสียงเอฟเฟกต์" : "ปิดเสียงเอฟเฟกต์"}
-            aria-label={sfxMuted ? "เปิดเสียงเอฟเฟกต์" : "ปิดเสียงเอฟเฟกต์"}
-          >
-            {sfxMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
+          {/* Unified Settings Menu */}
+          <SettingsMenu />
         </div>
       </header>
 

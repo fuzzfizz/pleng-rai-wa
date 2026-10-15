@@ -173,7 +173,7 @@ export function NavHeader({
         )}
 
         {/* Right Auth Area & Settings Menu */}
-        <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-3.5">
+        <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-3.5">
           {/* Settings Menu (Theme & Master Volume) */}
           <SettingsMenu />
 
@@ -197,7 +197,7 @@ export function NavHeader({
                 <span className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9.5 lg:h-9.5 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm sm:text-base lg:text-lg">
                   {profile.avatar || "🦊"}
                 </span>
-                <span className="font-semibold text-stone-800 dark:text-stone-200 max-w-[110px] sm:max-w-[140px] lg:max-w-[200px] truncate">
+                <span className="font-semibold text-stone-800 dark:text-stone-200 max-w-[70px] xs:max-w-[100px] sm:max-w-[140px] lg:max-w-[200px] truncate">
                   {profile.displayName || "นักฟังเพลง"}
                 </span>
                 <ChevronDown
@@ -263,10 +263,11 @@ export function NavHeader({
             <button
               type="button"
               onClick={() => handleOpenAuth("signin")}
-              className="flex items-center gap-2 px-4 py-2 sm:px-4.5 sm:py-2.5 lg:px-6 lg:py-3.5 text-xs sm:text-sm lg:text-base font-bold rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm cursor-pointer active:scale-95 min-h-[44px] lg:min-h-[52px]"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4.5 py-2 sm:py-2.5 lg:px-6 lg:py-3.5 text-xs sm:text-sm lg:text-base font-bold rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm cursor-pointer active:scale-95 min-h-[44px] lg:min-h-[52px]"
             >
-              <LogIn className="w-4 h-4 lg:w-5 lg:h-5 text-amber-500" />
-              <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
+              <LogIn className="w-4 h-4 lg:w-5 lg:h-5 text-amber-500 shrink-0" />
+              <span className="hidden sm:inline">เข้าสู่ระบบ / สมัครสมาชิก</span>
+              <span className="sm:hidden">เข้าสู่ระบบ</span>
             </button>
           )}
 

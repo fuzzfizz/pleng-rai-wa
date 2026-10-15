@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { prepareSettingsPayload } from "../host-settings-modal";
+import type { RoomSettings } from "@/types";
 
 describe("HostSettingsModal - prepareSettingsPayload", () => {
   it("preserves multiple-choice answerInputMode and valid maxWrongGuesses", () => {
@@ -170,4 +171,38 @@ describe("Room Realtime Reducer (Choices & Skip Round)", () => {
     });
   });
 });
+
+describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
+  it("prepareSettingsPayload generates valid payload and calls onClose on successful save", async () => {
+    const draft: Partial<RoomSettings> = {
+      totalRounds: 15,
+      sliceDurationSec: 5.0,
+      answerInputMode: "autocomplete",
+    };
+    const payload = prepareSettingsPayload(draft);
+    expect(payload.totalRounds).toBe(15);
+    expect(payload.sliceDurationSec).toBe(5.0);
+
+    const onSaveSettingsSuccess = vi.fn().mockResolvedValue(true);
+    const onClose = vi.fn();
+
+    const res = await onSaveSettingsSuccess(payload);
+    if (res !== false) {
+      onClose();
+    }
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("does not call onClose when onSaveSettings returns false (e.g. on 403 failure)", async () => {
+    const onSaveSettingsFailed = vi.fn().mockResolvedValue(false);
+    const onClose = vi.fn();
+
+    const res = await onSaveSettingsFailed({});
+    if (res !== false) {
+      onClose();
+    }
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
 

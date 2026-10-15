@@ -54,12 +54,20 @@ export async function POST(
     const bearerToken = authHeader
       ? authHeader.replace(/^Bearer\s+/i, "").trim()
       : undefined;
-    const callerToken =
-      typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0
-        ? body.sessionToken.trim()
-        : bearerToken;
 
-    if (!callerToken || callerToken !== room.host_player_id) {
+    const candidateTokens = [
+      typeof body.sessionToken === "string" ? body.sessionToken : undefined,
+      typeof body.playerId === "string" ? body.playerId : undefined,
+      bearerToken,
+    ];
+
+    const isHost = typeof RoomService.isCallerHost === "function"
+      ? RoomService.isCallerHost(room, candidateTokens)
+      : candidateTokens.some(
+          (t) => Boolean(t && (t === room.host_player_id || t === room.hostPlayerId))
+        );
+
+    if (!isHost) {
       return NextResponse.json(
         {
           success: false,

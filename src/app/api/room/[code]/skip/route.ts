@@ -43,10 +43,23 @@ export async function POST(
       // Empty or non-JSON body
     }
 
-    const { playerId } = body || {};
-    const isHost = playerId
-      ? room.host_player_id === playerId || room.hostPlayerId === playerId
-      : true;
+    const authHeader = request.headers.get("authorization");
+    const bearerToken = authHeader
+      ? authHeader.replace(/^Bearer\s+/i, "").trim()
+      : undefined;
+
+    const { playerId, sessionToken } = body || {};
+    const candidateTokens = [
+      typeof playerId === "string" ? playerId : undefined,
+      typeof sessionToken === "string" ? sessionToken : undefined,
+      bearerToken,
+    ];
+
+    const isHost = typeof RoomService.isCallerHost === "function"
+      ? RoomService.isCallerHost(room, candidateTokens)
+      : candidateTokens.some(
+          (t) => Boolean(t && (t === room.host_player_id || t === room.hostPlayerId))
+        );
 
     if (!isHost) {
       return NextResponse.json(

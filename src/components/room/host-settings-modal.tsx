@@ -469,9 +469,11 @@ export function HostSettingsModal({
         eraIds: effectiveEraIds,
       });
       const res = await onSaveSettings(payload);
-      // If callback returns boolean false, keep modal open
+      // If callback returns boolean false, keep modal open and display error
       if (res !== false) {
         onClose();
+      } else {
+        setErrorMessage("บันทึกการตั้งค่าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       }
     } catch (err: any) {
       setErrorMessage(err?.message || "ไม่สามารถบันทึกการตั้งค่าได้");

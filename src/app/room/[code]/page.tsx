@@ -17,6 +17,7 @@ import {
   Loader2,
   ArrowRight,
   ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 import { isValidRoomCode } from "@/lib/room-code";
 import {
@@ -67,6 +68,22 @@ export function validateNickname(nickname: unknown): { valid: boolean; error?: s
     return { valid: false, error: "ชื่อเล่นต้องมีความยาวไม่เกิน 25 ตัวอักษร" };
   }
   return { valid: true };
+}
+
+/**
+ * Resolves initial nickname and avatar from user profile if available,
+ * respecting user manual override if the user already started editing.
+ */
+export function getAutoFilledProfileData(
+  profile: { displayName?: string | null; avatar?: string | null } | null | undefined,
+  currentNickname: string,
+  hasUserEdited: boolean
+): { nickname: string; avatar: string } | null {
+  if (!profile?.displayName) return null;
+  return {
+    nickname: hasUserEdited ? currentNickname : profile.displayName,
+    avatar: profile.avatar || "🦊",
+  };
 }
 
 /**
@@ -163,6 +180,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   const [nickname, setNickname] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const hasUserEditedNickname = useRef(false);
 
   // Song catalog for autocomplete search
   const [songLibrary, setSongLibrary] = useState<Song[]>([]);
@@ -181,19 +199,23 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
     };
   }, []);
 
-  // Sync avatar from sessionStorage or user profile
+  // Auto-fill nickname and avatar from user profile or sessionStorage (Issue 2)
   useEffect(() => {
+    if (profile?.displayName) {
+      if (!hasUserEditedNickname.current) {
+        setNickname(profile.displayName);
+      }
+      setSelectedAvatar(profile.avatar || "🦊");
+      return;
+    }
+
     if (typeof window !== "undefined") {
       const savedAvatar = window.sessionStorage.getItem("pleng_avatar");
       if (savedAvatar) {
         setSelectedAvatar(savedAvatar);
-        return;
       }
     }
-    if (profile?.avatar) {
-      setSelectedAvatar(profile.avatar);
-    }
-  }, [profile?.avatar]);
+  }, [profile?.displayName, profile?.avatar]);
 
   // Initialize and check localStorage session on mount
   useEffect(() => {
@@ -456,6 +478,20 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
             </p>
           </div>
 
+          {/* Profile Auto-fill Helper Notice (Issue 2) */}
+          {profile?.displayName && (
+            <div className="mb-5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-900 dark:text-amber-200 flex items-start sm:items-center gap-2.5 shadow-sm">
+              <Sparkles className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5 sm:mt-0" />
+              <div className="leading-relaxed">
+                <span>กำลังเข้าร่วมในชื่อโปรไฟล์: </span>
+                <strong className="font-bold text-amber-700 dark:text-amber-300">{profile.displayName}</strong>{" "}
+                <span className="text-stone-500 dark:text-stone-400 text-[11px] sm:text-xs">
+                  (คุณสามารถเปลี่ยนชื่อเล่นสำหรับห้องนี้ได้)
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Live Cheerful Avatar Preview */}
           <div className="flex flex-col items-center justify-center mb-4">
             <div className="w-20 h-20 rounded-3xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center text-4xl shadow-inner select-none transition-transform hover:scale-105">
@@ -485,10 +521,11 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
                 <input
                   id="nickname"
                   type="text"
-                  autoFocus
+                  autoFocus={!profile?.displayName}
                   placeholder="เช่น ดีเจป๊อป, บอสเพลงฮิต"
                   value={nickname}
                   onChange={(e) => {
+                    hasUserEditedNickname.current = true;
                     setNickname(e.target.value);
                     if (joinError) setJoinError(null);
                   }}
