@@ -215,7 +215,10 @@ describe("Backend Logic & Architecture Fixes (Items 1, 2, 5, 6)", () => {
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
-      expect(RoomService.updateRoomSettings).toHaveBeenCalledWith("ROOMOK", { playerCount: 4 });
+      expect(RoomService.updateRoomSettings).toHaveBeenCalledWith(
+        "ROOMOK",
+        expect.objectContaining({ playerCount: 4 })
+      );
     });
   });
 

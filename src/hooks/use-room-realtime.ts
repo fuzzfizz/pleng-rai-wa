@@ -550,11 +550,76 @@ export function reduceRoomRealtimeEvent(
           break;
         }
 
+        case "host_changed": {
+          const newHostId = payload?.newHostPlayerId;
+          if (newHostId) {
+            const isMeNewHost = Boolean(nextState.myPlayer && nextState.myPlayer.id === newHostId);
+            if (nextState.myPlayer) {
+              nextState.myPlayer = {
+                ...nextState.myPlayer,
+                isHost: isMeNewHost,
+              };
+            }
+            nextState.isHost = isMeNewHost;
+
+            nextState.room = {
+              ...(nextState.room || {}),
+              host_player_id: newHostId,
+              settings: {
+                ...(nextState.room?.settings || {}),
+                ...(payload?.settings || {}),
+                hostDisplayName: payload?.hostDisplayName || nextState.room?.settings?.hostDisplayName,
+                hostAvatar: payload?.hostAvatar || nextState.room?.settings?.hostAvatar,
+              },
+            };
+
+            if (Array.isArray(payload?.remainingPlayers) && payload.remainingPlayers.length > 0) {
+              const playerMap = new Map<string, Player>();
+              for (const p of payload.remainingPlayers) {
+                if (p && p.id) {
+                  playerMap.set(p.id, {
+                    id: String(p.id),
+                    displayName: String(p.displayName || "ผู้เล่น"),
+                    isHost: p.id === newHostId,
+                    isReady: Boolean(p.isReady),
+                    score: typeof p.score === "number" ? p.score : 0,
+                    sessionToken: String(p.sessionToken || p.id),
+                    lastSeenAt: String(p.lastSeenAt || new Date().toISOString()),
+                    avatarUrl: p.avatarUrl ? String(p.avatarUrl) : undefined,
+                  });
+                }
+              }
+              if (nextState.myPlayer && playerMap.has(nextState.myPlayer.id)) {
+                const existingMe = playerMap.get(nextState.myPlayer.id)!;
+                playerMap.set(nextState.myPlayer.id, {
+                  ...existingMe,
+                  ...nextState.myPlayer,
+                  isHost: isMeNewHost,
+                });
+              }
+              nextState.players = Array.from(playerMap.values());
+            } else {
+              nextState.players = nextState.players.map((p) => ({
+                ...p,
+                isHost: p.id === newHostId,
+              }));
+              if (payload?.formerHostPlayerId) {
+                nextState.players = nextState.players.filter(
+                  (p) => p.id !== payload.formerHostPlayerId
+                );
+              }
+            }
+          }
+          break;
+        }
+
         case "room_settings": {
           const newSettings = payload?.settings || payload?.room?.settings;
+          const hostId = payload?.room?.host_player_id || payload?.host_player_id || newSettings?.hostPlayerId;
           nextState.room = {
             ...nextState.room,
             ...payload?.room,
+            ...(hostId ? { host_player_id: hostId } : {}),
             settings: newSettings || nextState.room?.settings,
           };
           if (newSettings?.gameMode) {
@@ -565,13 +630,13 @@ export function reduceRoomRealtimeEvent(
           if (newSettings?.totalRounds !== undefined) {
             nextState.totalRounds = Number(newSettings.totalRounds) || nextState.totalRounds;
           }
-          if (payload?.room?.host_player_id && nextState.myPlayer) {
-            const isHost = nextState.myPlayer.id === payload.room.host_player_id;
+          if (hostId && nextState.myPlayer) {
+            const isHost = nextState.myPlayer.id === hostId;
             nextState.isHost = isHost;
             nextState.myPlayer = { ...nextState.myPlayer, isHost };
             nextState.players = nextState.players.map((p) => ({
               ...p,
-              isHost: p.id === payload.room.host_player_id,
+              isHost: p.id === hostId,
             }));
           }
           break;
@@ -775,6 +840,50 @@ export function useRoomRealtime(
         }
       } catch {}
 
+      // Host migration promotion & session persistence (Requirement 6)
+      if (event === "host_changed" || event === "room_settings") {
+        const newHostId =
+          payload?.newHostPlayerId ||
+          payload?.room?.host_player_id ||
+          payload?.host_player_id ||
+          payload?.settings?.hostPlayerId;
+
+        if (newHostId && myPlayerRef.current?.id === newHostId) {
+          if (typeof window !== "undefined" && window.sessionStorage) {
+            try {
+              window.sessionStorage.setItem(`pleng_host_${cleanCode}`, "true");
+            } catch {}
+          }
+          if (myPlayerRef.current) {
+            myPlayerRef.current = {
+              ...myPlayerRef.current,
+              isHost: true,
+            };
+            savePlayerSession(cleanCode, {
+              playerId: myPlayerRef.current.id,
+              displayName: myPlayerRef.current.displayName,
+              sessionToken: myPlayerRef.current.sessionToken,
+              avatar: myPlayerRef.current.avatarUrl,
+              isHost: true,
+            });
+          }
+          if (channelRef.current && myPlayerRef.current) {
+            try {
+              channelRef.current.track({
+                id: myPlayerRef.current.id,
+                displayName: myPlayerRef.current.displayName,
+                isHost: true,
+                isReady: myPlayerRef.current.isReady,
+                score: myPlayerRef.current.score,
+                sessionToken: myPlayerRef.current.sessionToken,
+                lastSeenAt: new Date().toISOString(),
+                avatarUrl: myPlayerRef.current.avatarUrl,
+              });
+            } catch {}
+          }
+        }
+      }
+
       dispatch({ type: "broadcast", event, payload });
     };
 
@@ -840,6 +949,9 @@ export function useRoomRealtime(
       })
       .on("broadcast", { event: "room_settings" }, ({ payload }) => {
         handleBroadcast("room_settings", payload);
+      })
+      .on("broadcast", { event: "host_changed" }, ({ payload }) => {
+        handleBroadcast("host_changed", payload);
       });
 
     channel.subscribe(async (status) => {

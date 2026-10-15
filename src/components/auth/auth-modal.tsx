@@ -25,6 +25,7 @@ export interface AuthModalProps {
   onClose: () => void;
   initialTab?: "signin" | "signup";
   onSuccess?: () => void;
+  initialErrorMessage?: string;
 }
 
 export function AuthModal({
@@ -32,6 +33,7 @@ export function AuthModal({
   onClose,
   initialTab = "signin",
   onSuccess,
+  initialErrorMessage,
 }: AuthModalProps): React.JSX.Element | null {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
 
@@ -39,7 +41,7 @@ export function AuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
@@ -47,14 +49,14 @@ export function AuthModal({
   useEffect(() => {
     if (isOpen) {
       setTab(initialTab);
-      setErrorMessage(null);
+      setErrorMessage(initialErrorMessage ?? null);
       setEmail("");
       setPassword("");
       setDisplayName("");
       setIsSubmitting(false);
       setIsGoogleLoading(false);
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, initialErrorMessage]);
 
   // Handle Escape key to close
   useEffect(() => {
@@ -248,7 +250,7 @@ export function AuthModal({
 
         {/* Error / Notice Alert */}
         {errorMessage && (
-          errorMessage.includes("Google Sign-in ยังไม่เปิดใช้งาน") ? (
+          errorMessage.includes("Google Sign-in") ? (
             <div className="mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col gap-2.5 animate-in fade-in duration-150">
               <div className="flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />

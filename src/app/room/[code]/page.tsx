@@ -236,7 +236,32 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
     }
   }, [storedSession]);
 
-  // Reliable leave signal dispatcher using sendBeacon or keepalive fetch
+  // Keep latest refs of players and isHost so sendLeaveSignal has current room context
+  const realtimePlayersRef = useRef<Player[]>(roomRealtime.players);
+  useEffect(() => {
+    realtimePlayersRef.current = roomRealtime.players;
+  }, [roomRealtime.players]);
+
+  const isHostRef = useRef(roomRealtime.isHost);
+  useEffect(() => {
+    isHostRef.current = roomRealtime.isHost;
+  }, [roomRealtime.isHost]);
+
+  // Update stored session if client is promoted to host via host migration (Requirement 6)
+  useEffect(() => {
+    if (roomRealtime.isHost && storedSession && !storedSession.isHost) {
+      const updated = { ...storedSession, isHost: true };
+      setStoredSession(updated);
+      savePlayerSession(cleanCode, updated);
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem(`pleng_host_${cleanCode}`, "true");
+        } catch {}
+      }
+    }
+  }, [roomRealtime.isHost, storedSession, cleanCode]);
+
+  // Reliable leave signal dispatcher using sendBeacon or keepalive fetch (Requirement 7)
   const sendLeaveSignal = useCallback(() => {
     if (hasLeftRef.current) return;
     const session = storedSessionRef.current;
@@ -244,9 +269,27 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
 
     hasLeftRef.current = true;
 
+    const currentPlayers = realtimePlayersRef.current || [];
+    const remainingPlayers = currentPlayers.filter((p) => p.id !== session.playerId);
+
+    const candidateHost =
+      remainingPlayers.find(
+        (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+      ) || remainingPlayers[0];
+
+    const isHostLeaving = Boolean(session.isHost || isHostRef.current);
+
     const payload = JSON.stringify({
       playerId: session.playerId,
-      isHost: Boolean(session.isHost),
+      isHost: isHostLeaving,
+      remainingPlayers,
+      candidateHost: candidateHost
+        ? {
+            id: candidateHost.id,
+            displayName: candidateHost.displayName,
+            avatarUrl: candidateHost.avatarUrl,
+          }
+        : undefined,
     });
 
     let beaconSent = false;

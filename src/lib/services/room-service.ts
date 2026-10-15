@@ -60,11 +60,25 @@ export class RoomService {
     // Auto-cleanup stale/abandoned rooms in the background (fire-and-forget, non-blocking)
     this.cleanupStaleRooms().catch(() => {});
 
+    const hostAvatar = initialSettings?.hostAvatar || "🎧";
     const mergedSettings: RoomSettings = {
       ...DEFAULT_ROOM_SETTINGS,
       ...initialSettings,
       hostDisplayName: hostDisplayName.trim(),
+      hostAvatar,
       playerCount: 1,
+      players: [
+        {
+          id: playerId,
+          displayName: hostDisplayName.trim(),
+          avatarUrl: hostAvatar,
+          isHost: true,
+          isReady: true,
+          score: 0,
+          sessionToken,
+          lastSeenAt: new Date().toISOString(),
+        },
+      ],
     };
 
     const { data, error } = await client

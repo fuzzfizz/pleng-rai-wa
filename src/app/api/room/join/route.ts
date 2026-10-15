@@ -25,12 +25,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { roomCode, displayName, existingSessionToken, existingPlayerId, password } = body as {
+    const { roomCode, displayName, existingSessionToken, existingPlayerId, password, avatar } = body as {
       roomCode?: unknown;
       displayName?: unknown;
       existingSessionToken?: string;
       existingPlayerId?: string;
       password?: string;
+      avatar?: string;
     };
 
     if (
@@ -154,7 +155,52 @@ export async function POST(req: NextRequest) {
     let updatedCount = currentPlayerCount;
     if (!isHost && !isReconnecting) {
       updatedCount = Math.max(1, updatedCount + 1);
-      await RoomService.updateRoomSettings(cleanCode, { playerCount: updatedCount }).catch(() => {});
+    }
+
+    // Keep room.settings.players updated when players join (Requirement 8)
+    const existingPlayersList: any[] = Array.isArray(currentSettings.players)
+      ? [...currentSettings.players]
+      : [];
+
+    if (existingPlayersList.length === 0 && room.host_player_id) {
+      existingPlayersList.push({
+        id: room.host_player_id,
+        displayName: currentSettings.hostDisplayName || "หัวหน้าห้อง",
+        avatarUrl: currentSettings.hostAvatar || "🎧",
+        isHost: true,
+      });
+    }
+
+    const joiningPlayer = {
+      id: playerId,
+      displayName: String(displayName).trim(),
+      avatarUrl: typeof avatar === "string" && avatar ? avatar : undefined,
+      isHost,
+    };
+
+    const existingIdx = existingPlayersList.findIndex((p: any) => p.id === playerId);
+    if (existingIdx >= 0) {
+      existingPlayersList[existingIdx] = {
+        ...existingPlayersList[existingIdx],
+        ...joiningPlayer,
+      };
+    } else {
+      existingPlayersList.push(joiningPlayer);
+    }
+
+    if (existingPlayersList.length > 0) {
+      updatedCount = Math.max(updatedCount, existingPlayersList.length);
+    }
+
+    const settingsUpdate: any = {
+      playerCount: updatedCount,
+      players: existingPlayersList,
+    };
+
+    if (!isHost && !isReconnecting) {
+      await RoomService.updateRoomSettings(cleanCode, settingsUpdate).catch(() => {});
+    } else if (existingIdx === -1 && !isHost) {
+      await RoomService.updateRoomSettings(cleanCode, { players: existingPlayersList }).catch(() => {});
     }
 
     return NextResponse.json(
@@ -171,6 +217,7 @@ export async function POST(req: NextRequest) {
           settings: {
             ...currentSettings,
             playerCount: updatedCount,
+            players: existingPlayersList,
           },
         },
       },

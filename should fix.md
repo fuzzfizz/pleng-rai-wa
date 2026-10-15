@@ -1,14 +1,25 @@
 # รายการแก้ไขบั๊กและการปรับปรุง (Fixes & Improvements) โหมด audio slice
 
-- [แก้ไขแล้ว ✓] **กำหนดจำนวนผู้เล่นสูงสุดก่อนสร้างห้อง และแยกการตั้งค่าห้องออกจากกติกาเกม**:
+- [แก้ไขแล้ว ✓] **เมื่อกดสมัคร/เข้าสู่ระบบด้วย Google แจ้ง {"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"} (Google OAuth Safe Verification & Pre-flight UX)**:
+  - **สาเหตุ (Root Cause)**: ใน `@supabase/supabase-js` ฟังก์ชัน `signInWithOAuth` มีพฤติกรรมเริ่มต้นที่จะ redirect browser ทันที เมื่อ Google provider ถูกปิดใน Supabase Dashboard เบราว์เซอร์ของผู้ใช้จะถูกส่งไปหน้า JSON ดิบที่ Supabase
   - **การแก้ไข**:
-    1. ในหน้าสร้างห้อง ([`src/app/page.tsx`](file:///D:/pleng-rai-wa/src/app/page.tsx)): เพิ่มตัวเลือกกำหนดจำนวนผู้เล่นสูงสุด (`maxPlayers`: 4, 6, 8 [แนะนำ], 10, 12 คน) บันทึกลงการตั้งค่าห้องตั้งแต่แรก
-    2. สร้างหน้าต่างใหม่แยกออกมา ([`RoomManageModal`](file:///D:/pleng-rai-wa/src/components/room/room-manage-modal.tsx)): สำหรับจัดการความจุห้อง และโอนสิทธิ์หัวห้อง (Host Transfer) โดยเฉพาะ
-    3. นำการจัดการห้องออกจาก [`HostSettingsModal`](file:///D:/pleng-rai-wa/src/components/room/host-settings-modal.tsx) เพื่อให้โฟกัสเฉพาะกติกาและโหมดการเล่นเกม
-- [แก้ไขแล้ว ✓] **ล็อกปุ่มเริ่มเกม ต้องรอให้ผู้เล่นทุกคนกดพร้อมก่อน Host จึงจะกดเริ่มได้**:
-  - **การแก้ไข**: ใน [`LobbyView`](file:///D:/pleng-rai-wa/src/components/room/lobby-view.tsx) ปรับให้ปุ่ม `เริ่มเกม (Start Game)` ปิดใช้งาน (disabled) และแสดงสถานะ `⏳ รอผู้เล่นทุกคนกดพร้อมก่อนเริ่มเกม (X/Y คนพร้อมแล้ว)` จนกว่าผู้เล่นทุกคนที่ไม่ใช่ Host จะกดพร้อมครบ 100% จึงจะเปิดให้กดเริ่มเกมได้
-- [แก้ไขแล้ว ✓] **ป้องกันสุ่มตัดเสียงช่วงที่ไม่มีเสียง (ช่วง 15% - 90% ของความยาวเพลง)**:
-  - **สาเหตุ (Root Cause)**: ในโหมด `entire_song` เดิมเริ่มต้นสุ่มตั้งแต่ 0.0s ซึ่งเพลงส่วนใหญ่มีช่วงความเงียบก่อนเริ่มเพลง (Intro silence) 0-3 วินาทีแรก และโหมดฮุกหากไม่มีค่า `hookStartSec` จะ fallback เป็น 0s
-  - **การแก้ไข**: ปรับปรุง [`calculateSliceStart`](file:///D:/pleng-rai-wa/src/lib/audio-slice-utils.ts) ให้สุ่มเฉพาะช่วง 15% - 90% ของความยาวเพลง และเว้น 5.0 วินาทีแรกเด็ดขาด พร้อม fallback เพลงที่ไม่มีฮุกไปที่ 25% ของเพลง ป้องกันเสียงเงียบ 100%
-- [แก้ไขแล้ว ✓] **รอบสุดท้ายไม่ต้องแสดงคะแนนตอนเฉลย ให้แสดงในหน้าแท่นรับรางวัลแทน**:
-  - **การแก้ไข**: ใน [`RoundRevealCard`](file:///D:/pleng-rai-wa/src/components/room/round-reveal-card.tsx), [`TVView`](file:///D:/pleng-rai-wa/src/components/room/tv-view.tsx), และ [`GameView`](file:///D:/pleng-rai-wa/src/components/room/game-view.tsx) เมื่อเป็นรอบสุดท้าย (`isLastRound`) จะซ่อนตารางคะแนนทั้งหมด และแสดงแบนเนอร์ลุ้นระทึก `🏁 จบรอบสุดท้ายแล้ว! ไปลุ้นคะแนนสรุปและผู้ชนะบนแท่นรับรางวัลกัน` พร้อมเปลี่ยนปุ่ม Host เป็น `🏆 สรุปคะแนน & ไปยังแท่นรับรางวัล`
+    1. ใน [`src/hooks/use-auth.ts`](file:///D:/pleng-rai-wa/src/hooks/use-auth.ts) (`performGoogleSignIn`): ส่ง `options: { redirectTo, skipBrowserRedirect: true }` ไปยัง `supabase.auth.signInWithOAuth`
+    2. ทำ Pre-flight verification ยิง `fetch(data.url, { method: "GET" })` ตรวจสอบสถานะก่อนเปลี่ยนหน้า
+    3. หากได้ HTTP 400 หรือเนื้อหาระบุ `"Unsupported provider"` / `"provider is not enabled"` / `"validation_failed"` จะระงับการ redirect ทั้งหมด และคืนค่าแจ้งเตือนภาษาไทยที่ชัดเจน: *"ระบบ Google Sign-in ยังไม่ได้เปิดใช้งานในเซิร์ฟเวอร์ Supabase (กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน หรือเล่นแบบ Guest ได้ทันที)"*
+    4. หากเปิดใช้งานสำเร็จ (สถานะ 200/302) จะนำทางไปยังหน้า Google Login ผ่าน `window.location.assign(data.url)` อย่างปลอดภัย
+    5. ใน [`src/components/auth/auth-modal.tsx`](file:///D:/pleng-rai-wa/src/components/auth/auth-modal.tsx) จัดการแสดงกล่องแจ้งเตือนสีเหลือง (Amber Alert) สวยงาม ไม่ปิด Modal พร้อมปุ่มลัดสลับไปสมัคร/ล็อกอินด้วยอีเมลทันที
+    6. เขียน Unit test ครอบคลุมใน [`src/hooks/__tests__/google-auth-safe-check.test.ts`](file:///D:/pleng-rai-wa/src/hooks/__tests__/google-auth-safe-check.test.ts) ผ่าน 100% (20/20 tests)
+- [แก้ไขแล้ว ✓] **ปัญหาเมื่อหัวห้องออกแต่ผู้ที่อยู่ในห้องกลับไม่ได้สิท host และห้องหายไปจาก active room (Host Migration & Active Room Retention)**:
+  - **สาเหตุ (Root Cause)**: ใน [`src/app/api/room/[code]/leave/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/%5Bcode%5D/leave/route.ts) เดิม เมื่อ Host ออกจากห้อง ระบบจะเรียก `RoomService.deleteRoomByCode` ลบห้องทิ้งทันที และกระจายอีเวนต์ `room_dissolved` ทำให้:
+    1. ห้องถูกลบออกจากฐานข้อมูล Supabase และหายไปจากรายการห้องแข่งขันที่เปิดอยู่ (`/api/room/list`)
+    2. ผู้เล่นคนอื่นที่ยังค้างอยู่ในห้องถูกเตะออกจากเกมและไม่มีใครได้รับสิทธิ์เป็น Host สืบต่อ
+  - **การแก้ไข**:
+    1. ใน [`src/app/api/room/[code]/leave/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/%5Bcode%5D/leave/route.ts): ปรับปรุงให้ตรวจสอบว่าหาก Host ออกจากห้อง แต่ยังมีผู้เล่นอื่นเหลืออยู่ (`remainingCount > 0` หรือ `remainingPlayersList.length > 0`) ระบบจะไม่ลบห้องเด็ดขาด โดยจะทำการส่งมอบตำแหน่ง Host (Host Migration) ให้ผู้เล่นคนถัดไปอัตโนมัติ โดยให้ความสำคัญกับผู้เล่นมนุษย์ก่อนหน้าจอทีวี (TV Spectator)
+    2. อัปเดต `rooms.host_player_id` ในฐานข้อมูล Supabase เป็น Player ID ของ Host คนใหม่
+    3. อัปเดต `rooms.settings`: `hostDisplayName`, `hostAvatar`, `playerCount`, และ `players`
+    4. กระจายอีเวนต์ Realtime `host_changed`, `room_settings`, และ `player_left` แบบเรียลไทม์
+    5. ห้องจะถูกลบออกจากฐานข้อมูล Supabase ทันทีเฉพาะเมื่อผู้เล่นทุกคนออกจากห้องจนหมดครบ 100% (`remainingCount <= 0` และไม่มีผู้เล่นเหลืออยู่)
+    6. ใน [`src/hooks/use-room-realtime.ts`](file:///D:/pleng-rai-wa/src/hooks/use-room-realtime.ts): รองรับการรับอีเวนต์ `host_changed` และเลื่อนขั้นผู้เล่นที่ได้รับเลือกเป็น Host ทันที (`isHost: true`, `myPlayer.isHost: true`) พร้อมบันทึก `sessionStorage.setItem('pleng_host_' + code, 'true')` ปลดล็อกปุ่มเริ่มเกม, การตั้งค่า, และข้ามเพลง
+    7. ใน [`src/app/room/[code]/page.tsx`](file:///D:/pleng-rai-wa/src/app/room/%5Bcode%5D/page.tsx): ปรับ `sendLeaveSignal` ให้ส่ง `remainingPlayers` และ `candidateHost` แนบไปใน Request Body เสมอ พร้อมซิงก์ State ของ Host เมื่อได้รับการโปรโมต
+    8. ใน [`src/app/api/room/join/route.ts`](file:///D:/pleng-rai-wa/src/app/api/room/join/route.ts): รักษาและอัปเดต `room.settings.players` ให้มีข้อมูลผู้เล่นครบถ้วน
+    9. เขียน Unit test ครอบคลุมใน [`src/app/api/room/__tests__/host-migration-leave.test.ts`](file:///D:/pleng-rai-wa/src/app/api/room/__tests__/host-migration-leave.test.ts) ผ่าน 100% (12/12 tests)

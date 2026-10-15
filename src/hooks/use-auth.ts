@@ -54,6 +54,9 @@ export function mapProfileRowToUserProfile(row: ProfileRow): UserProfile {
   };
 }
 
+export const GOOGLE_PROVIDER_DISABLED_MSG =
+  "ระบบ Google Sign-in ยังไม่ได้เปิดใช้งานในเซิร์ฟเวอร์ Supabase (กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน หรือเล่นแบบ Guest ได้ทันที)";
+
 /**
  * Translates common Supabase / Auth error messages into friendly Thai.
  */
@@ -66,7 +69,7 @@ export function translateAuthError(message: string): string {
     lower.includes("provider is not enabled") ||
     lower.includes("validation_failed")
   ) {
-    return "ระบบ Google Sign-in ยังไม่เปิดใช้งานในเซิร์ฟเวอร์ กรุณาใช้อีเมล/รหัสผ่าน หรือเล่นแบบ Guest ได้ทันที";
+    return GOOGLE_PROVIDER_DISABLED_MSG;
   }
 
   if (
@@ -101,8 +104,135 @@ export function translateAuthError(message: string): string {
   if (lower.includes("network") || lower.includes("fetch")) {
     return "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต";
   }
+  if (
+    lower.includes("access_denied") ||
+    lower.includes("access denied") ||
+    lower.includes("user cancelled") ||
+    lower.includes("popup closed")
+  ) {
+    return "การเข้าสู่ระบบด้วย Google ถูกยกเลิก";
+  }
 
   return message;
+}
+
+/**
+ * Safe Google OAuth verification & pre-flight UX.
+ * 1. Requests OAuth authorize URL with skipBrowserRedirect: true.
+ * 2. Pre-flights GET request to the Supabase OAuth URL to detect disabled provider (HTTP 400).
+ * 3. Prevents navigation if unsupported provider error occurs.
+ * 4. Navigates safely with window.location.assign if enabled.
+ */
+export async function performGoogleSignIn(
+  client = supabase,
+  win: Window | typeof window | undefined = typeof window !== "undefined" ? window : undefined
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const redirectTo =
+      win && win.location ? `${win.location.origin}/` : undefined;
+
+    const { data, error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) {
+      const errorDetail =
+        (error as any)?.msg ||
+        (error as any)?.error_description ||
+        error.message ||
+        (error as any)?.error_code ||
+        "";
+      return { success: false, error: translateAuthError(errorDetail || error.message) };
+    }
+
+    if (!data?.url) {
+      return {
+        success: false,
+        error: translateAuthError("ไม่พบลิงก์ยืนยันตัวตนจาก Google"),
+      };
+    }
+
+    // Pre-flight verification:
+    // If Google provider is disabled on Supabase, it returns HTTP 400 Bad Request with JSON:
+    // {"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}
+    try {
+      const preflightRes = await fetch(data.url, { method: "GET" });
+      let bodyText = "";
+      try {
+        bodyText = await preflightRes.text();
+      } catch {
+        // Body stream unavailable
+      }
+
+      const lowerBody = (bodyText || "").toLowerCase();
+      const isUnsupported =
+        preflightRes.status === 400 ||
+        lowerBody.includes("unsupported provider") ||
+        lowerBody.includes("provider is not enabled") ||
+        lowerBody.includes("validation_failed");
+
+      if (isUnsupported) {
+        let errorMsg = bodyText || "Unsupported provider: provider is not enabled";
+        try {
+          const parsed = JSON.parse(bodyText);
+          if (parsed && typeof parsed === "object") {
+            errorMsg =
+              parsed.msg ||
+              parsed.error_description ||
+              parsed.message ||
+              parsed.error_code ||
+              errorMsg;
+          }
+        } catch {
+          // Body is not JSON
+        }
+        return {
+          success: false,
+          error: translateAuthError(errorMsg),
+        };
+      }
+    } catch (fetchErr: any) {
+      // In a real browser environment, a 302 redirect to accounts.google.com might trigger a CORS error on fetch.
+      // If the error message explicitly indicates unsupported provider, return the translated error.
+      const errMsg = fetchErr?.message || "";
+      if (
+        errMsg.toLowerCase().includes("unsupported provider") ||
+        errMsg.toLowerCase().includes("provider is not enabled")
+      ) {
+        return {
+          success: false,
+          error: translateAuthError(errMsg),
+        };
+      }
+      // Otherwise (e.g. redirect/CORS to Google sign-in page), the provider is enabled and safe to navigate.
+    }
+
+    // Provider is enabled - safely navigate to Google OAuth endpoint
+    if (win && win.location) {
+      if (typeof win.location.assign === "function") {
+        win.location.assign(data.url);
+      } else {
+        win.location.href = data.url;
+      }
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    const errorDetail =
+      err?.msg ||
+      err?.error_description ||
+      err?.error_code ||
+      err?.message ||
+      "";
+    return {
+      success: false,
+      error: translateAuthError(errorDetail || "เกิดข้อผิดพลาดในการเชื่อมต่อ Google"),
+    };
+  }
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -304,40 +434,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
     success: boolean;
     error?: string;
   }> => {
-    try {
-      const redirectTo =
-        typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-        },
-      });
-
-      if (error) {
-        const errorDetail =
-          (error as any)?.msg ||
-          (error as any)?.error_description ||
-          error.message ||
-          (error as any)?.error_code ||
-          "";
-        return { success: false, error: translateAuthError(errorDetail || error.message) };
-      }
-
-      return { success: true };
-    } catch (err: any) {
-      const errorDetail =
-        err?.msg ||
-        err?.error_description ||
-        err?.error_code ||
-        err?.message ||
-        "";
-      return {
-        success: false,
-        error: translateAuthError(errorDetail || "เกิดข้อผิดพลาดในการเชื่อมต่อ Google"),
-      };
-    }
+    return performGoogleSignIn(supabase, typeof window !== "undefined" ? window : undefined);
   }, []);
 
   // Sign out

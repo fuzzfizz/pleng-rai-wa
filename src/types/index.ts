@@ -148,6 +148,7 @@ export interface RoomSettings {
   revealedHintLevel?: number;
   // Live player count in room
   playerCount?: number;
+  players?: any[];
 }
 
 export interface RoomState {
