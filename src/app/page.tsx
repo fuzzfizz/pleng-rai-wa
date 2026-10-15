@@ -139,7 +139,10 @@ export default function HomePage() {
   const handleCreateRoom = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    const validation = validateNickname(hostNickname);
+    const finalNickname = (profile?.displayName || hostNickname).trim();
+    const finalAvatar = profile?.avatar || hostAvatar || "🦊";
+
+    const validation = validateNickname(finalNickname);
     if (!validation.valid) {
       setCreateError(validation.error || "กรุณากรอกชื่อเล่น");
       return;
@@ -153,8 +156,8 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hostDisplayName: hostNickname.trim(),
-          hostAvatar,
+          hostDisplayName: finalNickname,
+          hostAvatar: finalAvatar,
           settings: {
             maxPlayers,
             password: roomPassword.trim() || undefined,
@@ -174,15 +177,15 @@ export default function HomePage() {
       savePlayerSession(data.roomCode, {
         playerId: data.playerId,
         sessionToken: data.sessionToken,
-        displayName: hostNickname.trim(),
-        avatar: hostAvatar,
+        displayName: finalNickname,
+        avatar: finalAvatar,
         isHost: true,
       });
 
       if (typeof window !== "undefined") {
         try {
-          window.sessionStorage.setItem("pleng_host_avatar", hostAvatar);
-          window.sessionStorage.setItem("pleng_avatar", hostAvatar);
+          window.sessionStorage.setItem("pleng_host_avatar", finalAvatar);
+          window.sessionStorage.setItem("pleng_avatar", finalAvatar);
         } catch {}
       }
 
@@ -401,58 +404,82 @@ export default function HomePage() {
               </div>
               <h3 className="text-2xl font-black text-stone-900 dark:text-white">สร้างห้องเล่นกับเพื่อน</h3>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                ตั้งชื่อเล่นของคุณเพื่อรับบทเป็นหัวหน้าห้อง (Host)
+                {profile?.displayName
+                  ? "สร้างห้องและตั้งค่าการแข่งขันในฐานะหัวหน้าห้อง (Host)"
+                  : "ตั้งชื่อเล่นของคุณเพื่อรับบทเป็นหัวหน้าห้อง (Host)"}
               </p>
             </div>
 
-            {/* Live Host Avatar Preview */}
-            <div className="flex flex-col items-center justify-center mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center text-3xl shadow-inner select-none transition-transform hover:scale-105">
-                <span>{hostAvatarPreview}</span>
-              </div>
-              <span className="text-xs text-stone-500 mt-1">อวาตาร์ประจำตัวคุณ</span>
-            </div>
-
-            {/* Curated 10 Avatars Picker */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-                เลือกรูปตัวแทน (Preset Avatar)
-              </label>
-              <AvatarPicker
-                value={hostAvatar}
-                onChange={(avatar) => setHostAvatar(avatar)}
-                disabled={isCreating}
-              />
-            </div>
-
-            <form onSubmit={handleCreateRoom} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="hostNickname"
-                  className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5"
-                >
-                  ชื่อเล่นของคุณ (1-25 ตัวอักษร)
-                </label>
-                <div className="relative">
-                  <input
-                    id="hostNickname"
-                    type="text"
-                    autoFocus
-                    placeholder="เช่น ดีเจนุ้ย, แชมป์เพลงฮิต"
-                    value={hostNickname}
-                    onChange={(e) => {
-                      setHostNickname(e.target.value);
-                      if (createError) setCreateError(null);
-                    }}
-                    maxLength={25}
-                    disabled={isCreating}
-                    className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none transition-colors"
-                  />
-                  <span className="absolute right-3.5 top-3.5 text-xs text-stone-500 font-mono">
-                    {hostNickname.length}/25
+            {/* Authenticated Host Identity Card OR Guest Avatar & Nickname Selection */}
+            {profile?.displayName ? (
+              <div className="mb-5 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center gap-3.5 shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center text-2xl shadow-inner select-none shrink-0">
+                  <span>{profile.avatar || hostAvatar || "🦊"}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] text-amber-800 dark:text-amber-300 font-semibold block">
+                    สร้างห้องในชื่อโปรไฟล์
                   </span>
+                  <strong className="text-base font-bold text-stone-900 dark:text-stone-100 truncate block">
+                    {profile.displayName}
+                  </strong>
                 </div>
               </div>
+            ) : (
+              <>
+                {/* Live Host Avatar Preview */}
+                <div className="flex flex-col items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-stone-100 dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-700 flex items-center justify-center text-3xl shadow-inner select-none transition-transform hover:scale-105">
+                    <span>{hostAvatarPreview}</span>
+                  </div>
+                  <span className="text-xs text-stone-500 mt-1">อวาตาร์ประจำตัวคุณ</span>
+                </div>
+
+                {/* Curated 10 Avatars Picker */}
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+                    เลือกรูปตัวแทน (Preset Avatar)
+                  </label>
+                  <AvatarPicker
+                    value={hostAvatar}
+                    onChange={(avatar) => setHostAvatar(avatar)}
+                    disabled={isCreating}
+                  />
+                </div>
+              </>
+            )}
+
+            <form onSubmit={handleCreateRoom} className="space-y-4">
+              {/* Nickname Input for Guest Users Only */}
+              {!profile?.displayName && (
+                <div>
+                  <label
+                    htmlFor="hostNickname"
+                    className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5"
+                  >
+                    ชื่อเล่นของคุณ (1-25 ตัวอักษร)
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="hostNickname"
+                      type="text"
+                      autoFocus
+                      placeholder="เช่น ดีเจนุ้ย, แชมป์เพลงฮิต"
+                      value={hostNickname}
+                      onChange={(e) => {
+                        setHostNickname(e.target.value);
+                        if (createError) setCreateError(null);
+                      }}
+                      maxLength={25}
+                      disabled={isCreating}
+                      className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none transition-colors"
+                    />
+                    <span className="absolute right-3.5 top-3.5 text-xs text-stone-500 font-mono">
+                      {hostNickname.length}/25
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Max Players Selector */}
               <div>
@@ -539,7 +566,7 @@ export default function HomePage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isCreating || hostNickname.trim().length === 0}
+                  disabled={isCreating || (!profile?.displayName && hostNickname.trim().length === 0)}
                   className="flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
                 >
                   {isCreating ? (

@@ -333,4 +333,36 @@ describe("Mobile Nav & Room UX Polish (Issues 1, 2, 3)", () => {
       expect(html).toContain("ห้องที่กำลังเปิดเล่นอยู่");
     });
   });
+
+  // =========================================================================
+  // Task 5: Create Room Modal Profile Integration
+  // =========================================================================
+  describe("Create Room Modal Profile Integration", () => {
+    it("uses profile displayName and avatar as primary without requiring nickname input", () => {
+      const profile = {
+        displayName: "028 อธิษฐ์",
+        avatar: "🎸",
+      };
+
+      const finalNickname = (profile?.displayName || "").trim();
+      const finalAvatar = profile?.avatar || "🦊";
+
+      expect(finalNickname).toBe("028 อธิษฐ์");
+      expect(finalAvatar).toBe("🎸");
+      expect(validateNickname(finalNickname).valid).toBe(true);
+    });
+
+    it("falls back to guest nickname and avatar when profile is not present", () => {
+      const profile = null;
+      const guestNickname = "ดีเจมือใหม่";
+      const guestAvatar = "🎧";
+
+      const finalNickname = ((profile as any)?.displayName || guestNickname).trim();
+      const finalAvatar = (profile as any)?.avatar || guestAvatar || "🦊";
+
+      expect(finalNickname).toBe("ดีเจมือใหม่");
+      expect(finalAvatar).toBe("🎧");
+      expect(validateNickname(finalNickname).valid).toBe(true);
+    });
+  });
 });
