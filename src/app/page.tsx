@@ -346,6 +346,12 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="w-full max-w-5xl flex items-center justify-between text-xs text-stone-500 py-4 border-t border-stone-200 dark:border-stone-900 z-10">
         <p>© 2026 เพลงไรวะ? (Pleng-Rai-Wa)</p>
+        <Link
+          href="/privacy"
+          className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+        >
+          นโยบายความเป็นส่วนตัว (Privacy Policy)
+        </Link>
       </footer>
 
       {/* ======================================================== */}
