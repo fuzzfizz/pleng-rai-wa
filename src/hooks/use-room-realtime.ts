@@ -201,10 +201,17 @@ export function reduceRoomRealtimeEvent(
     case "init_player": {
       const p = action.player;
       nextState.myPlayer = p;
-      // Update in players list if not present
+      if (p.isHost !== undefined) {
+        nextState.isHost = Boolean(p.isHost);
+      }
+      // Update in players list if not present, or merge with existing player
       const exists = nextState.players.some((pl) => pl.id === p.id);
       if (!exists) {
         nextState.players = [...nextState.players, p];
+      } else {
+        nextState.players = nextState.players.map((pl) =>
+          pl.id === p.id ? { ...pl, ...p } : pl
+        );
       }
       break;
     }
@@ -729,19 +736,40 @@ export function useRoomRealtime(
   useEffect(() => {
     if (
       initialPlayer?.id &&
-      (!state.myPlayer || state.myPlayer.id !== initialPlayer.id)
+      (!state.myPlayer ||
+        state.myPlayer.id !== initialPlayer.id ||
+        (initialPlayer.avatarUrl && state.myPlayer.avatarUrl !== initialPlayer.avatarUrl) ||
+        (initialPlayer.displayName && state.myPlayer.displayName !== initialPlayer.displayName) ||
+        (initialPlayer.isHost !== undefined && state.myPlayer.isHost !== initialPlayer.isHost))
     ) {
       dispatch({
         type: "init_player",
         player: {
           id: initialPlayer.id,
-          displayName: initialPlayer.displayName || "ผู้เล่น",
-          isHost: Boolean(initialPlayer.isHost),
-          isReady: Boolean(initialPlayer.isReady),
-          score: initialPlayer.score || 0,
-          sessionToken: initialPlayer.sessionToken || initialPlayer.id,
+          displayName:
+            initialPlayer.displayName ||
+            (state.myPlayer && state.myPlayer.id === initialPlayer.id
+              ? state.myPlayer.displayName
+              : "ผู้เล่น"),
+          isHost:
+            initialPlayer.isHost !== undefined
+              ? Boolean(initialPlayer.isHost)
+              : Boolean(state.myPlayer?.isHost),
+          isReady:
+            state.myPlayer && state.myPlayer.id === initialPlayer.id
+              ? state.myPlayer.isReady
+              : Boolean(initialPlayer.isReady),
+          score:
+            state.myPlayer && state.myPlayer.id === initialPlayer.id
+              ? state.myPlayer.score
+              : (initialPlayer.score || 0),
+          sessionToken:
+            initialPlayer.sessionToken ||
+            (state.myPlayer && state.myPlayer.id === initialPlayer.id
+              ? state.myPlayer.sessionToken
+              : initialPlayer.id),
           lastSeenAt: new Date().toISOString(),
-          avatarUrl: initialPlayer.avatarUrl,
+          avatarUrl: initialPlayer.avatarUrl || state.myPlayer?.avatarUrl,
         },
       });
     }
@@ -750,6 +778,7 @@ export function useRoomRealtime(
     initialPlayer?.displayName,
     initialPlayer?.isHost,
     initialPlayer?.sessionToken,
+    initialPlayer?.avatarUrl,
     state.myPlayer,
   ]);
 
@@ -768,6 +797,7 @@ export function useRoomRealtime(
           isReady: false,
           score: 0,
           lastSeenAt: new Date().toISOString(),
+          avatarUrl: stored.avatar,
         };
         dispatch({ type: "init_player", player: restored });
       }
@@ -778,6 +808,7 @@ export function useRoomRealtime(
         displayName: state.myPlayer.displayName,
         sessionToken: state.myPlayer.sessionToken,
         isHost: state.myPlayer.isHost,
+        avatar: state.myPlayer.avatarUrl,
       });
     }
   }, [cleanCode, state.myPlayer]);
@@ -987,6 +1018,40 @@ export function useRoomRealtime(
       channelRef.current = null;
     };
   }, [cleanCode, state.myPlayer?.id]);
+
+  // Re-track presence on avatar/displayName update
+  useEffect(() => {
+    if (
+      channelRef.current &&
+      state.isConnected &&
+      state.myPlayer?.avatarUrl &&
+      typeof channelRef.current.track === "function"
+    ) {
+      channelRef.current
+        .track({
+          id: state.myPlayer.id,
+          displayName: state.myPlayer.displayName,
+          isHost: state.myPlayer.isHost,
+          isReady: state.myPlayer.isReady,
+          score: state.myPlayer.score,
+          sessionToken: state.myPlayer.sessionToken,
+          lastSeenAt: new Date().toISOString(),
+          avatarUrl: state.myPlayer.avatarUrl,
+        })
+        .catch((err: any) => {
+          console.warn("[useRoomRealtime] Re-track presence failed:", err);
+        });
+    }
+  }, [
+    state.isConnected,
+    state.myPlayer?.id,
+    state.myPlayer?.avatarUrl,
+    state.myPlayer?.displayName,
+    state.myPlayer?.isHost,
+    state.myPlayer?.isReady,
+    state.myPlayer?.score,
+    state.myPlayer?.sessionToken,
+  ]);
 
   // Action: buzz
   const buzz = useCallback(async (): Promise<{ success: boolean; reason?: string }> => {

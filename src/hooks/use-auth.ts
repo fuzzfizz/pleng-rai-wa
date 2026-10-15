@@ -261,7 +261,13 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
       }
 
       if (data) {
-        setProfile(mapProfileRowToUserProfile(data));
+        const mapped = mapProfileRowToUserProfile(data);
+        setProfile(mapped);
+        if (mapped.avatar && typeof window !== "undefined" && window.sessionStorage) {
+          try {
+            window.sessionStorage.setItem("pleng_avatar", mapped.avatar);
+          } catch {}
+        }
       } else {
         // Fallback: If profile row was not created automatically by trigger
         const authUserRes = await supabase.auth.getUser();
@@ -486,6 +492,12 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
 
         if (error) {
           return { success: false, error: error.message };
+        }
+
+        if (data.avatar !== undefined && typeof window !== "undefined" && window.sessionStorage) {
+          try {
+            window.sessionStorage.setItem("pleng_avatar", data.avatar);
+          } catch {}
         }
 
         if (updatedData) {

@@ -227,21 +227,27 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
 
   // Auto-fill nickname and avatar from user profile or sessionStorage (Issue 2)
   useEffect(() => {
-    if (profile?.displayName) {
-      if (!hasUserEditedNickname.current) {
-        setNickname(profile.displayName);
-      }
-      setSelectedAvatar(profile.avatar || "🦊");
-      return;
+    if (profile?.displayName && !hasUserEditedNickname.current) {
+      setNickname(profile.displayName);
     }
-
-    if (typeof window !== "undefined") {
+    if (profile?.avatar) {
+      setSelectedAvatar(profile.avatar);
+    } else if (typeof window !== "undefined") {
       const savedAvatar = window.sessionStorage.getItem("pleng_avatar");
       if (savedAvatar) {
         setSelectedAvatar(savedAvatar);
       }
     }
   }, [profile?.displayName, profile?.avatar]);
+
+  // Sync storedSession avatar if profile has an avatar and session is mismatched
+  useEffect(() => {
+    if (profile?.avatar && storedSession && storedSession.avatar !== profile.avatar) {
+      const updated = { ...storedSession, avatar: profile.avatar };
+      setStoredSession(updated);
+      savePlayerSession(cleanCode, updated);
+    }
+  }, [profile?.avatar, storedSession, cleanCode]);
 
   // Initialize and check localStorage session on mount
   useEffect(() => {

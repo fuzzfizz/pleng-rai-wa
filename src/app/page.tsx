@@ -75,7 +75,7 @@ export default function HomePage() {
   // Create Room Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [hostNickname, setHostNickname] = useState("");
-  const [hostAvatar, setHostAvatar] = useState(PRESET_AVATARS[0].emoji);
+  const [hostAvatar, setHostAvatar] = useState(profile?.avatar || PRESET_AVATARS[0].emoji);
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [roomPassword, setRoomPassword] = useState("");
   const [isPrivateRoom, setIsPrivateRoom] = useState(false);
@@ -111,10 +111,10 @@ export default function HomePage() {
     if (profile?.displayName && !hostNickname) {
       setHostNickname(profile.displayName);
     }
-    if (profile?.avatar) {
+    if (profile?.avatar && hostAvatar !== profile.avatar) {
       setHostAvatar(profile.avatar);
     }
-  }, [profile?.displayName, profile?.avatar, hostNickname]);
+  }, [profile?.displayName, profile?.avatar, hostNickname, hostAvatar]);
 
   // Handle Joining an existing room
   const handleJoinRoom = (e?: React.FormEvent) => {
@@ -237,6 +237,9 @@ export default function HomePage() {
                     setCreateError(null);
                     if (!hostNickname && profile?.displayName) {
                       setHostNickname(profile.displayName);
+                    }
+                    if (profile?.avatar) {
+                      setHostAvatar(profile.avatar);
                     }
                     setIsCreateModalOpen(true);
                   }}
