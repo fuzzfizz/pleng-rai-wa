@@ -382,23 +382,16 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
     router.push("/");
   }, [sendLeaveSignal, router]);
 
-  // Listen for browser back navigation (popstate), tab close (pagehide), and component unmount
+  // Listen for browser back navigation (popstate)
   useEffect(() => {
     const handlePopState = () => {
       sendLeaveSignal();
     };
-    const handlePageHide = () => {
-      sendLeaveSignal();
-    };
 
     window.addEventListener("popstate", handlePopState);
-    window.addEventListener("pagehide", handlePageHide);
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      window.removeEventListener("pagehide", handlePageHide);
-      // Trigger leave signal when component unmounts (client-side route change or back)
-      sendLeaveSignal();
     };
   }, [sendLeaveSignal]);
 
