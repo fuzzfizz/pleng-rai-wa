@@ -49,8 +49,20 @@ Thumbs.db
 # Superpowers scratch
 /.superpowers/
 
-# Local workflow & backlog notes
+# Local workflow, backlog notes & private requirements
 idea.md
 idea*.md
 should fix.md
 should-fix*.md
+Requirement*.md
+*requirement*.md
+*Requirement*.md
+PLAN.md
+CLAUDE.md
+AGENTS.md
+skills-lock.json
+
+# Internal architecture plans, specs & screenshots
+/docs/
+/.agents/
+scripts/screenshots/
