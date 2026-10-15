@@ -66,11 +66,18 @@ describe("Mobile Nav & Room UX Polish (Issues 1, 2, 3)", () => {
         expect(html).toContain('class="hidden sm:inline">เข้าสู่ระบบ / สมัครสมาชิก</span>');
         expect(html).toContain('class="sm:hidden">เข้าสู่ระบบ</span>');
 
-        // Right side container gap includes mobile gap-1.5
-        expect(html).toContain("gap-1.5 sm:gap-3 lg:gap-3.5");
+        // Right side container gap includes mobile gap-1.5 and sm:gap-2.5
+        expect(html).toContain("gap-1.5 sm:gap-2.5 lg:gap-3.5");
+
+        // Brand logo has shrink-0 and whitespace-nowrap
+        expect(html).toContain("shrink-0 whitespace-nowrap");
+        // Title has whitespace-nowrap
+        expect(html).toContain("whitespace-nowrap");
+        // Subtitle is hidden on mobile screens (< sm)
+        expect(html).toContain("hidden sm:block text-[11px] sm:text-xs lg:text-sm");
       });
 
-      it("renders user profile pill with mobile max-width to avoid crowding settings menu", () => {
+      it("renders compact circular avatar on mobile to save space and avoid crowding navbar", () => {
         vi.spyOn(useAuthHook, "useAuth").mockReturnValue({
           user: { id: "u-123", email: "test@example.com" } as any,
           profile: {
@@ -90,10 +97,14 @@ describe("Mobile Nav & Room UX Polish (Issues 1, 2, 3)", () => {
 
         const html = renderToString(React.createElement(NavHeader));
 
-        // Display name has constrained max-width on mobile
-        expect(html).toContain("max-w-[70px] xs:max-w-[100px] sm:max-w-[140px]");
+        // Display name is hidden on mobile screens (< sm) to save ~80px horizontal space
+        expect(html).toContain("hidden sm:inline font-semibold text-stone-800 dark:text-stone-200 max-w-[140px] lg:max-w-[200px] truncate");
+        // Button contains title with display name for accessibility and tooltip
+        expect(html).toContain('title="ดีเจเพลงอินดี้สุดเท่"');
         expect(html).toContain("ดีเจเพลงอินดี้สุดเท่");
         expect(html).toContain("🎧");
+        // Button has touch target classes
+        expect(html).toContain("min-h-[44px] min-w-[44px]");
       });
     });
 
@@ -240,6 +251,7 @@ describe("Mobile Nav & Room UX Polish (Issues 1, 2, 3)", () => {
       // (SettingsMenu renders either its SSR placeholder div or trigger button)
       const hasSettingsMenu =
         html.includes("ตั้งค่าระบบ") ||
+        html.includes("w-9 h-9 sm:w-11 sm:h-11 lg:w-13 lg:h-13 rounded-full") ||
         html.includes("w-11 h-11 lg:w-13 lg:h-13 rounded-full");
       expect(hasSettingsMenu).toBe(true);
 

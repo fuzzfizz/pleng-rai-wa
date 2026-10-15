@@ -198,7 +198,7 @@ export function SettingsMenu({
     // Avoid SSR hydration layout shift
     return (
       <div
-        className={`w-11 h-11 lg:w-13 lg:h-13 rounded-full border border-stone-200 dark:border-stone-800 bg-stone-100/60 dark:bg-stone-900/60 ${className}`}
+        className={`min-h-[44px] min-w-[44px] w-9 h-9 sm:w-11 sm:h-11 lg:w-13 lg:h-13 rounded-full border border-stone-200 dark:border-stone-800 bg-stone-100/60 dark:bg-stone-900/60 ${className}`}
         aria-hidden="true"
       />
     );
@@ -218,14 +218,14 @@ export function SettingsMenu({
         aria-haspopup="dialog"
         aria-label="ตั้งค่าระบบและระดับเสียง (Settings)"
         title="ตั้งค่าระบบ (Settings)"
-        className={`relative inline-flex items-center justify-center min-h-[44px] min-w-[44px] w-11 h-11 lg:w-13 lg:h-13 rounded-full transition-all duration-200 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 shadow-sm ${
+        className={`relative inline-flex items-center justify-center min-h-[44px] min-w-[44px] w-9 h-9 sm:w-11 sm:h-11 lg:w-13 lg:h-13 rounded-full transition-all duration-200 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 shadow-sm shrink-0 ${
           isOpen
             ? "bg-amber-500/15 border-2 border-amber-500 text-amber-600 dark:text-amber-400"
             : "bg-white/90 dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300"
         }`}
       >
         <span className="sr-only">ตั้งค่าระบบ</span>
-        <SlidersHorizontal className="w-5 h-5 lg:w-5.5 lg:h-5.5 text-current transition-transform duration-200" />
+        <SlidersHorizontal className="w-4.5 h-4.5 sm:w-5 sm:h-5 lg:w-5.5 lg:h-5.5 text-current transition-transform duration-200" />
       </button>
 
       {/* Settings Popover Dropdown */}

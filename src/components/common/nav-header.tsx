@@ -114,28 +114,28 @@ export function NavHeader({
   return (
     <>
       <header
-        className={`w-full flex items-center justify-between z-20 transition-colors duration-200 py-3 sm:py-3.5 lg:py-5 lg:px-2 ${className}`}
+        className={`w-full flex items-center justify-between z-20 transition-colors duration-200 py-2.5 sm:py-3.5 lg:py-5 lg:px-2 ${className}`}
       >
         {/* Brand Logo */}
         <Link
           href="/"
-          className="flex items-center gap-3 group cursor-pointer"
+          className="flex items-center gap-2 sm:gap-3 group cursor-pointer shrink-0 whitespace-nowrap"
           onClick={() => {
             try {
               soundEffects.click();
             } catch {}
           }}
         >
-          <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
-            <Disc3 className="w-6 h-6 lg:w-7.5 lg:h-7.5 text-stone-950 animate-[spin_8s_linear_infinite]" />
+          <div className="w-9 h-9 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+            <Disc3 className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7.5 lg:h-7.5 text-stone-950 animate-[spin_8s_linear_infinite]" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 dark:text-stone-100 font-sans group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+              <span className="text-lg sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 dark:text-stone-100 font-sans whitespace-nowrap group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 เพลงไรวะ?
               </span>
             </div>
-            <p className="text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 font-sans tracking-wide">
+            <p className="hidden sm:block text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 font-sans tracking-wide">
               Vinyl & Music Quiz
             </p>
           </div>
@@ -173,16 +173,16 @@ export function NavHeader({
         )}
 
         {/* Right Auth Area & Settings Menu */}
-        <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-3.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 lg:gap-3.5 shrink-0">
           {/* Settings Menu (Theme & Master Volume) */}
           <SettingsMenu />
 
           {isLoading ? (
             // Loading Skeleton
-            <div className="h-9 sm:h-10 lg:h-12 w-28 lg:w-44 bg-stone-200 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700/40 rounded-full animate-pulse" />
+            <div className="h-9 sm:h-10 lg:h-12 w-9 sm:w-28 lg:w-44 bg-stone-200 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700/40 rounded-full animate-pulse shrink-0" />
           ) : user && profile ? (
             // Authenticated User Pill
-            <div className="relative" ref={menuRef}>
+            <div className="relative shrink-0" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => {
@@ -191,17 +191,18 @@ export function NavHeader({
                   } catch {}
                   setIsUserMenuOpen((prev) => !prev);
                 }}
-                className="flex items-center gap-2.5 py-2 lg:py-2.5 px-3.5 lg:px-5 text-xs sm:text-sm lg:text-base rounded-full bg-stone-100 dark:bg-stone-900/80 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                className="flex items-center sm:gap-2.5 p-1 sm:py-2 sm:px-3.5 lg:py-2.5 lg:px-5 min-h-[44px] min-w-[44px] justify-center rounded-full bg-stone-100 dark:bg-stone-900/80 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
                 aria-expanded={isUserMenuOpen}
+                title={profile.displayName || "โปรไฟล์ผู้ใช้"}
               >
-                <span className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9.5 lg:h-9.5 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm sm:text-base lg:text-lg">
+                <span className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9.5 lg:h-9.5 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm sm:text-base lg:text-lg shrink-0">
                   {profile.avatar || "🦊"}
                 </span>
-                <span className="font-semibold text-stone-800 dark:text-stone-200 max-w-[70px] xs:max-w-[100px] sm:max-w-[140px] lg:max-w-[200px] truncate">
+                <span className="hidden sm:inline font-semibold text-stone-800 dark:text-stone-200 max-w-[140px] lg:max-w-[200px] truncate">
                   {profile.displayName || "นักฟังเพลง"}
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 lg:w-5 lg:h-5 text-stone-500 dark:text-stone-400 transition-transform ${
+                  className={`hidden sm:inline w-4 h-4 lg:w-5 lg:h-5 text-stone-500 dark:text-stone-400 transition-transform ${
                     isUserMenuOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -263,7 +264,7 @@ export function NavHeader({
             <button
               type="button"
               onClick={() => handleOpenAuth("signin")}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4.5 py-2 sm:py-2.5 lg:px-6 lg:py-3.5 text-xs sm:text-sm lg:text-base font-bold rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm cursor-pointer active:scale-95 min-h-[44px] lg:min-h-[52px]"
+              className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2.5 lg:px-6 lg:py-3.5 text-xs sm:text-sm lg:text-base font-bold rounded-full bg-white dark:bg-stone-900/90 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm cursor-pointer active:scale-95 min-h-[44px] lg:min-h-[52px] shrink-0"
             >
               <LogIn className="w-4 h-4 lg:w-5 lg:h-5 text-amber-500 shrink-0" />
               <span className="hidden sm:inline">เข้าสู่ระบบ / สมัครสมาชิก</span>
@@ -276,7 +277,7 @@ export function NavHeader({
             <button
               type="button"
               onClick={() => setIsMobileNavOpen((prev) => !prev)}
-              className="md:hidden p-2 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="md:hidden p-2 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
               title="เมนู"
             >
               {isMobileNavOpen ? (
