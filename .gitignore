@@ -48,3 +48,9 @@ Thumbs.db
 
 # Superpowers scratch
 /.superpowers/
+
+# Local workflow & backlog notes
+idea.md
+idea*.md
+should fix.md
+should-fix*.md
