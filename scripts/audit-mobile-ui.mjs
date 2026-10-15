@@ -74,13 +74,14 @@ function getTestHarnessHtml() {
           <path d="M20 12h2"></path>
         </svg>
       </div>
-      <div>
+      <!-- Brand Text: Hidden on mobile (< sm) so only the icon displays, avoiding any crowding -->
+      <div id="brand-text-container" class="hidden sm:block">
         <div class="flex items-center gap-1.5">
           <span id="brand-title" class="text-lg sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 dark:text-stone-100 font-sans whitespace-nowrap">
             เพลงไรวะ?
           </span>
         </div>
-        <p class="hidden sm:block text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 font-sans tracking-wide">
+        <p class="text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 font-sans tracking-wide">
           Vinyl & Music Quiz
         </p>
       </div>
@@ -400,15 +401,12 @@ async function runMobileAudit() {
     console.log(`✓ Navigated to ${targetUrl}`);
 
     const navbarMetrics375 = await page.evaluate(() => {
-      const title = document.getElementById('brand-title');
+      const textContainer = document.getElementById('brand-text-container');
       const header = document.getElementById('navbar-header');
       const doc = document.documentElement;
-      const titleRect = title ? title.getBoundingClientRect() : null;
+      const isTextHidden = !textContainer || window.getComputedStyle(textContainer).display === 'none';
       return {
-        titleText: title ? title.textContent.trim() : null,
-        clientHeight: title ? title.clientHeight : 0,
-        scrollHeight: title ? title.scrollHeight : 0,
-        height: titleRect ? titleRect.height : 0,
+        isTextHidden,
         headerScrollWidth: header ? header.scrollWidth : 0,
         headerClientWidth: header ? header.clientWidth : 0,
         docScrollWidth: doc.scrollWidth,
@@ -417,24 +415,20 @@ async function runMobileAudit() {
     });
 
     console.log('\n📊 Navbar & Brand Title Metrics on 375px Screen:');
-    console.log(`   - Title Text: "${navbarMetrics375.titleText}"`);
-    console.log(`   - Title clientHeight: ${navbarMetrics375.clientHeight}px`);
-    console.log(`   - Title scrollHeight: ${navbarMetrics375.scrollHeight}px`);
-    console.log(`   - Title bounding height: ${navbarMetrics375.height}px`);
+    console.log(`   - Brand text hidden on mobile (icon only): ${navbarMetrics375.isTextHidden ? 'YES' : 'NO'}`);
     console.log(`   - Header scrollWidth vs clientWidth: ${navbarMetrics375.headerScrollWidth}px / ${navbarMetrics375.headerClientWidth}px`);
     console.log(`   - Document scrollWidth vs windowWidth: ${navbarMetrics375.docScrollWidth}px / ${navbarMetrics375.windowWidth}px`);
 
-    const isSingleLine375 = navbarMetrics375.clientHeight === navbarMetrics375.scrollHeight && navbarMetrics375.height < 40;
     const hasZeroOverflow375 = navbarMetrics375.headerScrollWidth <= navbarMetrics375.headerClientWidth && navbarMetrics375.docScrollWidth <= navbarMetrics375.windowWidth;
 
-    console.log(`   - Brand title single line (NO wrapping): ${isSingleLine375 ? '✅ PASS' : '❌ FAIL'}`);
+    console.log(`   - Brand text hidden on mobile (< sm): ${navbarMetrics375.isTextHidden ? '✅ PASS' : '❌ FAIL'}`);
     console.log(`   - Zero horizontal overflow on navbar: ${hasZeroOverflow375 ? '✅ PASS' : '❌ FAIL'}`);
 
-    if (!isSingleLine375 || !hasZeroOverflow375) {
-      console.error(`❌ Mobile navbar check failed on 375px! SingleLine: ${isSingleLine375}, ZeroOverflow: ${hasZeroOverflow375}`);
+    if (!navbarMetrics375.isTextHidden || !hasZeroOverflow375) {
+      console.error(`❌ Mobile navbar check failed on 375px! TextHidden: ${navbarMetrics375.isTextHidden}, ZeroOverflow: ${hasZeroOverflow375}`);
       exitCode = 1;
     } else {
-      console.log('✅ PASS: Brand title stays cleanly on a single line without wrapping on 375px mobile screen!');
+      console.log('✅ PASS: Only brand icon is displayed on 375px mobile screen with zero horizontal overflow!');
     }
 
     const screenshotNav375 = path.join(SCREENSHOT_DIR, 'navbar-mobile-375px.png');
@@ -454,15 +448,12 @@ async function runMobileAudit() {
     });
 
     const navbarMetrics360 = await page.evaluate(() => {
-      const title = document.getElementById('brand-title');
+      const textContainer = document.getElementById('brand-text-container');
       const header = document.getElementById('navbar-header');
       const doc = document.documentElement;
-      const titleRect = title ? title.getBoundingClientRect() : null;
+      const isTextHidden = !textContainer || window.getComputedStyle(textContainer).display === 'none';
       return {
-        titleText: title ? title.textContent.trim() : null,
-        clientHeight: title ? title.clientHeight : 0,
-        scrollHeight: title ? title.scrollHeight : 0,
-        height: titleRect ? titleRect.height : 0,
+        isTextHidden,
         headerScrollWidth: header ? header.scrollWidth : 0,
         headerClientWidth: header ? header.clientWidth : 0,
         docScrollWidth: doc.scrollWidth,
@@ -471,24 +462,20 @@ async function runMobileAudit() {
     });
 
     console.log('\n📊 Navbar & Brand Title Metrics on 360px Screen:');
-    console.log(`   - Title Text: "${navbarMetrics360.titleText}"`);
-    console.log(`   - Title clientHeight: ${navbarMetrics360.clientHeight}px`);
-    console.log(`   - Title scrollHeight: ${navbarMetrics360.scrollHeight}px`);
-    console.log(`   - Title bounding height: ${navbarMetrics360.height}px`);
+    console.log(`   - Brand text hidden on mobile (icon only): ${navbarMetrics360.isTextHidden ? 'YES' : 'NO'}`);
     console.log(`   - Header scrollWidth vs clientWidth: ${navbarMetrics360.headerScrollWidth}px / ${navbarMetrics360.headerClientWidth}px`);
     console.log(`   - Document scrollWidth vs windowWidth: ${navbarMetrics360.docScrollWidth}px / ${navbarMetrics360.windowWidth}px`);
 
-    const isSingleLine360 = navbarMetrics360.clientHeight === navbarMetrics360.scrollHeight && navbarMetrics360.height < 40;
     const hasZeroOverflow360 = navbarMetrics360.headerScrollWidth <= navbarMetrics360.headerClientWidth && navbarMetrics360.docScrollWidth <= navbarMetrics360.windowWidth;
 
-    console.log(`   - Brand title single line (NO wrapping): ${isSingleLine360 ? '✅ PASS' : '❌ FAIL'}`);
+    console.log(`   - Brand text hidden on 360px (< sm): ${navbarMetrics360.isTextHidden ? '✅ PASS' : '❌ FAIL'}`);
     console.log(`   - Zero horizontal overflow on navbar: ${hasZeroOverflow360 ? '✅ PASS' : '❌ FAIL'}`);
 
-    if (!isSingleLine360 || !hasZeroOverflow360) {
-      console.error(`❌ Mobile navbar check failed on 360px! SingleLine: ${isSingleLine360}, ZeroOverflow: ${hasZeroOverflow360}`);
+    if (!navbarMetrics360.isTextHidden || !hasZeroOverflow360) {
+      console.error(`❌ Mobile navbar check failed on 360px! TextHidden: ${navbarMetrics360.isTextHidden}, ZeroOverflow: ${hasZeroOverflow360}`);
       exitCode = 1;
     } else {
-      console.log('✅ PASS: Brand title stays cleanly on a single line without wrapping on 360px mobile screen!');
+      console.log('✅ PASS: Only brand icon is displayed on 360px screen with zero horizontal overflow!');
     }
 
     // Reset viewport back to 375x667 for Settings Dialog test

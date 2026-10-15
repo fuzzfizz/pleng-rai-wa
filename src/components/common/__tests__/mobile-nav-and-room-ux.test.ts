@@ -69,12 +69,11 @@ describe("Mobile Nav & Room UX Polish (Issues 1, 2, 3)", () => {
         // Right side container gap includes mobile gap-1.5 and sm:gap-2.5
         expect(html).toContain("gap-1.5 sm:gap-2.5 lg:gap-3.5");
 
-        // Brand logo has shrink-0 and whitespace-nowrap
-        expect(html).toContain("shrink-0 whitespace-nowrap");
-        // Title has whitespace-nowrap
+        // Brand logo has shrink-0 and title is hidden on mobile (< sm)
+        expect(html).toContain("shrink-0");
+        expect(html).toContain("hidden sm:block");
         expect(html).toContain("whitespace-nowrap");
-        // Subtitle is hidden on mobile screens (< sm)
-        expect(html).toContain("hidden sm:block text-[11px] sm:text-xs lg:text-sm");
+        expect(html).toContain("เพลงไรวะ?");
       });
 
       it("renders compact circular avatar on mobile to save space and avoid crowding navbar", () => {

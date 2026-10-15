@@ -119,23 +119,26 @@ export function NavHeader({
         {/* Brand Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 sm:gap-3 group cursor-pointer shrink-0 whitespace-nowrap"
+          className="flex items-center gap-2 sm:gap-3 group cursor-pointer shrink-0"
+          title="เพลงไรวะ? (หน้าแรก)"
+          aria-label="เพลงไรวะ? (หน้าแรก)"
           onClick={() => {
             try {
               soundEffects.click();
             } catch {}
           }}
         >
-          <div className="w-9 h-9 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
-            <Disc3 className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7.5 lg:h-7.5 text-stone-950 animate-[spin_8s_linear_infinite]" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform shrink-0">
+            <Disc3 className="w-5.5 h-5.5 sm:w-6 sm:h-6 lg:w-7.5 lg:h-7.5 text-stone-950 animate-[spin_8s_linear_infinite]" />
           </div>
-          <div>
+          {/* Brand Text: Hidden on mobile (< sm) so only the icon displays, avoiding any crowding */}
+          <div className="hidden sm:block">
             <div className="flex items-center gap-1.5">
               <span className="text-lg sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 dark:text-stone-100 font-sans whitespace-nowrap group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 เพลงไรวะ?
               </span>
             </div>
-            <p className="hidden sm:block text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 font-sans tracking-wide">
+            <p className="text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 font-sans tracking-wide">
               Vinyl & Music Quiz
             </p>
           </div>
