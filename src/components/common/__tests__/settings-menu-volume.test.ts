@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import React from "react";
+import { renderToString } from "react-dom/server";
 import {
+  SettingsMenu,
   getInitialSettingsVolumeState,
   handleMasterSliderChange,
   handleSfxSliderChange,
@@ -9,6 +12,15 @@ import {
 } from "../settings-menu";
 import * as audioVolumeModule from "@/lib/audio-volume";
 import { soundEffects } from "@/lib/sound-effects";
+
+vi.mock("@/contexts/theme-context", () => ({
+  useTheme: () => ({
+    theme: "light",
+    resolvedTheme: "light",
+    setTheme: vi.fn(),
+    toggleTheme: vi.fn(),
+  }),
+}));
 
 describe("SettingsMenu volume helpers and state", () => {
   let mockStorage: Record<string, string>;
@@ -170,6 +182,42 @@ describe("SettingsMenu volume helpers and state", () => {
       handleTestSfxAudio();
 
       expect(soundEffects.correct).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Mobile Screen Responsiveness & Overflow Prevention", () => {
+    it("renders mobile backdrop overlay with fixed inset-0 sm:hidden when open", () => {
+      const html = renderToString(
+        React.createElement(SettingsMenu, { defaultMounted: true, defaultOpen: true })
+      );
+
+      // Verify mobile backdrop exists to catch outside taps and blur background
+      expect(html).toContain("fixed inset-0 bg-black/40 backdrop-blur-xs z-40 sm:hidden");
+    });
+
+    it("renders responsive dialog classes (fixed inset-x-3 on mobile, sm:absolute sm:right-0 on desktop) preventing horizontal overflow", () => {
+      const html = renderToString(
+        React.createElement(SettingsMenu, { defaultMounted: true, defaultOpen: true })
+      );
+
+      // Verify mobile fixed positioning with safe horizontal insets and auto width centering
+      expect(html).toContain("fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full");
+      expect(html).toContain("sm:w-80 max-w-[calc(100vw-24px)] mx-auto");
+      expect(html).toContain('role="dialog"');
+      expect(html).toContain('aria-label="เมนูตั้งค่าระบบ"');
+    });
+
+    it("ensures internal controls and rows have w-full and min-w-0 to avoid overflow on narrow screens", () => {
+      const html = renderToString(
+        React.createElement(SettingsMenu, { defaultMounted: true, defaultOpen: true })
+      );
+
+      // Header row
+      expect(html).toContain("w-full min-w-0");
+      // Slider inputs
+      expect(html).toContain('aria-label="แถบปรับระดับเสียงรวม"');
+      expect(html).toContain('aria-label="แถบปรับระดับเสียงเอฟเฟกต์"');
+      expect(html).toContain("relative flex-1 min-w-0 flex items-center");
     });
   });
 });
