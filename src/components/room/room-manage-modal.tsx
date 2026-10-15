@@ -31,9 +31,7 @@ export interface RoomManageModalProps {
 
 export const MAX_PLAYERS_OPTIONS: { value: number; label: string }[] = [
   { value: 4, label: "4 คน" },
-  { value: 6, label: "6 คน" },
   { value: 8, label: "8 คน (แนะนำ)" },
-  { value: 10, label: "10 คน" },
   { value: 12, label: "12 คน" },
 ];
 
@@ -209,7 +207,7 @@ export function RoomManageModal({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {MAX_PLAYERS_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}

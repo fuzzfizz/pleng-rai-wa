@@ -231,7 +231,7 @@ describe("Frontend UI/UX Items 1, 2, 3, 4, 6 Improvements", () => {
   // ---------------------------------------------------------------------------
   describe("Item 1 & Audio Slice Option: Max Players & Slice Random Region Settings", () => {
     it("defines standard max players preset options", () => {
-      expect(MAX_PLAYERS_OPTIONS.map((o) => o.value)).toEqual([4, 6, 8, 10, 12]);
+      expect(MAX_PLAYERS_OPTIONS.map((o) => o.value)).toEqual([4, 8, 12]);
       expect(MAX_PLAYERS_OPTIONS.find((o) => o.value === 8)?.label).toContain("แนะนำ");
     });
 

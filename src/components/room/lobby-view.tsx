@@ -183,7 +183,7 @@ export function LobbyView({
       <div className="absolute bottom-16 right-1/4 w-80 h-80 bg-orange-500/10 dark:bg-orange-700/08 rounded-full blur-3xl pointer-events-none" />
 
       {/* 1. Top Navigation Bar */}
-      <header className="w-full max-w-5xl lg:max-w-6xl mx-auto flex items-center justify-between z-10 py-2">
+      <header className="w-full max-w-5xl lg:max-w-6xl mx-auto flex items-center justify-between z-30 py-2">
         <div className="flex items-center gap-3">
           <button
             onClick={handleLeave}
@@ -262,7 +262,7 @@ export function LobbyView({
           </div>
 
           {/* Action Buttons Row: QR Code & Host Settings */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
             <button
               onClick={() => {
                 try {
@@ -309,10 +309,10 @@ export function LobbyView({
         </div>
 
         {/* 3. Settings Summary Pill */}
-        <div className="w-full max-w-2xl lg:max-w-4xl flex items-center justify-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 lg:px-6 lg:py-3 rounded-full bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 text-xs lg:text-sm text-stone-700 dark:text-stone-300 shadow-sm text-center">
+        <div className="w-full max-w-2xl lg:max-w-4xl flex items-center justify-center px-2">
+          <div className="max-w-full flex items-center justify-center gap-2 px-3.5 py-2 lg:px-6 lg:py-2.5 rounded-2xl sm:rounded-full bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 text-xs lg:text-sm text-stone-700 dark:text-stone-300 shadow-sm text-center">
             <Sliders className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span className="truncate">{settingsSummary}</span>
+            <span className="break-words text-balance">{settingsSummary}</span>
           </div>
         </div>
 

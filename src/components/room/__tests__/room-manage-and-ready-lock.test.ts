@@ -9,8 +9,8 @@ import type { Player, RoomSettings } from "@/types";
 
 describe("Item 1: Pre-creation Max Players & Room Settings Separation", () => {
   describe("Create Room Modal Max Players Options", () => {
-    it("provides the standard presets: 4, 6, 8, 10, 12 with 8 as default/recommended", () => {
-      expect(CREATE_MAX_PLAYERS_OPTIONS.map((o) => o.value)).toEqual([4, 6, 8, 10, 12]);
+    it("provides the standard presets: 4, 8, 12 with 8 as default/recommended", () => {
+      expect(CREATE_MAX_PLAYERS_OPTIONS.map((o) => o.value)).toEqual([4, 8, 12]);
       const defaultOpt = CREATE_MAX_PLAYERS_OPTIONS.find((o) => o.value === 8);
       expect(defaultOpt?.label).toContain("8 คน (แนะนำ)");
     });

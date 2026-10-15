@@ -63,9 +63,7 @@ export const ROUND_TIMEOUT_OPTIONS: { value: number; label: string }[] = [
 
 export const MAX_PLAYERS_OPTIONS: { value: number; label: string }[] = [
   { value: 4, label: "4 คน" },
-  { value: 6, label: "6 คน" },
   { value: 8, label: "8 คน (แนะนำ)" },
-  { value: 10, label: "10 คน" },
   { value: 12, label: "12 คน" },
 ];
 
