@@ -27,6 +27,7 @@ vi.mock("@/contexts/theme-context", () => ({
 
 import { NavHeader } from "../nav-header";
 import { LobbyView } from "@/components/room/lobby-view";
+import { ActiveRoomsTable } from "@/components/home/active-rooms-table";
 import {
   getAutoFilledProfileData,
   validateNickname,
@@ -307,6 +308,29 @@ describe("Mobile Nav & Room UX Polish (Issues 1, 2, 3)", () => {
       // Verify old standalone mute button is NOT in the lobby view
       expect(html).not.toContain("เปิดเสียงเอฟเฟกต์");
       expect(html).not.toContain("ปิดเสียงเอฟเฟกต์");
+    });
+  });
+
+  // =========================================================================
+  // Task 4: ActiveRoomsTable Direct Room Join & Profile Integration
+  // =========================================================================
+  describe("ActiveRoomsTable Direct Room Join & Profile Integration", () => {
+    it("renders ActiveRoomsTable without errors", () => {
+      vi.spyOn(useAuthHook, "useAuth").mockReturnValue({
+        user: { id: "u-1" } as any,
+        profile: { id: "u-1", displayName: "028 อธิษฐ์", avatar: "🦊" } as any,
+        isLoading: false,
+        isGuest: false,
+        refreshProfile: vi.fn(),
+        signInWithGoogle: vi.fn(),
+        signUpWithEmail: vi.fn(),
+        signInWithEmail: vi.fn(),
+        signOut: vi.fn(),
+        updateProfile: vi.fn(),
+      });
+
+      const html = renderToString(React.createElement(ActiveRoomsTable));
+      expect(html).toContain("ห้องที่กำลังเปิดเล่นอยู่");
     });
   });
 });

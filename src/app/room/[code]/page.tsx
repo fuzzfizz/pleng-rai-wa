@@ -472,7 +472,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
       isCodeValid,
       hasStoredSession: Boolean(storedSession),
       hasRealtimePlayer: Boolean(roomRealtime.myPlayer),
-      isAuthenticated: Boolean(user),
+      isAuthenticated: Boolean(user || profile?.displayName),
       hasDisplayName: Boolean(profile?.displayName?.trim()),
     });
 

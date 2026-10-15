@@ -100,11 +100,23 @@ export function ActiveRoomsTable() {
     return () => clearInterval(interval);
   }, [fetchActiveRooms]);
 
-  // Handle clicking "Join" on a room row
+  // Handle clicking "Join" on a room row or card
   const handleOpenJoin = (room: ActiveRoomItem) => {
+    // If room is NOT locked, navigate directly to /room/[code]!
+    // Authenticated users will be auto-joined seamlessly on /room/[code].
+    // Guest users will see the unified guest join card on /room/[code].
+    if (!room.isLocked) {
+      router.push(`/room/${room.roomCode}`);
+      return;
+    }
+
+    // Only if the room is locked with a password do we prompt for the password
     setJoiningRoom(room);
     setJoinPassword("");
     setJoinError(null);
+    if (profile?.displayName) {
+      setJoinNickname(profile.displayName);
+    }
   };
 
   const [deletingRoomCode, setDeletingRoomCode] = useState<string | null>(null);
@@ -164,12 +176,12 @@ export function ActiveRoomsTable() {
     }
   };
 
-  // Execute Join API call
+  // Execute Join API call (for locked rooms)
   const handleConfirmJoin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!joiningRoom) return;
 
-    const nickname = joinNickname.trim();
+    const nickname = (profile?.displayName || joinNickname).trim();
     if (!nickname) {
       setJoinError("กรุณากรอกชื่อเล่นของคุณ");
       return;
@@ -187,6 +199,8 @@ export function ActiveRoomsTable() {
     setIsJoining(true);
     setJoinError(null);
 
+    const userAvatar = profile?.avatar || "🦊";
+
     try {
       const res = await fetch("/api/room/join", {
         method: "POST",
@@ -194,6 +208,7 @@ export function ActiveRoomsTable() {
         body: JSON.stringify({
           roomCode: joiningRoom.roomCode,
           displayName: nickname,
+          avatar: userAvatar,
           password: joinPassword.trim() || undefined,
         }),
       });
@@ -210,12 +225,14 @@ export function ActiveRoomsTable() {
         playerId: data.playerId,
         sessionToken: data.sessionToken,
         displayName: nickname,
+        avatar: userAvatar,
         isHost: data.isHost,
       });
 
       if (typeof window !== "undefined") {
         try {
           window.localStorage.setItem("pleng_nickname", nickname);
+          window.sessionStorage.setItem("pleng_avatar", userAvatar);
         } catch {}
       }
 
@@ -561,25 +578,37 @@ export function ActiveRoomsTable() {
             </div>
 
             <form onSubmit={handleConfirmJoin} className="space-y-4">
-              {/* Nickname Input */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-                  ชื่อเล่นของคุณ (1-25 ตัวอักษร)
-                </label>
-                <input
-                  type="text"
-                  autoFocus={!joiningRoom.isLocked}
-                  placeholder="เช่น สายร้องเพลง, ดีเจจำเป็น"
-                  value={joinNickname}
-                  onChange={(e) => {
-                    setJoinNickname(e.target.value);
-                    if (joinError) setJoinError(null);
-                  }}
-                  maxLength={25}
-                  disabled={isJoining}
-                  className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none transition-colors"
-                />
-              </div>
+              {/* Nickname: Use Profile if Authenticated, else show input */}
+              {profile?.displayName ? (
+                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2.5 shadow-sm">
+                  <span className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-base shrink-0">
+                    {profile.avatar || "🦊"}
+                  </span>
+                  <div className="leading-relaxed">
+                    <span>เข้าร่วมในชื่อโปรไฟล์: </span>
+                    <strong className="font-bold text-amber-700 dark:text-amber-300">{profile.displayName}</strong>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+                    ชื่อเล่นของคุณ (1-25 ตัวอักษร)
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus={!joiningRoom.isLocked}
+                    placeholder="เช่น สายร้องเพลง, ดีเจจำเป็น"
+                    value={joinNickname}
+                    onChange={(e) => {
+                      setJoinNickname(e.target.value);
+                      if (joinError) setJoinError(null);
+                    }}
+                    maxLength={25}
+                    disabled={isJoining}
+                    className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl px-4 py-3 min-h-[44px] text-base sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none transition-colors"
+                  />
+                </div>
+              )}
 
               {/* Password Input (If Room is Locked) */}
               {joiningRoom.isLocked && (
@@ -621,7 +650,11 @@ export function ActiveRoomsTable() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isJoining || joinNickname.trim().length === 0}
+                  disabled={
+                    isJoining ||
+                    (!profile?.displayName && joinNickname.trim().length === 0) ||
+                    (joiningRoom.isLocked && joinPassword.trim().length === 0)
+                  }
                   className="flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
                 >
                   {isJoining ? (
