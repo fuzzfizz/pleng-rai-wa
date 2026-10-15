@@ -27,7 +27,13 @@ vi.mock("@/contexts/theme-context", () => ({
 
 import { NavHeader } from "../nav-header";
 import { LobbyView } from "@/components/room/lobby-view";
-import { getAutoFilledProfileData, validateNickname, resolveRoomViewMode, buildRoomUrl } from "@/app/room/[code]/page";
+import {
+  getAutoFilledProfileData,
+  validateNickname,
+  resolveRoomViewMode,
+  buildRoomUrl,
+  shouldAutoJoinRoom,
+} from "@/app/room/[code]/page";
 import { getRoomCodePlaceholder } from "@/app/page";
 import * as useAuthHook from "@/hooks/use-auth";
 import type { Player, RoomSettings } from "@/types";
@@ -184,6 +190,50 @@ describe("Mobile Nav & Room UX Polish (Issues 1, 2, 3)", () => {
 
       expect(buildRoomUrl("abc123")).toBe("/room/ABC123");
       expect(buildRoomUrl("abc123", { view: "tv" })).toBe("/room/ABC123?view=tv");
+    });
+
+    describe("shouldAutoJoinRoom Auto-Join Decision", () => {
+      const baseParams = {
+        isHydrated: true,
+        isAuthLoading: false,
+        isCodeValid: true,
+        hasStoredSession: false,
+        hasRealtimePlayer: false,
+        isAuthenticated: true,
+        hasDisplayName: true,
+      };
+
+      it("returns true when user is authenticated with displayName and no existing session", () => {
+        expect(shouldAutoJoinRoom(baseParams)).toBe(true);
+      });
+
+      it("returns false if user is guest (not authenticated)", () => {
+        expect(shouldAutoJoinRoom({ ...baseParams, isAuthenticated: false })).toBe(false);
+      });
+
+      it("returns false if user has no displayName in profile", () => {
+        expect(shouldAutoJoinRoom({ ...baseParams, hasDisplayName: false })).toBe(false);
+      });
+
+      it("returns false while auth is still loading", () => {
+        expect(shouldAutoJoinRoom({ ...baseParams, isAuthLoading: true })).toBe(false);
+      });
+
+      it("returns false if not yet hydrated", () => {
+        expect(shouldAutoJoinRoom({ ...baseParams, isHydrated: false })).toBe(false);
+      });
+
+      it("returns false if room code is invalid", () => {
+        expect(shouldAutoJoinRoom({ ...baseParams, isCodeValid: false })).toBe(false);
+      });
+
+      it("returns false if player already has a stored session", () => {
+        expect(shouldAutoJoinRoom({ ...baseParams, hasStoredSession: true })).toBe(false);
+      });
+
+      it("returns false if player is already active in realtime state", () => {
+        expect(shouldAutoJoinRoom({ ...baseParams, hasRealtimePlayer: true })).toBe(false);
+      });
     });
   });
 

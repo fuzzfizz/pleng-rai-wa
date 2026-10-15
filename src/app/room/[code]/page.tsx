@@ -113,9 +113,33 @@ export interface RoomPageProps {
 }
 
 /**
+ * Determines whether a visiting user should be automatically joined into the room
+ * using their registered account profile without showing the nickname entry form.
+ */
+export function shouldAutoJoinRoom(params: {
+  isHydrated: boolean;
+  isAuthLoading: boolean;
+  isCodeValid: boolean;
+  hasStoredSession: boolean;
+  hasRealtimePlayer: boolean;
+  isAuthenticated: boolean;
+  hasDisplayName: boolean;
+}): boolean {
+  return (
+    params.isHydrated &&
+    !params.isAuthLoading &&
+    params.isCodeValid &&
+    !params.hasStoredSession &&
+    !params.hasRealtimePlayer &&
+    params.isAuthenticated &&
+    params.hasDisplayName
+  );
+}
+
+/**
  * Loading skeleton displayed while hydrating session or params.
  */
-export function RoomLoadingSkeleton({ code }: { code?: string }): React.JSX.Element {
+export function RoomLoadingSkeleton({ code, message }: { code?: string; message?: string }): React.JSX.Element {
   return (
     <div className="min-h-screen w-full bg-[#FAF7F2] dark:bg-[#0c0a09] flex flex-col items-center justify-center p-4 selection:bg-amber-500 selection:text-stone-950">
       <div className="flex flex-col items-center text-center gap-4 animate-pulse">
@@ -123,7 +147,7 @@ export function RoomLoadingSkeleton({ code }: { code?: string }): React.JSX.Elem
           <Music className="w-8 h-8 text-amber-500 animate-spin" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">กำลังเชื่อมต่อห้องแข่งขัน...</h2>
+          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">{message || "กำลังเชื่อมต่อห้องแข่งขัน..."}</h2>
           {code && (
             <p className="font-mono text-sm text-stone-500 dark:text-stone-400 mt-1">รหัสห้อง: {code.toUpperCase()}</p>
           )}
@@ -173,14 +197,16 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   const [isHydrated, setIsHydrated] = useState(false);
   const [storedSession, setStoredSession] = useState<PlayerSession | null>(null);
 
-  const { profile } = useAuth();
+  const { user, profile, isLoading: isAuthLoading } = useAuth();
   const [selectedAvatar, setSelectedAvatar] = useState<string>(PRESET_AVATARS[0].emoji);
 
   // Guest Nickname Entry State
   const [nickname, setNickname] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [isAutoJoining, setIsAutoJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const hasUserEditedNickname = useRef(false);
+  const autoJoinAttemptedRef = useRef(false);
 
   // Song catalog for autocomplete search
   const [songLibrary, setSongLibrary] = useState<Song[]>([]);
@@ -370,61 +396,107 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
     };
   }, [sendLeaveSignal]);
 
+  // Core join execution helper (used by both auto-join and manual guest join)
+  const performJoin = useCallback(
+    async (joinName: string, joinAvatar: string, isAuto: boolean = false): Promise<boolean> => {
+      const validation = validateNickname(joinName);
+      if (!validation.valid) {
+        setJoinError(validation.error || "กรุณากรอกชื่อเล่น");
+        return false;
+      }
+
+      if (isAuto) {
+        setIsAutoJoining(true);
+      } else {
+        setIsJoining(true);
+      }
+      setJoinError(null);
+
+      try {
+        const res = await fetch("/api/room/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roomCode: cleanCode,
+            displayName: joinName.trim(),
+            avatar: joinAvatar,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          setJoinError(data.error || "ไม่สามารถเข้าร่วมห้องได้");
+          return false;
+        }
+
+        const newSession: PlayerSession = {
+          roomCode: cleanCode,
+          playerId: data.playerId,
+          sessionToken: data.sessionToken,
+          displayName: joinName.trim(),
+          avatar: joinAvatar,
+          isHost: Boolean(data.isHost),
+          savedAt: new Date().toISOString(),
+        };
+
+        savePlayerSession(cleanCode, newSession);
+        storedSessionRef.current = newSession;
+        hasLeftRef.current = false;
+        if (typeof window !== "undefined") {
+          try {
+            window.sessionStorage.setItem("pleng_avatar", joinAvatar);
+          } catch {}
+        }
+        setStoredSession(newSession);
+        return true;
+      } catch (err: any) {
+        setJoinError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง");
+        return false;
+      } finally {
+        if (isAuto) {
+          setIsAutoJoining(false);
+        } else {
+          setIsJoining(false);
+        }
+      }
+    },
+    [cleanCode]
+  );
+
+  // Auto-join effect for authenticated users with profile displayName
+  useEffect(() => {
+    const canAutoJoin = shouldAutoJoinRoom({
+      isHydrated,
+      isAuthLoading,
+      isCodeValid,
+      hasStoredSession: Boolean(storedSession),
+      hasRealtimePlayer: Boolean(roomRealtime.myPlayer),
+      isAuthenticated: Boolean(user),
+      hasDisplayName: Boolean(profile?.displayName?.trim()),
+    });
+
+    if (canAutoJoin && !autoJoinAttemptedRef.current) {
+      autoJoinAttemptedRef.current = true;
+      const avatarToUse = profile?.avatar || "🦊";
+      performJoin(profile!.displayName!, avatarToUse, true);
+    }
+  }, [
+    isHydrated,
+    isAuthLoading,
+    isCodeValid,
+    storedSession,
+    roomRealtime.myPlayer,
+    user,
+    profile?.displayName,
+    profile?.avatar,
+    performJoin,
+  ]);
+
   // Guest join submission handler
   const handleGuestJoin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-
-    const validation = validateNickname(nickname);
-    if (!validation.valid) {
-      setJoinError(validation.error || "กรุณากรอกชื่อเล่น");
-      return;
-    }
-
-    setIsJoining(true);
-    setJoinError(null);
-
-    try {
-      const res = await fetch("/api/room/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roomCode: cleanCode,
-          displayName: nickname.trim(),
-          avatar: selectedAvatar,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setJoinError(data.error || "ไม่สามารถเข้าร่วมห้องได้");
-        return;
-      }
-
-      const newSession: PlayerSession = {
-        roomCode: cleanCode,
-        playerId: data.playerId,
-        sessionToken: data.sessionToken,
-        displayName: nickname.trim(),
-        avatar: selectedAvatar,
-        isHost: Boolean(data.isHost),
-        savedAt: new Date().toISOString(),
-      };
-
-      savePlayerSession(cleanCode, newSession);
-      storedSessionRef.current = newSession;
-      hasLeftRef.current = false;
-      if (typeof window !== "undefined") {
-        try {
-          window.sessionStorage.setItem("pleng_avatar", selectedAvatar);
-        } catch {}
-      }
-      setStoredSession(newSession);
-    } catch (err: any) {
-      setJoinError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      setIsJoining(false);
-    }
+    await performJoin(nickname, selectedAvatar, false);
   };
 
   // 1. Invalid Room Code
@@ -432,9 +504,19 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
     return <InvalidRoomCodeCard code={rawCode} />;
   }
 
-  // 2. Loading Skeleton while checking session
-  if (!isHydrated) {
+  // 2. Loading Skeleton while checking session or waiting for initial auth resolution
+  if (!isHydrated || (isAuthLoading && !storedSession)) {
     return <RoomLoadingSkeleton code={cleanCode} />;
+  }
+
+  // 2.1 Auto-joining skeleton for authenticated users
+  if (isAutoJoining) {
+    return (
+      <RoomLoadingSkeleton
+        code={cleanCode}
+        message={`กำลังเข้าร่วมห้องในชื่อ "${profile?.displayName || "คุณ"}"...`}
+      />
+    );
   }
 
   // 3. TV Party Mode: Spectator big-screen display
