@@ -338,7 +338,7 @@ export function HostSettingsModal({
 
   const maxAvailableSongs = useMemo(() => {
     if (currentFilterConfig.type === "playlist") {
-      return selectedPlaylist?.songCount ?? 20;
+      return typeof selectedPlaylist?.songCount === "number" ? selectedPlaylist.songCount : 20;
     }
     if (currentFilterConfig.type === "genre") {
       if (filterMetadata) {
@@ -914,6 +914,29 @@ export function HostSettingsModal({
                 </button>
               ))}
             </div>
+
+            {/* Play all songs in playlist quick button if playlist selected */}
+            {isPlaylistMode && selectedPlaylist && isSelectedValid && (
+              <div className="mt-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft((prev) => ({ ...prev, totalRounds: selectedPlaylist.songCount }));
+                    setIsClampedWarning(false);
+                  }}
+                  className={`w-full min-h-[40px] py-2 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                    draft.totalRounds === selectedPlaylist.songCount
+                      ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50"
+                  }`}
+                >
+                  <span>🎶 เล่นทุกเพลงในเพลย์ลิสต์ ({selectedPlaylist.songCount} ข้อ)</span>
+                  {draft.totalRounds === selectedPlaylist.songCount && (
+                    <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Custom Rounds Input */}
             <div className="flex items-center gap-2.5 mt-3 pt-3 border-t border-stone-200 dark:border-stone-800/80">

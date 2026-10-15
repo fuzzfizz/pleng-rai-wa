@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Disc3,
+  ListMusic,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth/auth-modal";
@@ -28,6 +29,31 @@ export interface NavHeaderProps {
   className?: string;
   showNavigationLinks?: boolean;
 }
+
+export interface NavLinkItem {
+  label: string;
+  href: string;
+  icon?: React.ElementType;
+}
+
+export const NAV_LINKS: NavLinkItem[] = [
+  { label: "หน้าแรก", href: "/" },
+  { label: "ซ้อมเดี่ยว", href: "/play/solo" },
+  { label: "เพลย์ลิสต์", href: "/playlists", icon: ListMusic },
+];
+
+export const USER_MENU_ITEMS = {
+  myPlaylists: {
+    label: "🎶 เพลย์ลิสต์ของฉัน",
+    href: "/playlists?tab=my",
+  },
+  manageProfile: {
+    label: "จัดการโปรไฟล์",
+  },
+  signOut: {
+    label: "ออกจากระบบ",
+  },
+};
 
 export function NavHeader({
   className = "",
@@ -56,10 +82,7 @@ export function NavHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isUserMenuOpen]);
 
-  const navLinks: { label: string; href: string; icon?: React.ElementType }[] = [
-    { label: "หน้าแรก", href: "/" },
-    { label: "ซ้อมเดี่ยว", href: "/play/solo" },
-  ];
+  const navLinks = NAV_LINKS;
 
   const handleOpenAuth = (tab: "signin" | "signup" = "signin") => {
     try {
@@ -122,7 +145,9 @@ export function NavHeader({
         {showNavigationLinks && (
           <nav className="hidden md:flex items-center gap-2 bg-stone-100/90 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800/80 px-3.5 py-1.5 lg:px-5 lg:py-2 rounded-full backdrop-blur-md shadow-sm">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href;
+              const isActive =
+                pathname === link.href ||
+                (link.href !== "/" && pathname?.startsWith(link.href));
               const Icon = link.icon;
               return (
                 <Link
@@ -196,13 +221,27 @@ export function NavHeader({
                   </div>
 
                   <div className="py-1">
+                    <Link
+                      href={USER_MENU_ITEMS.myPlaylists.href}
+                      onClick={() => {
+                        try {
+                          soundEffects.click();
+                        } catch {}
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs sm:text-sm text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/70 rounded-xl transition-colors cursor-pointer text-left"
+                    >
+                      <ListMusic className="w-4 h-4 text-amber-500" />
+                      <span>{USER_MENU_ITEMS.myPlaylists.label}</span>
+                    </Link>
+
                     <button
                       type="button"
                       onClick={handleOpenProfile}
                       className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs sm:text-sm text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800/70 rounded-xl transition-colors cursor-pointer text-left"
                     >
                       <User className="w-4 h-4 text-amber-500" />
-                      <span>จัดการโปรไฟล์</span>
+                      <span>{USER_MENU_ITEMS.manageProfile.label}</span>
                     </button>
                   </div>
 
@@ -213,7 +252,7 @@ export function NavHeader({
                       className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs sm:text-sm text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer text-left"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>ออกจากระบบ</span>
+                      <span>{USER_MENU_ITEMS.signOut.label}</span>
                     </button>
                   </div>
                 </div>
@@ -254,13 +293,20 @@ export function NavHeader({
         <div className="md:hidden w-full bg-white/95 dark:bg-stone-900/95 border border-stone-200 dark:border-stone-800 rounded-2xl p-3 my-2 z-20 backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1">
           <nav className="flex flex-col gap-1">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href;
+              const isActive =
+                pathname === link.href ||
+                (link.href !== "/" && pathname?.startsWith(link.href));
               const Icon = link.icon;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  onClick={() => setIsMobileNavOpen(false)}
+                  onClick={() => {
+                    try {
+                      soundEffects.click();
+                    } catch {}
+                    setIsMobileNavOpen(false);
+                  }}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                     isActive
                       ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 font-semibold"

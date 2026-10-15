@@ -15,9 +15,16 @@ import {
   Mic2,
   Disc3,
   Loader2,
+  AlertTriangle,
+  LogIn,
+  ListMusic,
 } from "lucide-react";
 import type { SongFilterConfig, SongFilterType, Genre, Playlist } from "@/types";
 import { soundEffects } from "@/lib/sound-effects";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthModal } from "@/components/auth/auth-modal";
+import { PlaylistService } from "@/lib/services/playlist-service";
+import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
 
 export const MIN_SONGS_TO_PLAY = 5;
 
@@ -27,6 +34,7 @@ export interface SongSourceModalProps {
   currentFilter?: SongFilterConfig;
   onSelectFilter: (filter: SongFilterConfig) => void | Promise<void>;
   playlists?: Playlist[];
+  initialPlaylistSubTab?: "public" | "my";
 }
 
 export const FALLBACK_GENRES: Genre[] = [
@@ -103,12 +111,35 @@ export function SongSourceModal({
   onClose,
   currentFilter,
   onSelectFilter,
+  playlists: propPlaylists,
+  initialPlaylistSubTab,
 }: SongSourceModalProps): React.JSX.Element | null {
-  // Active Tab: all | era | genre | artist
-  const [activeTab, setActiveTab] = useState<SongFilterType>("all");
+  const { user, isGuest } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Active Tab: all | era | genre | artist | playlist
+  const [activeTab, setActiveTab] = useState<SongFilterType>(
+    currentFilter?.type || "all"
+  );
+
+  // Playlist sub-tab: "public" | "my"
+  const [playlistSubTab, setPlaylistSubTab] = useState<"public" | "my">(() => {
+    if (initialPlaylistSubTab) return initialPlaylistSubTab;
+    if (currentFilter?.type === "playlist" && currentFilter.playlistId) {
+      const found = (propPlaylists || []).find((p) => p.id === currentFilter.playlistId);
+      if (found && (!found.isPublic || (user && found.userId === user.id))) {
+        return "my";
+      }
+    }
+    return "public";
+  });
+  const [playlistSearch, setPlaylistSearch] = useState<string>("");
+  const [playlistWarningId, setPlaylistWarningId] = useState<string | null>(null);
 
   // Draft Filter state
-  const [draft, setDraft] = useState<SongFilterConfig>({ type: "all" });
+  const [draft, setDraft] = useState<SongFilterConfig>(
+    currentFilter || { type: "all" }
+  );
 
   // Loaded metadata from API
   const [genres, setGenres] = useState<Genre[]>(FALLBACK_GENRES);
@@ -116,6 +147,10 @@ export function SongSourceModal({
   const [artists, setArtists] = useState<string[]>([]);
   const [totalSongsCount, setTotalSongsCount] = useState<number>(0);
   const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(false);
+
+  // Internal playlists fallback if propPlaylists is not provided
+  const [internalPlaylists, setInternalPlaylists] = useState<Playlist[]>([]);
+  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
 
   // Artist search input
   const [artistSearch, setArtistSearch] = useState<string>("");
@@ -130,18 +165,67 @@ export function SongSourceModal({
     );
   }, [genres]);
 
+  // Load playlists fallback if propPlaylists not provided
+  useEffect(() => {
+    if (!isOpen || propPlaylists !== undefined) return;
+
+    let isMounted = true;
+    setIsLoadingPlaylists(true);
+
+    async function fetchPlaylists() {
+      try {
+        const publicPromise = PlaylistService.getPublicPlaylists();
+        const userPromise = user?.id
+          ? PlaylistService.getUserPlaylists(user.id)
+          : Promise.resolve([]);
+
+        const [publicList, userList] = await Promise.all([
+          publicPromise.catch(() => []),
+          userPromise.catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        const map = new Map<string, Playlist>();
+        for (const p of userList) map.set(p.id, p);
+        for (const p of publicList) {
+          if (!map.has(p.id)) map.set(p.id, p);
+        }
+        setInternalPlaylists(Array.from(map.values()));
+      } catch (err) {
+        console.warn("Could not fetch playlists in SongSourceModal:", err);
+      } finally {
+        if (isMounted) setIsLoadingPlaylists(false);
+      }
+    }
+
+    fetchPlaylists();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, propPlaylists, user?.id]);
+
+  const effectivePlaylists = propPlaylists ?? internalPlaylists;
+
   // Sync draft when modal opens
   useEffect(() => {
     if (isOpen) {
       const initial = currentFilter || { type: "all" };
-      if (initial.type === "playlist") {
-        setDraft({ type: "all" });
-        setActiveTab("all");
-      } else {
-        setDraft(initial);
-        setActiveTab(initial.type || "all");
-      }
+      setDraft(initial);
+      setActiveTab(initial.type || "all");
       setArtistSearch("");
+      setPlaylistSearch("");
+      setPlaylistWarningId(null);
+
+      if (initial.type === "playlist" && initial.playlistId) {
+        const currentP = effectivePlaylists.find((p) => p.id === initial.playlistId);
+        if (currentP && user && currentP.userId === user.id) {
+          setPlaylistSubTab("my");
+        } else {
+          setPlaylistSubTab("public");
+        }
+      }
     }
   }, [isOpen, currentFilter]);
 
@@ -209,10 +293,44 @@ export function SongSourceModal({
     return artists.filter((a) => a.toLowerCase().includes(q));
   }, [artists, artistSearch]);
 
+  // Filtered playlists based on sub-tab and search
+  const filteredPlaylists = useMemo(() => {
+    let list = effectivePlaylists;
+    if (playlistSubTab === "my") {
+      if (!user || isGuest) {
+        return [];
+      }
+      list = list.filter((p) => p.userId === user.id);
+    } else {
+      list = list.filter((p) => p.isPublic !== false);
+    }
+
+    if (playlistSearch.trim()) {
+      const q = playlistSearch.toLowerCase().trim();
+      list = list.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q)) ||
+          (p.authorName && p.authorName.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [effectivePlaylists, playlistSubTab, user, isGuest, playlistSearch]);
+
   // Current pill label
   const activePillLabel = useMemo(() => {
+    if (draft.type === "playlist") {
+      const targetPlaylist = effectivePlaylists.find((p) => p.id === draft.playlistId);
+      const title = targetPlaylist?.title;
+      return title
+        ? `🎶 เพลย์ลิสต์: ${title}`
+        : draft.playlistId
+        ? `🎶 เพลย์ลิสต์: ${draft.playlistId}`
+        : "🎶 ใช้เพลย์ลิสต์";
+    }
     return getSongFilterLabel(draft);
-  }, [draft]);
+  }, [draft, effectivePlaylists]);
 
   // Validation
   const isDraftValid = useMemo(() => {
@@ -224,6 +342,7 @@ export function SongSourceModal({
       return Boolean((draft.genreIds && draft.genreIds.length > 0) || draft.genreId);
     }
     if (draft.type === "artist") return Boolean(draft.artist && draft.artist.trim().length > 0);
+    if (draft.type === "playlist") return Boolean(draft.playlistId);
     return true;
   }, [draft]);
 
@@ -299,7 +418,7 @@ export function SongSourceModal({
         </div>
 
         {/* Filter Mode Navigation Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-950/70 border border-stone-200/80 dark:border-stone-800/80 shrink-0 text-xs font-semibold">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-950/70 border border-stone-200/80 dark:border-stone-800/80 shrink-0 text-xs font-semibold">
           {/* Tab 1: All */}
           <button
             type="button"
@@ -342,7 +461,7 @@ export function SongSourceModal({
             }`}
           >
             <span>📅</span>
-            <span>ตามยุค / ปี</span>
+            <span>ตามยุค</span>
           </button>
 
           {/* Tab 3: Genre */}
@@ -396,7 +515,23 @@ export function SongSourceModal({
             }`}
           >
             <span>🎤</span>
-            <span>ศิลปิน / วง</span>
+            <span>ศิลปิน</span>
+          </button>
+
+          {/* Tab 5: Playlist */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("playlist");
+            }}
+            className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px] col-span-2 sm:col-span-1 md:col-span-1 ${
+              activeTab === "playlist"
+                ? "bg-white dark:bg-stone-800 text-amber-800 dark:text-amber-300 shadow-sm font-bold"
+                : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
+            }`}
+          >
+            <span>🎶</span>
+            <span>เพลย์ลิสต์</span>
           </button>
         </div>
 
@@ -741,6 +876,188 @@ export function SongSourceModal({
               </div>
             </div>
           )}
+          {/* TAB 5: PLAYLIST */}
+          {activeTab === "playlist" && (
+            <div className="space-y-4">
+              {/* Sub-tab switcher: Public vs My Playlists */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-950/70 border border-stone-200/80 dark:border-stone-800/80 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlaylistSubTab("public");
+                      setPlaylistWarningId(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 min-h-[36px] ${
+                      playlistSubTab === "public"
+                        ? "bg-white dark:bg-stone-800 text-amber-800 dark:text-amber-300 shadow-sm font-bold"
+                        : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
+                    }`}
+                  >
+                    <span>🌐</span>
+                    <span>เพลย์ลิสต์สาธารณะ (Public)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlaylistSubTab("my");
+                      setPlaylistWarningId(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 min-h-[36px] ${
+                      playlistSubTab === "my"
+                        ? "bg-white dark:bg-stone-800 text-amber-800 dark:text-amber-300 shadow-sm font-bold"
+                        : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
+                    }`}
+                  >
+                    <span>👤</span>
+                    <span>เพลย์ลิสต์ของฉัน (My Playlists)</span>
+                  </button>
+                </div>
+
+                {isLoadingPlaylists && (
+                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> กำลังโหลดเพลย์ลิสต์...
+                  </span>
+                )}
+              </div>
+
+              {/* Guest prompt when selecting 'my' playlists */}
+              {playlistSubTab === "my" && (!user || isGuest) ? (
+                <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-center flex flex-col items-center justify-center gap-3 my-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl">
+                    🔒
+                  </div>
+                  <h4 className="font-bold text-sm sm:text-base text-stone-900 dark:text-white">
+                    เข้าสู่ระบบเพื่อใช้เพลย์ลิสต์ส่วนตัวของคุณในห้องเกม
+                  </h4>
+                  <p className="text-xs text-stone-600 dark:text-stone-400 max-w-sm">
+                    สร้างและจัดเรียงเพลย์ลิสต์เพลงโปรดของคุณเอง แล้วนำมาท้าดวลกับเพื่อนๆ ในห้องเกมได้ทันที
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="mt-1 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Playlist Search Bar */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="ค้นหาชื่อเพลย์ลิสต์ หรือ คำอธิบาย..."
+                      value={playlistSearch}
+                      onChange={(e) => setPlaylistSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    />
+                  </div>
+
+                  {/* Playlist Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1">
+                    {filteredPlaylists.length > 0 ? (
+                      filteredPlaylists.map((p) => {
+                        const isPlayable = isPlaylistPlayable(p.songCount || 0);
+                        const isSelected = draft.type === "playlist" && draft.playlistId === p.id;
+                        const authorName =
+                          p.authorName || p.userProfile?.displayName || "ไม่ระบุชื่อ";
+                        const authorAvatar =
+                          p.authorAvatar || p.userProfile?.avatar || "🦊";
+                        const showWarning = playlistWarningId === p.id;
+
+                        return (
+                          <div
+                            key={p.id}
+                            data-testid={`playlist-card-${p.id}`}
+                            onClick={() => {
+                              if (!isPlayable) {
+                                setPlaylistWarningId(p.id);
+                                try {
+                                  soundEffects.buzzer();
+                                } catch {}
+                                return;
+                              }
+                              setPlaylistWarningId(null);
+                              try {
+                                soundEffects.click();
+                              } catch {}
+                              setDraft({
+                                type: "playlist",
+                                playlistId: p.id,
+                              });
+                            }}
+                            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2.5 min-h-[110px] ${
+                              isSelected
+                                ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm cursor-pointer"
+                                : isPlayable
+                                ? "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50 cursor-pointer"
+                                : "bg-stone-50/60 dark:bg-stone-950/40 border-stone-200/80 dark:border-stone-800/80 text-stone-500 dark:text-stone-400 cursor-not-allowed opacity-80"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="font-bold text-sm text-stone-900 dark:text-white truncate">
+                                    {p.title}
+                                  </h4>
+                                  {isPlayable ? (
+                                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
+                                      พร้อมเล่น
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 shrink-0">
+                                      {`ต้องมีอย่างน้อย ${MIN_SONGS_TO_PLAY} เพลง`}
+                                    </span>
+                                  )}
+                                </div>
+                                {p.description && (
+                                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 line-clamp-2">
+                                    {p.description}
+                                  </p>
+                                )}
+                              </div>
+                              {isSelected && (
+                                <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                </div>
+                              )}
+                            </div>
+
+                            {showWarning && !isPlayable && (
+                              <div className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20 animate-in fade-in">
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                <span>มีเพียง {p.songCount || 0} เพลง ไม่สามารถเริ่มเล่นได้ (ต้องมีอย่างน้อย 5 เพลง)</span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-stone-200/60 dark:border-stone-800/60">
+                              <div className="flex items-center gap-1.5 min-w-0 text-stone-600 dark:text-stone-400">
+                                <span className="text-sm shrink-0">{authorAvatar}</span>
+                                <span className="truncate text-[11px]">{authorName}</span>
+                              </div>
+                              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full shrink-0">
+                                {`${p.songCount || 0} เพลง`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="col-span-1 sm:col-span-2 p-8 text-center text-xs text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-950/40 rounded-2xl border border-stone-200 dark:border-stone-800">
+                        {playlistSubTab === "my"
+                          ? "ยังไม่มีเพลย์ลิสต์ส่วนตัว หรือไม่ตรงกับคำค้นหา"
+                          : "ไม่พบเพลย์ลิสต์สาธารณะที่ตรงกับคำค้นหา"}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Modal Footer / Confirm Button */}
@@ -764,6 +1081,12 @@ export function SongSourceModal({
           </button>
         </div>
       </div>
+
+      {/* Auth Modal for Guests */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }

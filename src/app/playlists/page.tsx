@@ -27,6 +27,33 @@ import { useAuth } from "@/hooks/use-auth";
 import type { Playlist } from "@/types";
 import { soundEffects } from "@/lib/sound-effects";
 
+export const FREEMIUM_GATE_TEXTS = {
+  title: "✨ ปลดล็อกเพลย์ลิสต์ส่วนตัวของคุณ",
+  description:
+    "สร้างเพลย์ลิสต์เพลงโปรด จัดเซ็ตเพลงท้าทายเพื่อน และนำไปเปิดทายในห้องเกมได้ไม่จำกัด เพียงสมัครสมาชิกหรือเข้าสู่ระบบฟรี!",
+  actionButton: "เข้าสู่ระบบ / สมัครสมาชิก",
+};
+
+export function shouldShowPlaylistAuthGate(
+  user: any,
+  isGuest: boolean | undefined
+): boolean {
+  return !user || Boolean(isGuest);
+}
+
+export function handlePlaylistCreateNavigation(
+  user: any,
+  isGuest: boolean | undefined,
+  onOpenAuth: (tab: "signin" | "signup") => void,
+  onNavigate: (path: string) => void
+): void {
+  if (shouldShowPlaylistAuthGate(user, isGuest)) {
+    onOpenAuth("signin");
+  } else {
+    onNavigate("/playlists/new");
+  }
+}
+
 function PlaylistsPageContent(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -44,6 +71,7 @@ function PlaylistsPageContent(): React.JSX.Element {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<"signin" | "signup">("signin");
 
   // Fetch Public Playlists
   const loadPublicPlaylists = async () => {
@@ -87,16 +115,31 @@ function PlaylistsPageContent(): React.JSX.Element {
     }
   }, [user?.id]);
 
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "my") {
+      setActiveTab("my");
+    } else if (tabParam === "public") {
+      setActiveTab("public");
+    }
+  }, [searchParams]);
+
   const handleCreateClick = () => {
     try {
       soundEffects.click();
     } catch {}
 
-    if (!user || isGuest) {
-      setIsAuthModalOpen(true);
-    } else {
-      router.push("/playlists/new");
-    }
+    handlePlaylistCreateNavigation(
+      user,
+      isGuest,
+      (tab) => {
+        setAuthModalTab(tab);
+        setIsAuthModalOpen(true);
+      },
+      (path) => {
+        router.push(path);
+      }
+    );
   };
 
   const handleDeletePlaylist = async (playlist: Playlist) => {
@@ -262,31 +305,43 @@ function PlaylistsPageContent(): React.JSX.Element {
         {/* Tab Content: My Playlists */}
         {activeTab === "my" && (
           <div>
-            {!user || isGuest ? (
-              /* Guest Prompt Card */
-              <div className="max-w-md mx-auto py-12 px-6 rounded-3xl bg-white dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 text-center shadow-sm dark:shadow-xl backdrop-blur-md">
-                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                  <LogIn className="w-7 h-7" />
+            {shouldShowPlaylistAuthGate(user, isGuest) ? (
+              /* Freemium Card (Model A) with Warm Lo-Fi Styling */
+              <div className="max-w-lg mx-auto py-12 px-6 sm:px-8 rounded-3xl bg-white dark:bg-stone-900/90 border border-amber-500/25 dark:border-stone-800 text-center shadow-lg shadow-amber-500/5 backdrop-blur-md relative overflow-hidden">
+                {/* Ambient Warm Glow */}
+                <div className="absolute top-0 right-1/4 w-44 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="relative">
+                  {/* Icon: Sparkles in Amber Badge */}
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-inner">
+                    <Sparkles className="w-8 h-8" />
+                  </div>
+
+                  <h3 className="text-xl sm:text-2xl font-black font-serif text-stone-900 dark:text-white tracking-tight">
+                    {FREEMIUM_GATE_TEXTS.title}
+                  </h3>
+
+                  <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-3 leading-relaxed max-w-md mx-auto">
+                    {FREEMIUM_GATE_TEXTS.description}
+                  </p>
+
+                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          soundEffects.click();
+                        } catch {}
+                        setAuthModalTab("signin");
+                        setIsAuthModalOpen(true);
+                      }}
+                      className="w-full sm:w-auto min-h-[46px] px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>{FREEMIUM_GATE_TEXTS.actionButton}</span>
+                    </button>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold font-serif text-stone-900 dark:text-white tracking-tight">
-                  เข้าสู่ระบบเพื่อจัดการเพลย์ลิสต์
-                </h3>
-                <p className="text-xs text-stone-600 dark:text-stone-400 mt-2 leading-relaxed">
-                  สร้างและปรับแต่งเพลย์ลิสต์เพลงเฉพาะตัว จัดลำดับเพลงเพื่อเล่นเดี่ยวหรือนำไปทายกับเพื่อนในห้องแข่งขัน
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      soundEffects.click();
-                    } catch {}
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="mt-5 w-full min-h-[44px] px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
-                </button>
               </div>
             ) : isLoadingUser ? (
               <div className="py-20 flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 gap-3">
@@ -336,7 +391,9 @@ function PlaylistsPageContent(): React.JSX.Element {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+        initialTab={authModalTab}
         onSuccess={() => {
+          setIsAuthModalOpen(false);
           if (user?.id) {
             loadUserPlaylists(user.id);
           }
