@@ -59,6 +59,7 @@ export function SongEditModal({
   const [hookEndSec, setHookEndSec] = useState<number | undefined>(song?.hookEndSec);
   const [lyricsIntro, setLyricsIntro] = useState<string | undefined>(song?.lyricsIntro);
   const [lyricsChorus, setLyricsChorus] = useState<string | undefined>(song?.lyricsChorus);
+  const [lyricsFull, setLyricsFull] = useState<string | undefined>(song?.lyricsFull);
   const [audioUrl, setAudioUrl] = useState<string>(song?.audioUrl || "");
 
   // AI & Action State
@@ -119,6 +120,7 @@ export function SongEditModal({
       setHookEndSec(song.hookEndSec ?? undefined);
       setLyricsIntro(song.lyricsIntro ?? "");
       setLyricsChorus(song.lyricsChorus ?? "");
+      setLyricsFull(song.lyricsFull ?? "");
       setAudioUrl(song.audioUrl || "");
       setAiUpdatedFields(new Set());
       setAiError(null);
@@ -365,6 +367,10 @@ export function SongEditModal({
         setLyricsChorus(metadata.lyricsChorus);
         updated.add("lyricsChorus");
       }
+      if (metadata.lyricsFull) {
+        setLyricsFull(metadata.lyricsFull);
+        updated.add("lyricsFull");
+      }
 
       // Show lyrics confidence notice
       if (metadata.lyricsConfidence === "verified" && (metadata.lyricsIntro || metadata.lyricsChorus)) {
@@ -427,6 +433,7 @@ export function SongEditModal({
       chorusLines = lines.slice(half, half + 4);
     }
     setLyricsChorus(chorusLines.join("\n"));
+    setLyricsFull(text);
     setIsSplitterOpen(false);
     setFullLyricsInput("");
   };
@@ -488,6 +495,7 @@ export function SongEditModal({
           durationSec: calcDuration,
           lyricsIntro: lyricsIntro ? lyricsIntro.trim() : "",
           lyricsChorus: lyricsChorus ? lyricsChorus.trim() : "",
+          lyricsFull: lyricsFull ? lyricsFull.trim() : "",
           audioUrl: audioUrl ? audioUrl.trim() : "",
         }),
       });
@@ -996,6 +1004,21 @@ export function SongEditModal({
                 placeholder="เช่น จะยอมให้เธอหลอกกันต่อไป แม้รู้ว่าใจเธอไม่มีฉัน..."
                 value={lyricsChorus || ""}
                 onChange={(e) => setLyricsChorus(e.target.value)}
+                className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl p-3 text-xs text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none transition-colors resize-y leading-relaxed"
+              />
+            </div>
+
+            {/* Full Lyrics */}
+            <div>
+              <label className="text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 mb-1.5">
+                <span>เนื้อเพลงเต็มทั้งเพลง (Full Song Lyrics)</span>
+                {renderAiBadge("lyricsFull")}
+              </label>
+              <textarea
+                rows={5}
+                placeholder="กรอกเนื้อเพลงเต็มทั้งเพลง สำหรับโหมดทายเนื้อเพลงเต็ม..."
+                value={lyricsFull || ""}
+                onChange={(e) => setLyricsFull(e.target.value)}
                 className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 focus:border-amber-500 rounded-2xl p-3 text-xs text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none transition-colors resize-y leading-relaxed"
               />
             </div>

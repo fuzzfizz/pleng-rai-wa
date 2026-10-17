@@ -78,10 +78,10 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
   }
 
   if (result.gameMode === "ai-lyrics" || result.gameMode === "translated-lyrics") {
-    if (!result.lyricsType || !["chorus", "intro"].includes(result.lyricsType)) {
-      result.lyricsType = "intro";
+    if (!result.lyricsType || !["chorus", "full", "intro"].includes(result.lyricsType)) {
+      result.lyricsType = "chorus";
     }
-    if (!result.voiceGender || !["female", "male", "random"].includes(result.voiceGender)) {
+    if (!result.voiceGender || !["female", "male"].includes(result.voiceGender)) {
       result.voiceGender = "female";
     }
   }
@@ -579,8 +579,8 @@ export function HostSettingsModal({
                   setDraft((prev) => ({
                     ...prev,
                     gameMode: "ai-lyrics",
-                    lyricsType: prev.lyricsType || "intro",
-                    voiceGender: prev.voiceGender || "female",
+                    lyricsType: prev.lyricsType || "chorus",
+                    voiceGender: prev.voiceGender === "male" ? "male" : "female",
                   }))
                 }
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
@@ -604,8 +604,8 @@ export function HostSettingsModal({
                   setDraft((prev) => ({
                     ...prev,
                     gameMode: "translated-lyrics",
-                    lyricsType: prev.lyricsType || "intro",
-                    voiceGender: prev.voiceGender || "female",
+                    lyricsType: prev.lyricsType || "chorus",
+                    voiceGender: prev.voiceGender === "male" ? "male" : "female",
                   }))
                 }
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
@@ -733,32 +733,32 @@ export function HostSettingsModal({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
-                  📖 ส่วนของเนื้อเพลงที่ให้ AI อ่าน
+                  📖 รูปแบบเนื้อเพลง (Lyrics Type)
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "intro" }))}
-                    className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
-                      draft.lyricsType === "intro" || !draft.lyricsType
-                        ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
-                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                    }`}
-                  >
-                    <div className="font-semibold">🚀 ท่อนเปิด (Intro / Verse 1)</div>
-                    <div className="text-[11px] text-stone-500 dark:text-stone-400">ท้าทายความจำระดับแฟนพันธุ์แท้</div>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "chorus" }))}
                     className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
-                      draft.lyricsType === "chorus"
+                      draft.lyricsType === "chorus" || !draft.lyricsType
                         ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
                         : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
                     <div className="font-semibold">🎵 ท่อนฮุก (Chorus)</div>
-                    <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงท่อนจำ คุ้นหูง่ายกว่า</div>
+                    <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงท่อนจำ คุ้นหูง่ายกว่า (หากไม่มีจะใช้ทั้งเพลง)</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "full" }))}
+                    className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
+                      draft.lyricsType === "full"
+                        ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    }`}
+                  >
+                    <div className="font-semibold">📜 ทั้งเพลง (Full Song)</div>
+                    <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงเต็มทั้งเพลง ให้คำใบ้จุใจ</div>
                   </button>
                 </div>
               </div>
@@ -766,20 +766,9 @@ export function HostSettingsModal({
               {/* Voice Gender Switcher */}
               <div>
                 <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
-                  🗣️ โทนเสียง AI อ่าน (ฟรี)
+                  🗣️ โทนเสียง AI อ่าน
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDraft((prev) => ({ ...prev, voiceGender: "female" }))}
-                    className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
-                      draft.voiceGender === "female" || !draft.voiceGender
-                        ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
-                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                    }`}
-                  >
-                    👩 เสียงหญิง
-                  </button>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setDraft((prev) => ({ ...prev, voiceGender: "male" }))}
@@ -789,18 +778,18 @@ export function HostSettingsModal({
                         : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
-                    👨 เสียงชาย
+                    👨 เสียงชาย (Male)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDraft((prev) => ({ ...prev, voiceGender: "random" }))}
+                    onClick={() => setDraft((prev) => ({ ...prev, voiceGender: "female" }))}
                     className={`min-h-[44px] py-2.5 px-3 rounded-2xl border text-center transition-all cursor-pointer text-xs sm:text-sm font-medium flex items-center justify-center ${
-                      draft.voiceGender === "random"
+                      draft.voiceGender === "female" || !draft.voiceGender
                         ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
                         : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
-                    🎲 สุ่มสลับเสียง
+                    👩 เสียงหญิง (Female)
                   </button>
                 </div>
               </div>

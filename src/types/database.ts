@@ -76,6 +76,7 @@ export interface Database {
           duration_sec: number;
           lyrics_intro: string | null;
           lyrics_chorus: string | null;
+          lyrics_full: string | null;
           metadata: Json;
           created_at: string;
         };
@@ -93,6 +94,7 @@ export interface Database {
           duration_sec?: number;
           lyrics_intro?: string | null;
           lyrics_chorus?: string | null;
+          lyrics_full?: string | null;
           metadata?: Json;
           created_at?: string;
         };
@@ -110,6 +112,7 @@ export interface Database {
           duration_sec?: number;
           lyrics_intro?: string | null;
           lyrics_chorus?: string | null;
+          lyrics_full?: string | null;
           metadata?: Json;
           created_at?: string;
         };

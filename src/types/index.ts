@@ -22,7 +22,7 @@ export interface ActiveQuestion {
   choices?: ChoiceOption[];
 }
 
-export type LyricsType = "chorus" | "intro";
+export type LyricsType = "chorus" | "full" | "intro";
 
 
 export interface Genre {
@@ -49,6 +49,7 @@ export interface Song {
   durationSec?: number;
   lyricsIntro?: string;
   lyricsChorus?: string;
+  lyricsFull?: string;
   metadata?: Record<string, unknown>;
   createdAt?: string;
 }
@@ -67,6 +68,7 @@ export interface ExtractedSongMetadata {
   hookEndSec: number;
   lyricsIntro: string;
   lyricsChorus: string;
+  lyricsFull?: string;
   youtubeSearchQuery: string;
 }
 

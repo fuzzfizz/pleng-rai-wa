@@ -544,9 +544,11 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                         : "AI กำลังอ่านเนื้อเพลง..."}
                     </span>
                   </div>
-                  <blockquote className="text-2xl sm:text-3xl font-extrabold text-white leading-relaxed italic">
-                    &quot;{activeQuestion.lyrics}&quot;
-                  </blockquote>
+                  <div className="max-h-[200px] sm:max-h-[260px] overflow-y-auto custom-scrollbar px-1">
+                    <blockquote className="text-2xl sm:text-3xl font-extrabold text-white leading-relaxed italic whitespace-pre-line break-words">
+                      &quot;{activeQuestion.lyrics}&quot;
+                    </blockquote>
+                  </div>
                 </div>
               )}
 

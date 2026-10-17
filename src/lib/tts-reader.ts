@@ -111,6 +111,182 @@ export function getThaiVoices(gender?: "male" | "female"): SpeechSynthesisVoice[
 }
 
 /**
+ * Returns available voices filtered for English (en, en-US, en-GB, etc.).
+ * Optionally prioritizes male or female voice if available on the system based on name keywords.
+ */
+export function getEnglishVoices(gender?: "male" | "female"): SpeechSynthesisVoice[] {
+  if (!isSpeechSupported()) return [];
+
+  const rawVoices = window.speechSynthesis.getVoices();
+  const allVoices = rawVoices.length > 0 ? rawVoices : cachedVoices;
+
+  // Filter available voices for English
+  const englishVoices = allVoices.filter((v) => {
+    const lang = (v.lang || "").toLowerCase().replace(/_/g, "-");
+    const name = (v.name || "").toLowerCase();
+    return lang.startsWith("en") || lang.includes("en-") || name.includes("english");
+  });
+
+  if (englishVoices.length > 0) {
+    if (gender === "male") {
+      const maleKeywords = [
+        "david",
+        "mark",
+        "george",
+        "guy",
+        "james",
+        "male",
+        "man",
+        "daniel",
+        "richard",
+        "oliver",
+        "alex",
+      ];
+      const matched: SpeechSynthesisVoice[] = [];
+      const others: SpeechSynthesisVoice[] = [];
+      for (const v of englishVoices) {
+        const name = (v.name || "").toLowerCase();
+        if (maleKeywords.some((kw) => name.includes(kw))) {
+          matched.push(v);
+        } else {
+          others.push(v);
+        }
+      }
+      if (matched.length > 0) {
+        return [...matched, ...others];
+      }
+    } else if (gender === "female") {
+      const femaleKeywords = [
+        "zira",
+        "jenny",
+        "aria",
+        "samantha",
+        "female",
+        "woman",
+        "susan",
+        "karen",
+        "victoria",
+        "catherine",
+      ];
+      const matched: SpeechSynthesisVoice[] = [];
+      const others: SpeechSynthesisVoice[] = [];
+      for (const v of englishVoices) {
+        const name = (v.name || "").toLowerCase();
+        if (femaleKeywords.some((kw) => name.includes(kw))) {
+          matched.push(v);
+        } else {
+          others.push(v);
+        }
+      }
+      if (matched.length > 0) {
+        return [...matched, ...others];
+      }
+    }
+    return englishVoices;
+  }
+
+  // Fallback default voice if no specific English voice is found
+  const defaultVoice = allVoices.find((v) => v.default) || allVoices[0];
+  return defaultVoice ? [defaultVoice] : [];
+}
+
+/**
+ * Splits long text (e.g. full lyrics) into smaller readable chunks (<= maxLength chars)
+ * along lines, sentences, or punctuation to prevent Chromium Web Speech API from stalling.
+ */
+export function splitTextIntoChunks(text: string, maxLength: number = 200): string[] {
+  const clean = text.trim();
+  if (!clean) return [];
+  if (clean.length <= maxLength) return [clean];
+
+  const chunks: string[] = [];
+
+  // Break text into paragraphs or lines first
+  const lines = clean.split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
+
+  let currentChunk = "";
+
+  const pushCurrent = () => {
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim());
+      currentChunk = "";
+    }
+  };
+
+  const processLongSegment = (segment: string) => {
+    // Split by punctuation or spaces while preserving words
+    const tokens = segment.split(/([,.;!?\s]+)/).filter(Boolean);
+    let sub = "";
+
+    for (const token of tokens) {
+      if (token.length > maxLength) {
+        // Unusually long token (no spaces/punctuation), hard slice
+        if (sub.trim()) {
+          chunks.push(sub.trim());
+          sub = "";
+        }
+        for (let i = 0; i < token.length; i += maxLength) {
+          const slice = token.slice(i, i + maxLength).trim();
+          if (slice) chunks.push(slice);
+        }
+      } else if ((sub + token).length <= maxLength) {
+        sub += token;
+      } else {
+        if (sub.trim()) chunks.push(sub.trim());
+        sub = token.trimStart();
+      }
+    }
+    if (sub.trim()) {
+      chunks.push(sub.trim());
+    }
+  };
+
+  for (const line of lines) {
+    if (line.length > maxLength) {
+      pushCurrent();
+      processLongSegment(line);
+    } else {
+      const candidate = currentChunk ? `${currentChunk}\n${line}` : line;
+      if (candidate.length <= maxLength) {
+        currentChunk = candidate;
+      } else {
+        pushCurrent();
+        currentChunk = line;
+      }
+    }
+  }
+
+  pushCurrent();
+  return chunks;
+}
+
+// Global session tracking and keepalive timer to prevent Chromium speech synthesis stalling
+let currentSpeechSessionId = 0;
+let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+
+function startKeepAlive() {
+  stopKeepAlive();
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  keepAliveTimer = setInterval(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis?.speaking) {
+      try {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      } catch {}
+    } else {
+      stopKeepAlive();
+    }
+  }, 10000);
+}
+
+function stopKeepAlive() {
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+  }
+}
+
+/**
  * Checks whether speech synthesis is currently actively speaking.
  */
 export function isSpeaking(): boolean {
@@ -122,6 +298,9 @@ export function isSpeaking(): boolean {
  * Immediately halts any ongoing speech and cleans up active references.
  */
 export function stopSpeaking(): void {
+  currentSpeechSessionId++;
+  stopKeepAlive();
+
   if (!isSpeechSupported()) return;
 
   try {
@@ -132,11 +311,19 @@ export function stopSpeaking(): void {
 }
 
 /**
- * Speaks Thai lyrics in a deadpan, robotic cadence.
- * Supports male, female, or random voice gender switching (100% free via Web Speech API).
+ * Speaks lyrics in a deadpan, robotic cadence.
+ * Supports Thai and English, with male, female, or random voice gender switching (100% free via Web Speech API).
  *
- * - For "male": pitch = 0.75, rate = 0.88.
- * - For "female": pitch = 1.25, rate = 0.95.
+ * For English:
+ * - Male: pitch = 0.8, rate = 0.9
+ * - Female: pitch = 1.2, rate = 0.95
+ *
+ * For Thai:
+ * - Male: pitch = 0.75, rate = 0.88
+ * - Female: pitch = 1.25, rate = 0.95
+ *
+ * Automatically chunks longer texts (> 200 characters) and maintains Chromium keepalive
+ * to avoid speech engine cutoffs.
  *
  * @param text The song lyrics to be spoken.
  * @param options Optional configuration (gender, rate, pitch, callbacks).
@@ -174,8 +361,6 @@ export function speakLyrics(
     window.speechSynthesis.resume();
   }
 
-  const utterance = new SpeechSynthesisUtterance(cleanText);
-
   // Resolve target voice gender: if "random", randomly pick "male" or "female"
   const rawGender = options?.gender;
   const resolvedGender: "male" | "female" =
@@ -183,71 +368,114 @@ export function speakLyrics(
       ? (Math.random() < 0.5 ? "male" : "female")
       : (rawGender ?? "female");
 
-  // Voice acoustic defaults:
-  // Male: lower pitch (0.75), slightly slower robotic rate (0.88)
-  // Female: higher pitch (1.25), slightly faster comedic rate (0.95)
-  const defaultPitch = resolvedGender === "male" ? 0.75 : 1.25;
-  const defaultRate = resolvedGender === "male" ? 0.88 : 0.95;
+  const isEnglish = Boolean(
+    options?.lang?.toLowerCase().startsWith("en") ||
+    options?.voice?.lang?.toLowerCase().startsWith("en")
+  );
 
-  utterance.pitch = options?.pitch ?? defaultPitch;
-  utterance.rate = options?.rate ?? defaultRate;
-  utterance.volume = options?.volume ?? 1.0;
+  // Acoustic defaults:
+  // English: Male (pitch: 0.8, rate: 0.9), Female (pitch: 1.2, rate: 0.95)
+  // Thai: Male (pitch: 0.75, rate: 0.88), Female (pitch: 1.25, rate: 0.95)
+  const defaultPitch = isEnglish
+    ? (resolvedGender === "male" ? 0.8 : 1.2)
+    : (resolvedGender === "male" ? 0.75 : 1.25);
+  const defaultRate = isEnglish
+    ? (resolvedGender === "male" ? 0.9 : 0.95)
+    : (resolvedGender === "male" ? 0.88 : 0.95);
 
-  const isEnglish = options?.lang?.toLowerCase().startsWith("en");
+  const pitch = options?.pitch ?? defaultPitch;
+  const rate = options?.rate ?? defaultRate;
+  const volume = options?.volume ?? 1.0;
+
+  let selectedVoice: SpeechSynthesisVoice | null = null;
+  let targetLang = "th-TH";
 
   if (isEnglish) {
-    const rawVoices = window.speechSynthesis.getVoices();
-    const allVoices = rawVoices.length > 0 ? rawVoices : cachedVoices;
-    const enVoice = allVoices.find((v) => (v.lang || "").toLowerCase().startsWith("en"));
-    if (enVoice) {
-      utterance.voice = enVoice;
-      utterance.lang = enVoice.lang || "en-US";
-    } else {
-      utterance.lang = "en-US";
-    }
+    const englishVoices = getEnglishVoices(resolvedGender);
+    selectedVoice = options?.voice || (englishVoices.length > 0 ? englishVoices[0] : null);
+    targetLang = selectedVoice?.lang || options?.lang || "en-US";
   } else {
-    // Look up available Thai voices from Web Speech API
     const thaiVoices = getThaiVoices(resolvedGender);
-    const selectedVoice = options?.voice || (thaiVoices.length > 0 ? thaiVoices[0] : null);
+    selectedVoice = options?.voice || (thaiVoices.length > 0 ? thaiVoices[0] : null);
+    targetLang = selectedVoice?.lang || options?.lang || "th-TH";
+  }
+
+  const chunks = splitTextIntoChunks(cleanText, 200);
+  if (chunks.length === 0) {
+    options?.onEnd?.();
+    return;
+  }
+
+  const sessionId = ++currentSpeechSessionId;
+  let chunkIndex = 0;
+
+  const speakNextChunk = () => {
+    if (sessionId !== currentSpeechSessionId) return;
+
+    if (chunkIndex >= chunks.length) {
+      activeUtterance = null;
+      stopKeepAlive();
+      options?.onEnd?.();
+      return;
+    }
+
+    const chunkText = chunks[chunkIndex];
+    const utterance = new SpeechSynthesisUtterance(chunkText);
+
+    utterance.pitch = pitch;
+    utterance.rate = rate;
+    utterance.volume = volume;
 
     if (selectedVoice) {
       utterance.voice = selectedVoice;
-      utterance.lang = selectedVoice.lang || "th-TH";
+      utterance.lang = selectedVoice.lang || (isEnglish ? "en-US" : "th-TH");
     } else {
-      utterance.lang = "th-TH";
+      utterance.lang = isEnglish ? (options?.lang || "en-US") : (options?.lang || "th-TH");
     }
-  }
 
-  // Retain active reference to prevent GC from terminating speech early
-  activeUtterance = utterance;
+    activeUtterance = utterance;
 
-  utterance.onstart = () => {
-    options?.onStart?.();
-  };
+    utterance.onstart = () => {
+      if (sessionId !== currentSpeechSessionId) return;
+      if (chunkIndex === 0) {
+        options?.onStart?.();
+        startKeepAlive();
+      }
+    };
 
-  utterance.onend = () => {
-    if (activeUtterance === utterance) {
+    utterance.onend = () => {
+      if (sessionId !== currentSpeechSessionId) return;
+      chunkIndex++;
+      if (chunkIndex < chunks.length) {
+        speakNextChunk();
+      } else {
+        activeUtterance = null;
+        stopKeepAlive();
+        options?.onEnd?.();
+      }
+    };
+
+    utterance.onerror = (event) => {
+      if (sessionId !== currentSpeechSessionId) return;
       activeUtterance = null;
-    }
-    options?.onEnd?.();
-  };
+      stopKeepAlive();
+      // "canceled" or "interrupted" error codes occur normally when stopped or restarted
+      if (event.error !== "canceled" && event.error !== "interrupted") {
+        options?.onError?.(event);
+      }
+    };
 
-  utterance.onerror = (event) => {
-    if (activeUtterance === utterance) {
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      if (sessionId !== currentSpeechSessionId) return;
       activeUtterance = null;
-    }
-    // "canceled" or "interrupted" error codes occur normally when stopped or restarted
-    if (event.error !== "canceled" && event.error !== "interrupted") {
-      options?.onError?.(event);
+      stopKeepAlive();
+      options?.onError?.(err);
     }
   };
 
-  try {
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    activeUtterance = null;
-    options?.onError?.(err);
-  }
+  speakNextChunk();
 }
 
 /**
@@ -255,6 +483,8 @@ export function speakLyrics(
  */
 export const ttsReader = {
   getThaiVoices,
+  getEnglishVoices,
+  splitTextIntoChunks,
   speakLyrics,
   stopSpeaking,
   isSpeaking,

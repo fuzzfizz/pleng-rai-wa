@@ -94,6 +94,7 @@ export default function AdminPage() {
 
     setExtractedData({
       ...extractedData,
+      lyricsFull: rawFullLyrics.trim(),
       lyricsIntro: introLines,
       lyricsChorus: chorusLines,
     });
@@ -974,6 +975,19 @@ export default function AdminPage() {
                         className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl p-3 text-base sm:text-xs text-stone-900 dark:text-stone-200 focus:outline-none focus:border-amber-500 resize-none"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">
+                      📜 เนื้อเพลงเต็มทั้งเพลง (Full Song Lyrics)
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={extractedData.lyricsFull || ""}
+                      onChange={(e) => setExtractedData({ ...extractedData, lyricsFull: e.target.value })}
+                      placeholder="กรอกเนื้อเพลงเต็มทั้งเพลง สำหรับโหมดเนื้อเพลงเต็ม..."
+                      className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-300 dark:border-stone-800 rounded-xl p-3 text-base sm:text-xs text-stone-900 dark:text-stone-200 focus:outline-none focus:border-amber-500 resize-y"
+                    />
                   </div>
                 </div>
 

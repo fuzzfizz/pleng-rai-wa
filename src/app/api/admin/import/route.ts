@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       durationSec: duration,
       lyricsIntro: metadata.lyricsIntro || "",
       lyricsChorus: metadata.lyricsChorus || "",
+      lyricsFull: metadata.lyricsFull || metadata.lyrics_full || undefined,
       metadata: {
         youtubeSource: youtubeUrlOrQuery,
         storageType: isR2Configured ? "r2" : "local",

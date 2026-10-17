@@ -78,6 +78,8 @@ export async function PATCH(req: NextRequest) {
       durationSec,
       lyricsIntro,
       lyricsChorus,
+      lyricsFull,
+      lyrics_full,
       audioUrl,
     } = body;
 
@@ -108,6 +110,8 @@ export async function PATCH(req: NextRequest) {
     }
     if (lyricsIntro !== undefined) updates.lyricsIntro = lyricsIntro;
     if (lyricsChorus !== undefined) updates.lyricsChorus = lyricsChorus;
+    if (lyricsFull !== undefined) updates.lyricsFull = lyricsFull;
+    else if (lyrics_full !== undefined) updates.lyricsFull = lyrics_full;
     if (audioUrl !== undefined) updates.audioUrl = audioUrl;
 
     const updatedSong = await updateSong(id, updates);

@@ -1121,9 +1121,11 @@ export function GameView({
                         : "AI กำลังอ่านท่อนเนื้อเพลง"}
                     </span>
                   </div>
-                  <p className="text-base sm:text-lg lg:text-2xl font-semibold italic text-stone-900 dark:text-white drop-shadow">
-                    &ldquo;{activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}&rdquo;
-                  </p>
+                  <div className="max-h-[200px] sm:max-h-[260px] overflow-y-auto custom-scrollbar px-1">
+                    <p className="text-base sm:text-lg lg:text-2xl font-semibold italic text-stone-900 dark:text-white drop-shadow whitespace-pre-line break-words">
+                      &ldquo;{activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}&rdquo;
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-center gap-2.5">

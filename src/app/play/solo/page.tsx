@@ -84,7 +84,7 @@ function SoloPlayContent() {
   const [gameMode, setGameMode] = useState<GameMode>("audio-slice");
   const [inputMode, setInputMode] = useState<AnswerInputMode>("autocomplete");
   const [sliceDuration, setSliceDuration] = useState<number>(1.0);
-  const [lyricsType, setLyricsType] = useState<"intro" | "chorus">("intro");
+  const [lyricsType, setLyricsType] = useState<"chorus" | "full" | "intro">("chorus");
   const [voiceGender, setVoiceGender] = useState<AIVoiceGender>("female");
   const [roundSliceStartSec, setRoundSliceStartSec] = useState<number>(() =>
     calculateSliceStart(DEMO_SONGS[0], 1.0)
@@ -577,9 +577,11 @@ function SoloPlayContent() {
   const handleSpeakLyrics = () => {
     playClickSound();
     const lyrics =
-      lyricsType === "intro"
-        ? currentSong.lyricsIntro || "ไม่มีเนื้อเพลงท่อนเปิด"
-        : currentSong.lyricsChorus || "ไม่มีเนื้อเพลงท่อนฮุก";
+      lyricsType === "full"
+        ? currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || "ไม่มีเนื้อเพลง"
+        : lyricsType === "chorus"
+        ? currentSong.lyricsChorus || currentSong.lyricsFull || currentSong.lyricsIntro || "ไม่มีเนื้อเพลง"
+        : currentSong.lyricsIntro || currentSong.lyricsChorus || currentSong.lyricsFull || "ไม่มีเนื้อเพลง";
 
     setIsAITalking(true);
     ttsReader.speakLyrics(lyrics, {
@@ -599,9 +601,11 @@ function SoloPlayContent() {
     if (gameMode !== "translated-lyrics") return;
 
     const sourceText =
-      lyricsType === "intro"
-        ? currentSong.lyricsIntro || ""
-        : currentSong.lyricsChorus || "";
+      lyricsType === "full"
+        ? currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || ""
+        : lyricsType === "chorus"
+        ? currentSong.lyricsChorus || currentSong.lyricsFull || currentSong.lyricsIntro || ""
+        : currentSong.lyricsIntro || currentSong.lyricsChorus || currentSong.lyricsFull || "";
 
     if (!sourceText) {
       setTranslatedLyrics("ไม่พบเนื้อเพลงของเพลงนี้");
@@ -635,7 +639,7 @@ function SoloPlayContent() {
     return () => {
       isMounted = false;
     };
-  }, [gameMode, currentSong.id, lyricsType, currentSong.lyricsIntro, currentSong.lyricsChorus]);
+  }, [gameMode, currentSong.id, lyricsType, currentSong.lyricsFull, currentSong.lyricsChorus, currentSong.lyricsIntro]);
 
   // Play Translated Lyrics in English TTS
   const handleSpeakTranslatedLyrics = () => {
@@ -1025,49 +1029,38 @@ function SoloPlayContent() {
                 </p>
               </div>
 
-              {/* Lyrics Type Switch: Intro first, then Chorus */}
+              {/* Lyrics Type Switch: Chorus vs Full Song */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLyricsType("intro")}
-                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "intro"
-                      ? "bg-amber-500 text-stone-950 shadow-sm"
-                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                  }`}
-                >
-                  🚀 ท่อนเปิด (Intro)
-                </button>
                 <button
                   type="button"
                   onClick={() => setLyricsType("chorus")}
                   className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "chorus"
+                    lyricsType === "chorus" || !lyricsType
                       ? "bg-amber-500 text-stone-950 shadow-sm"
                       : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   🎵 ท่อนฮุก (Chorus)
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setLyricsType("full")}
+                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
+                    lyricsType === "full"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  📜 ทั้งเพลง (Full Song)
+                </button>
               </div>
 
               {/* Voice Gender Switcher */}
               <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
                 <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  โทนเสียง AI (ฟรี)
+                  โทนเสียง AI
                 </span>
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  <button
-                    type="button"
-                    onClick={() => setVoiceGender("female")}
-                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                      voiceGender === "female"
-                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
-                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                    }`}
-                  >
-                    👩 เสียงหญิง
-                  </button>
+                <div className="grid grid-cols-2 gap-2 w-full">
                   <button
                     type="button"
                     onClick={() => setVoiceGender("male")}
@@ -1077,18 +1070,18 @@ function SoloPlayContent() {
                         : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
-                    👨 เสียงชาย
+                    👨 เสียงชาย (Male)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setVoiceGender("random")}
+                    onClick={() => setVoiceGender("female")}
                     className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                      voiceGender === "random"
+                      voiceGender === "female" || !voiceGender
                         ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
                         : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
-                    🎲 สุ่มเสียงอัตโนมัติ
+                    👩 เสียงหญิง (Female)
                   </button>
                 </div>
               </div>
@@ -1133,29 +1126,29 @@ function SoloPlayContent() {
                 </p>
               </div>
 
-              {/* Lyrics Type Switch: Intro vs Chorus */}
+              {/* Lyrics Type Switch: Chorus vs Full Song */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLyricsType("intro")}
-                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "intro"
-                      ? "bg-amber-500 text-stone-950 shadow-sm"
-                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                  }`}
-                >
-                  🚀 ท่อนเปิด (Intro)
-                </button>
                 <button
                   type="button"
                   onClick={() => setLyricsType("chorus")}
                   className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "chorus"
+                    lyricsType === "chorus" || !lyricsType
                       ? "bg-amber-500 text-stone-950 shadow-sm"
                       : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
                   🎵 ท่อนฮุก (Chorus)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLyricsType("full")}
+                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
+                    lyricsType === "full"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  📜 ทั้งเพลง (Full Song)
                 </button>
               </div>
 
@@ -1171,29 +1164,20 @@ function SoloPlayContent() {
                     <span>กำลังแปลเนื้อเพลงภาษาไทย...</span>
                   </div>
                 ) : (
-                  <blockquote className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-serif text-stone-900 dark:text-white leading-relaxed italic">
-                    &quot;{translatedLyrics || "ไม่มีเนื้อเพลงสำหรับท่อนนี้"}&quot;
-                  </blockquote>
+                  <div className="max-h-[200px] sm:max-h-[260px] overflow-y-auto custom-scrollbar">
+                    <blockquote className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-serif text-stone-900 dark:text-white leading-relaxed italic whitespace-pre-line break-words">
+                      &quot;{translatedLyrics || "ไม่มีเนื้อเพลงสำหรับท่อนนี้"}&quot;
+                    </blockquote>
+                  </div>
                 )}
               </div>
 
               {/* Voice Gender Switcher */}
               <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
                 <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  โทนเสียงภาษาอังกฤษ (US English)
+                  โทนเสียง AI
                 </span>
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  <button
-                    type="button"
-                    onClick={() => setVoiceGender("female")}
-                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                      voiceGender === "female"
-                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
-                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                    }`}
-                  >
-                    👩 หญิง (US)
-                  </button>
+                <div className="grid grid-cols-2 gap-2 w-full">
                   <button
                     type="button"
                     onClick={() => setVoiceGender("male")}
@@ -1203,18 +1187,18 @@ function SoloPlayContent() {
                         : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
-                    👨 ชาย (US)
+                    👨 เสียงชาย (Male)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setVoiceGender("random")}
+                    onClick={() => setVoiceGender("female")}
                     className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                      voiceGender === "random"
+                      voiceGender === "female" || !voiceGender
                         ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
                         : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
-                    🎲 สุ่มอัตโนมัติ
+                    👩 เสียงหญิง (Female)
                   </button>
                 </div>
               </div>

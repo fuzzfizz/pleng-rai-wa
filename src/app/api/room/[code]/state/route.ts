@@ -31,8 +31,10 @@ export function sanitizeRoomState(room: any): any {
       delete song.aliases;
       delete song.lyrics_intro;
       delete song.lyrics_chorus;
+      delete song.lyrics_full;
       delete song.lyricsIntro;
       delete song.lyricsChorus;
+      delete song.lyricsFull;
       delete song.metadata;
       return song;
     };

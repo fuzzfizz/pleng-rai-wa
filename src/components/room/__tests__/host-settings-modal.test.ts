@@ -203,6 +203,44 @@ describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
     }
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("normalizes lyricsType to chorus by default and supports full song", () => {
+    const p1 = prepareSettingsPayload({
+      gameMode: "ai-lyrics",
+    });
+    expect(p1.lyricsType).toBe("chorus");
+
+    const p2 = prepareSettingsPayload({
+      gameMode: "translated-lyrics",
+      lyricsType: "full",
+    });
+    expect(p2.lyricsType).toBe("full");
+
+    const p3 = prepareSettingsPayload({
+      gameMode: "ai-lyrics",
+      lyricsType: "invalid-type" as any,
+    });
+    expect(p3.lyricsType).toBe("chorus");
+  });
+
+  it("normalizes voiceGender to female by default, supports male, and rejects random", () => {
+    const p1 = prepareSettingsPayload({
+      gameMode: "ai-lyrics",
+    });
+    expect(p1.voiceGender).toBe("female");
+
+    const p2 = prepareSettingsPayload({
+      gameMode: "translated-lyrics",
+      voiceGender: "male",
+    });
+    expect(p2.voiceGender).toBe("male");
+
+    const p3 = prepareSettingsPayload({
+      gameMode: "ai-lyrics",
+      voiceGender: "random" as any,
+    });
+    expect(p3.voiceGender).toBe("female");
+  });
 });
 
 

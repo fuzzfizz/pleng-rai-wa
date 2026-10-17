@@ -189,6 +189,7 @@ async function runTests() {
       duration_sec: 210,
       lyrics_intro: `เนื้อเพลงเริ่ม ${i}`,
       lyrics_chorus: `ฮุกเพลง ${i}`,
+      lyrics_full: `เนื้อเพลงเต็ม ${i}`,
       metadata: {},
       created_at: new Date().toISOString(),
       genres: sampleGenre,

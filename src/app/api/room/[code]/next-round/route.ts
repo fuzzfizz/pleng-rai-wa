@@ -247,17 +247,20 @@ export async function POST(
     );
     const sliceUrl = `/api/audio/slice?id=${encodeURIComponent(song.id)}&start=${startSec}&duration=${durationSec}`;
 
+    let rawThai = "";
+    if (settings.lyricsType === "full") {
+      rawThai = song.lyricsFull || song.lyricsChorus || song.lyricsIntro || "";
+    } else if (settings.lyricsType === "intro") {
+      rawThai = song.lyricsIntro || song.lyricsChorus || song.lyricsFull || "";
+    } else {
+      // Default to chorus; if song doesn't have chorus, fallback to lyricsFull!
+      rawThai = song.lyricsChorus || song.lyricsFull || song.lyricsIntro || "";
+    }
+
     let lyrics: string | undefined = undefined;
     if (settings.gameMode === "ai-lyrics") {
-      lyrics =
-        settings.lyricsType === "intro"
-          ? song.lyricsIntro || song.lyricsChorus || ""
-          : song.lyricsChorus || song.lyricsIntro || "";
+      lyrics = rawThai;
     } else if (settings.gameMode === "translated-lyrics") {
-      const rawThai =
-        settings.lyricsType === "intro"
-          ? song.lyricsIntro || song.lyricsChorus || ""
-          : song.lyricsChorus || song.lyricsIntro || "";
       lyrics = await translateThaiToEnglishLiteral(rawThai);
     }
 

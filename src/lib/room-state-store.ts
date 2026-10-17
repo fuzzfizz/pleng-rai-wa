@@ -137,6 +137,7 @@ export function toSongDomain(raw: any): Song {
     durationSec: raw.durationSec ?? raw.duration_sec ?? 0,
     lyricsIntro: raw.lyricsIntro ?? raw.lyrics_intro ?? undefined,
     lyricsChorus: raw.lyricsChorus ?? raw.lyrics_chorus ?? undefined,
+    lyricsFull: raw.lyricsFull ?? raw.lyrics_full ?? undefined,
     metadata: raw.metadata ?? {},
     createdAt: raw.createdAt ?? raw.created_at,
   };
@@ -1285,6 +1286,16 @@ export class RoomStateStore {
 }
 
 /**
+ * Normalizes a song object for client delivery by removing full lyrics.
+ */
+export function normalizeSongForClient(song: any): any {
+  if (!song || typeof song !== "object") return song;
+  delete song.lyricsFull;
+  delete song.lyrics_full;
+  return song;
+}
+
+/**
  * Sanitizes round state for client delivery.
  * Strips secret song metadata (title, artist, lyrics) while round is active.
  */
@@ -1293,6 +1304,8 @@ export function sanitizeRoundState(state: RoomRoundState | undefined | null): an
   const copy = JSON.parse(JSON.stringify(state));
   if (copy.roundStatus !== "revealing" && copy.roundStatus !== "game_over") {
     delete copy.currentSong;
+  } else if (copy.currentSong) {
+    normalizeSongForClient(copy.currentSong);
   }
   return copy;
 }

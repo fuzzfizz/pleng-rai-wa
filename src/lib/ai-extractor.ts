@@ -32,6 +32,8 @@ export interface ExtractedSongMetadata {
   lyricsIntro: string;
   /** Chorus 2-4 lines of the song */
   lyricsChorus: string;
+  /** Complete lyrics of the song if available */
+  lyricsFull?: string;
   /** Clean YouTube search query (e.g. 'วัดใจ Silly Fools') */
   youtubeSearchQuery: string;
 }
@@ -536,6 +538,7 @@ export async function heuristicExtractSongMetadata(
       hookEndSec: 0,
       lyricsIntro: "",
       lyricsChorus: "",
+      lyricsFull: "",
       youtubeSearchQuery: "",
     };
   }
@@ -581,6 +584,7 @@ export async function heuristicExtractSongMetadata(
     hookEndSec: 0,
     lyricsIntro: "",
     lyricsChorus: "",
+    lyricsFull: "",
     youtubeSearchQuery: `${title} ${artist}`.trim(),
   };
 }
@@ -648,6 +652,10 @@ const SONG_METADATA_GEMINI_SCHEMA = {
       type: Type.STRING,
       description: "Chorus 2-4 lines of the song in Thai. MUST BE EXACT VERBATIM REAL LYRICS. If songFound is false or uncertain, MUST return empty string ''.",
     },
+    lyricsFull: {
+      type: Type.STRING,
+      description: "Complete lyrics of the song if available, or empty string",
+    },
     youtubeSearchQuery: {
       type: Type.STRING,
       description: "Clean YouTube search query string. If songFound is false, MUST return empty string ''.",
@@ -709,6 +717,7 @@ export const BATCH_DISCOGRAPHY_GEMINI_SCHEMA = {
           hookEndSec: { type: Type.INTEGER, description: "Approximate hook end timestamp in seconds" },
           lyricsIntro: { type: Type.STRING, description: "Intro lyrics if verified verbatim, else empty string ''" },
           lyricsChorus: { type: Type.STRING, description: "Chorus hook lyrics if verified verbatim, else empty string ''" },
+          lyricsFull: { type: Type.STRING, description: "Complete lyrics of the song if available, or empty string" },
           youtubeSearchQuery: { type: Type.STRING, description: "Clean YouTube search query" },
         },
         required: [
@@ -1016,6 +1025,7 @@ function sanitizeExtractedMetadata(
       hookEndSec: 0,
       lyricsIntro: "",
       lyricsChorus: "",
+      lyricsFull: "",
       youtubeSearchQuery: "",
     };
   }
@@ -1028,6 +1038,14 @@ function sanitizeExtractedMetadata(
     songFound && isLyricsAuthentic && parsed.lyricsConfidence === "verified"
       ? "verified"
       : "not_found";
+
+  // When LRCLIB returns plainLyrics, store plainLyrics.trim() into lyricsFull!
+  const plainLyricsFromLrclib = isLyricsAuthentic && verifiedLyrics ? verifiedLyrics.trim() : undefined;
+  const parsedLyricsFull =
+    typeof parsed.lyricsFull === "string" && parsed.lyricsFull.trim().length > 0
+      ? parsed.lyricsFull.trim()
+      : undefined;
+  const lyricsFull = plainLyricsFromLrclib || (lyricsConfidence === "verified" ? parsedLyricsFull : undefined);
 
   const title = typeof parsed.title === "string" && parsed.title.trim()
     ? cleanSongTitle(parsed.title)
@@ -1066,6 +1084,7 @@ function sanitizeExtractedMetadata(
   let hookEndSec = !isNaN(parsedEnd) && parsedEnd > hookStartSec ? parsedEnd : 0;
 
   // If lyricsConfidence is not_found or song wasn't found, strictly blank out lyrics (zero fabrication)
+  // For lyricsChorus: keep it if detected, but if empty or uncertain, it's totally okay because lyricsFull is present.
   const lyricsIntro =
     songFound && lyricsConfidence === "verified" && typeof parsed.lyricsIntro === "string"
       ? parsed.lyricsIntro.trim()
@@ -1073,7 +1092,7 @@ function sanitizeExtractedMetadata(
   const lyricsChorus =
     songFound && lyricsConfidence === "verified" && typeof parsed.lyricsChorus === "string"
       ? parsed.lyricsChorus.trim()
-      : "";
+      : (typeof parsed.lyricsChorus === "string" && parsed.lyricsChorus.trim().length > 0 ? parsed.lyricsChorus.trim() : "");
 
   // Calibrate hook start & end timestamps using synced lyrics if available
   if (syncedLyrics && lyricsChorus) {
@@ -1105,6 +1124,7 @@ function sanitizeExtractedMetadata(
     hookEndSec,
     lyricsIntro,
     lyricsChorus,
+    lyricsFull: lyricsFull || undefined,
     youtubeSearchQuery,
   };
 }
@@ -1356,6 +1376,7 @@ export async function extractBatchDiscography(
         const hookEndSec = typeof s.hookEndSec === "number" && s.hookEndSec > hookStartSec ? s.hookEndSec : hookStartSec + 25;
         const lyricsIntro = typeof s.lyricsIntro === "string" ? s.lyricsIntro.trim() : "";
         const lyricsChorus = typeof s.lyricsChorus === "string" ? s.lyricsChorus.trim() : "";
+        const lyricsFull = typeof s.lyricsFull === "string" && s.lyricsFull.trim().length > 0 ? s.lyricsFull.trim() : undefined;
         const youtubeSearchQuery =
           typeof s.youtubeSearchQuery === "string" && s.youtubeSearchQuery.trim()
             ? s.youtubeSearchQuery.trim()
@@ -1363,7 +1384,7 @@ export async function extractBatchDiscography(
 
         return {
           songFound: true,
-          lyricsConfidence: lyricsIntro || lyricsChorus ? "verified" : "not_found",
+          lyricsConfidence: lyricsIntro || lyricsChorus || lyricsFull ? "verified" : "not_found",
           title,
           artist: songArtist,
           aliases,
@@ -1374,6 +1395,7 @@ export async function extractBatchDiscography(
           hookEndSec,
           lyricsIntro,
           lyricsChorus,
+          lyricsFull,
           youtubeSearchQuery,
           isDuplicate: false,
         };
