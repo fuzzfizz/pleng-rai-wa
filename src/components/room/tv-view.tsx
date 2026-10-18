@@ -291,7 +291,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
           src={activeQuestion.sliceUrl}
           preload="auto"
           playsInline
-          loop={gameMode === "buzzer" || gameMode === "audio-slice"}
+          loop={false}
           onTimeUpdate={(e) => setTvAudioTime(e.currentTarget.currentTime)}
           onEnded={() => {
             if (audioRef.current) {

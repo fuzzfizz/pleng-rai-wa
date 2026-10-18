@@ -269,5 +269,11 @@ describe("Frontend UI/UX Items 1, 2, 3, 4, 6 Improvements", () => {
       const p2 = prepareSettingsPayload({ sliceRandomRegion: "random_unknown" as any });
       expect(p2.sliceRandomRegion).toBe("hook");
     });
+
+    it("preserves and normalizes buzzerPlayRegion for buzzer battle mode", () => {
+      expect(prepareSettingsPayload({ buzzerPlayRegion: "hook" }).buzzerPlayRegion).toBe("hook");
+      expect(prepareSettingsPayload({ buzzerPlayRegion: "entire_song" }).buzzerPlayRegion).toBe("entire_song");
+      expect(prepareSettingsPayload({ buzzerPlayRegion: "unknown" as any }).buzzerPlayRegion).toBe("hook");
+    });
   });
 });

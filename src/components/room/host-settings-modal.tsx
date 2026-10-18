@@ -97,6 +97,12 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
     }
   }
 
+  if (result.buzzerPlayRegion !== undefined) {
+    if (!["hook", "entire_song"].includes(result.buzzerPlayRegion)) {
+      result.buzzerPlayRegion = "hook";
+    }
+  }
+
   if (result.maxPlayers !== undefined) {
     const val = Number(result.maxPlayers);
     result.maxPlayers = isNaN(val) || val < 2 ? 8 : Math.min(20, Math.max(2, val));
@@ -557,7 +563,13 @@ export function HostSettingsModal({
               {/* Buzzer Battle */}
               <button
                 type="button"
-                onClick={() => setDraft((prev) => ({ ...prev, gameMode: "buzzer" }))}
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    gameMode: "buzzer",
+                    buzzerPlayRegion: prev.buzzerPlayRegion || "hook",
+                  }))
+                }
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                   draft.gameMode === "buzzer"
                     ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
@@ -624,8 +636,8 @@ export function HostSettingsModal({
             </div>
           </div>
 
-          {/* 2. Audio Slice Duration (Shown for audio-slice and buzzer, up to 20 seconds) */}
-          {(draft.gameMode === "audio-slice" || draft.gameMode === "buzzer") && (
+          {/* 2. Audio Slice Duration (Shown ONLY for audio-slice, up to 20 seconds) */}
+          {draft.gameMode === "audio-slice" && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
@@ -725,6 +737,63 @@ export function HostSettingsModal({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Buzzer Playback Region (Shown ONLY for buzzer) */}
+          {draft.gameMode === "buzzer" && (
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
+                จุดเริ่มต้นการเล่นเพลง (Buzzer Playback Region)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, buzzerPlayRegion: "hook" }))}
+                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    (draft.buzzerPlayRegion || "hook") === "hook"
+                      ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm text-stone-900 dark:text-white">
+                      🎯 เฉพาะท่อนฮุก (Hook Only)
+                    </span>
+                    {(draft.buzzerPlayRegion || "hook") === "hook" && (
+                      <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    )}
+                  </div>
+                  <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                    เริ่มเล่นจากท่อนฮุก แล้วเล่นยาวไปเรื่อยๆ (มาตรฐาน จำง่าย แย่งกันกดเร็ว)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, buzzerPlayRegion: "entire_song" }))}
+                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    draft.buzzerPlayRegion === "entire_song"
+                      ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/30 text-stone-900 dark:text-white"
+                      : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm text-stone-900 dark:text-white">
+                      🎵 เริ่มตั้งแต่ต้นเพลง (Full Song / Intro)
+                    </span>
+                    {draft.buzzerPlayRegion === "entire_song" && (
+                      <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    )}
+                  </div>
+                  <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                    เริ่มเล่นตั้งแต่วินาทีแรก (0:00) แล้วเล่นยาวไปเรื่อยๆ (ท้าทาย แข่งกันกดตั้งแต่เสียงอินโทร)
+                  </span>
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
+                💡 ในโหมดนี้ เพลงจะเล่นต่อเนื่องไปเรื่อยๆ จนกว่าจะมีคนกดกริ่งแย่งตอบ หากตอบผิดเพลงจะเล่นต่อจากวินาทีเดิมทันที
+              </p>
             </div>
           )}
 

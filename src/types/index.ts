@@ -132,6 +132,7 @@ export interface RoomSettings {
   voiceGender?: AIVoiceGender;
   sliceDurationSec: number; // e.g. 1.0, 2.0, 5.0
   sliceRandomRegion?: "hook" | "entire_song"; // "hook" = chorus only, "entire_song" = randomize across full song
+  buzzerPlayRegion?: "hook" | "entire_song"; // "hook" = start from chorus, "entire_song" = start from 0:00 intro
   maxPlayers?: number; // default 8, allowed 4 - 12
   roundTimeoutSec: number; // 0 for unlimited, or e.g. 15, 30
   totalRounds: number; // 0 for unlimited, or e.g. 5, 10, 20

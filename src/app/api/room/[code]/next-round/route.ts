@@ -238,13 +238,25 @@ export async function POST(
     const song: Song = songs[0];
 
     // Build audio slice URL & lyrics
-    const durationSec = settings.sliceDurationSec || 2.0;
-    const startSec = calculateSliceStart(
-      song,
-      durationSec,
-      Math.random,
-      settings.sliceRandomRegion || "hook"
-    );
+    let durationSec = settings.sliceDurationSec || 2.0;
+    let startSec = 0;
+
+    if (settings.gameMode === "buzzer") {
+      if (settings.buzzerPlayRegion === "entire_song") {
+        startSec = 0;
+      } else {
+        startSec = song.hookStartSec && song.hookStartSec > 0 ? song.hookStartSec : 0;
+      }
+      durationSec = typeof song.durationSec === "number" && song.durationSec > 0 ? song.durationSec : 300;
+    } else {
+      durationSec = settings.sliceDurationSec || 2.0;
+      startSec = calculateSliceStart(
+        song,
+        durationSec,
+        Math.random,
+        settings.sliceRandomRegion || "hook"
+      );
+    }
     const sliceUrl = `/api/audio/slice?id=${encodeURIComponent(song.id)}&start=${startSec}&duration=${durationSec}`;
 
     let rawThai = "";

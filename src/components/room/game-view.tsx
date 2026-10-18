@@ -79,10 +79,10 @@ export function isDirectInputMode(mode: GameMode): boolean {
 
 /**
  * Determines whether the audio snippet should loop automatically.
- * In audio-slice mode, it plays only once on round start and does not loop.
+ * Songs play continuously or single slice without looping.
  */
 export function shouldLoopAudio(mode: GameMode): boolean {
-  return mode === "buzzer";
+  return false;
 }
 
 /**

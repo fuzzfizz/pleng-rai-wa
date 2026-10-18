@@ -13,8 +13,8 @@ describe("Audio Slice Controls & Replay Logic", () => {
       expect(shouldLoopAudio("audio-slice")).toBe(false);
     });
 
-    it("returns true for buzzer mode so snippet loops until someone hits buzzer", () => {
-      expect(shouldLoopAudio("buzzer")).toBe(true);
+    it("returns false for buzzer mode so song plays continuously without looping", () => {
+      expect(shouldLoopAudio("buzzer")).toBe(false);
     });
 
     it("returns false for other modes (ai-lyrics, translated-lyrics)", () => {

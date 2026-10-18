@@ -85,6 +85,12 @@ describe("HostSettingsModal - prepareSettingsPayload", () => {
     expect(payload.genreIds).toBeUndefined();
     expect(payload.eraIds).toBeUndefined();
   });
+
+  it("normalizes buzzerPlayRegion in prepareSettingsPayload", () => {
+    expect(prepareSettingsPayload({ buzzerPlayRegion: "hook" }).buzzerPlayRegion).toBe("hook");
+    expect(prepareSettingsPayload({ buzzerPlayRegion: "entire_song" }).buzzerPlayRegion).toBe("entire_song");
+    expect(prepareSettingsPayload({ buzzerPlayRegion: "invalid" as any }).buzzerPlayRegion).toBe("hook");
+  });
 });
 
 import {

@@ -64,7 +64,11 @@ export function formatSettingsSummary(settings: RoomSettings): string {
     settings.totalRounds > 0 ? `${settings.totalRounds} ข้อ` : "ไม่จำกัดข้อ";
 
   const detailLabel =
-    settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics"
+    settings.gameMode === "buzzer"
+      ? settings.buzzerPlayRegion === "entire_song"
+        ? "เริ่มจากต้นเพลง"
+        : "เริ่มจากท่อนฮุก"
+      : settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics"
       ? settings.lyricsType === "intro"
         ? "ท่อนเปิด"
         : "ท่อนฮุก"
