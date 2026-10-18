@@ -1236,6 +1236,36 @@ export function useRoomRealtime(
     updateSettings({ playerCount: currentCount }).catch(() => {});
   }, [state.isHost, cleanCode, state.players.length, updateSettings]);
 
+  // Lightweight heartbeat effect when host is in lobby to keep room updated_at fresh
+  useEffect(() => {
+    if (!state.isHost || !cleanCode || state.status !== "lobby") return;
+
+    const interval = setInterval(() => {
+      const myPlayer = myPlayerRef.current;
+      if (!myPlayer) return;
+      const token = myPlayer.sessionToken || myPlayer.id;
+
+      fetch(`/api/room/${cleanCode}/settings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          sessionToken: myPlayer.sessionToken,
+          playerId: myPlayer.id,
+          settings: {
+            playerCount: state.players.length > 0 ? state.players.length : 1,
+          },
+        }),
+      }).catch((err) => {
+        console.warn("[useRoomRealtime] Lobby heartbeat warning:", err);
+      });
+    }, 60000); // Send heartbeat every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [state.isHost, cleanCode, state.status, state.players.length]);
+
   // Action: transferHost
   const transferHost = useCallback(
     async (newHostPlayerId: string): Promise<boolean> => {

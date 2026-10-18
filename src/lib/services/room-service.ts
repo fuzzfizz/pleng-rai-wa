@@ -34,7 +34,7 @@ export class RoomService {
    * Uses service role client in server environment when SUPABASE_SERVICE_ROLE_KEY is present,
    * otherwise falls back to public anon client.
    */
-  private static getClient() {
+  static getClient() {
     if (typeof window === "undefined" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         return getServiceSupabase();
@@ -128,13 +128,106 @@ export class RoomService {
    */
   static async updateRoomSettings(
     code: string,
-    settings: Partial<RoomSettings>
+    settings: Partial<RoomSettings>,
+    fallbackHost?:
+      | string
+      | {
+          hostPlayerId?: string;
+          playerId?: string;
+          sessionToken?: string;
+          hostDisplayName?: string;
+          hostAvatar?: string;
+        }
   ): Promise<any> {
     if (!code || typeof code !== "string") throw new Error("Invalid room code");
     const cleanCode = code.trim().toUpperCase();
     const client = this.getClient();
-    const current = await this.getRoomByCode(cleanCode);
-    if (!current) throw new Error("Room not found");
+    let current = await this.getRoomByCode(cleanCode);
+
+    if (!current) {
+      const hostId =
+        (typeof fallbackHost === "string"
+          ? fallbackHost.trim()
+          : fallbackHost?.hostPlayerId?.trim() ||
+            fallbackHost?.playerId?.trim() ||
+            fallbackHost?.sessionToken?.trim()) ||
+        (Array.isArray(settings?.players) &&
+          settings.players.find((p: any) => p?.isHost)?.id) ||
+        null;
+
+      if (hostId) {
+        const hostDisplayName =
+          (typeof fallbackHost === "object"
+            ? fallbackHost.hostDisplayName
+            : undefined) ||
+          settings.hostDisplayName ||
+          "หัวหน้าห้อง";
+        const hostAvatar =
+          (typeof fallbackHost === "object"
+            ? fallbackHost.hostAvatar
+            : undefined) ||
+          settings.hostAvatar ||
+          "🎧";
+
+        const mergedSettings: Record<string, any> = {
+          ...DEFAULT_ROOM_SETTINGS,
+          ...settings,
+          hostDisplayName,
+          hostAvatar,
+          playerCount:
+            typeof settings.playerCount === "number"
+              ? settings.playerCount
+              : 1,
+        };
+
+        if (
+          !mergedSettings.players ||
+          !Array.isArray(mergedSettings.players) ||
+          mergedSettings.players.length === 0
+        ) {
+          mergedSettings.players = [
+            {
+              id: hostId,
+              displayName: hostDisplayName,
+              avatarUrl: hostAvatar,
+              isHost: true,
+              isReady: true,
+              score: 0,
+              sessionToken:
+                typeof fallbackHost === "object" && fallbackHost.sessionToken
+                  ? fallbackHost.sessionToken
+                  : hostId,
+              lastSeenAt: new Date().toISOString(),
+            },
+          ];
+        }
+
+        const { data: createdRoom, error: insertError } = await client
+          .from("rooms")
+          .upsert(
+            {
+              room_code: cleanCode,
+              host_player_id: hostId,
+              status: "lobby",
+              settings: mergedSettings as unknown as Json,
+              played_song_ids: [],
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "room_code" }
+          )
+          .select()
+          .single();
+
+        if (insertError) {
+          throw new Error(
+            `Room not found and self-healing upsert failed: ${insertError.message}`
+          );
+        }
+        return createdRoom;
+      }
+
+      throw new Error("Room not found");
+    }
 
     const currentSettings =
       typeof current.settings === "object" && current.settings !== null
@@ -196,7 +289,10 @@ export class RoomService {
 
     const { data, error } = await client
       .from("rooms")
-      .update({ settings: updatedSettings as unknown as Json })
+      .update({
+        settings: updatedSettings as unknown as Json,
+        updated_at: new Date().toISOString(),
+      })
       .eq("room_code", cleanCode)
       .select()
       .single();
@@ -342,10 +438,24 @@ export class RoomService {
   }
 
   /**
+   * Updates updated_at timestamp to keep room fresh in database.
+   */
+  static async touchRoom(code: string): Promise<boolean> {
+    if (!code || typeof code !== "string") return false;
+    const cleanCode = code.trim().toUpperCase();
+    const client = this.getClient();
+    const { error } = await client
+      .from("rooms")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("room_code", cleanCode);
+    return !error;
+  }
+
+  /**
    * Automatically cleans up inactive / abandoned rooms from database in near real-time.
-   * - Ended rooms ('game_over') older than 10 minutes.
-   * - Abandoned lobby rooms ('lobby') with no activity older than 20 minutes.
-   * - Inactive in-game rooms with no updates older than 40 minutes.
+   * - Ended rooms ('game_over') older than 60 minutes.
+   * - Abandoned lobby rooms ('lobby') with no activity older than 120 minutes (2 hours).
+   * - Inactive in-game rooms with no updates older than 180 minutes (3 hours).
    */
   static async cleanupStaleRooms(optionsOrHours?: number | {
     endedMinutes?: number;
@@ -354,9 +464,9 @@ export class RoomService {
   }): Promise<{ deletedCount: number }> {
     try {
       const client = this.getClient();
-      let endedMins = 10;
-      let lobbyMins = 5;
-      let inactiveMins = 40;
+      let endedMins = 60; // Was 10 mins, now 1 hour (60 mins)
+      let lobbyMins = 120; // Was 5 mins, now 2 hours (120 mins)
+      let inactiveMins = 180; // Was 40 mins, now 3 hours (180 mins)
 
       if (typeof optionsOrHours === "number") {
         inactiveMins = optionsOrHours * 60;
@@ -372,7 +482,7 @@ export class RoomService {
       const lobbyThreshold = new Date(Date.now() - lobbyMins * 60 * 1000).toISOString();
       const inactiveThreshold = new Date(Date.now() - inactiveMins * 60 * 1000).toISOString();
 
-      // 1. Delete ended rooms older than 10 minutes
+      // 1. Delete ended rooms older than 60 minutes
       const { data: endedRooms } = await client
         .from("rooms")
         .delete()
@@ -380,7 +490,7 @@ export class RoomService {
         .lt("updated_at", endedThreshold)
         .select("id");
 
-      // 2. Delete abandoned lobby rooms with no updates for 5 minutes
+      // 2. Delete abandoned lobby rooms with no updates for 120 minutes (2 hours)
       const { data: lobbyRooms } = await client
         .from("rooms")
         .delete()
@@ -388,7 +498,7 @@ export class RoomService {
         .lt("updated_at", lobbyThreshold)
         .select("id");
 
-      // 3. Delete any stale rooms with no activity older than 40 minutes
+      // 3. Delete any stale rooms with no activity older than 180 minutes (3 hours)
       const { data: staleRooms, error } = await client
         .from("rooms")
         .delete()
@@ -422,8 +532,8 @@ export class RoomService {
     // Opportunistic cleanup: Purge dead rooms immediately before listing
     await this.cleanupStaleRooms().catch(() => {});
 
-    // Rooms active in the last 40 minutes
-    const recentThreshold = new Date(Date.now() - 40 * 60 * 1000).toISOString();
+    // Rooms active in the last 180 minutes (3 hours)
+    const recentThreshold = new Date(Date.now() - 180 * 60 * 1000).toISOString();
 
     const { data, error } = await client
       .from("rooms")

@@ -3,7 +3,7 @@
 // ==========================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { RoomService } from "@/lib/services/room-service";
+import { RoomService, DEFAULT_ROOM_SETTINGS } from "@/lib/services/room-service";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { isValidRoomCode } from "@/lib/room-code";
 import type { RoomSettings } from "@/types";
@@ -46,16 +46,6 @@ export async function POST(
       newHostPlayerId?: string;
     };
 
-    const cleanCode = code.trim().toUpperCase();
-    const currentRoom = await RoomService.getRoomByCode(cleanCode);
-
-    if (!currentRoom) {
-      return NextResponse.json(
-        { success: false, error: "ไม่พบห้องนี้ในระบบ" },
-        { status: 404 }
-      );
-    }
-
     const authHeader = request.headers.get("authorization");
     const bearerToken = authHeader
       ? authHeader.replace(/^Bearer\s+/i, "").trim()
@@ -66,6 +56,86 @@ export async function POST(
       typeof playerId === "string" ? playerId : undefined,
       bearerToken,
     ];
+
+    const cleanCode = code.trim().toUpperCase();
+    const currentRoom = await RoomService.getRoomByCode(cleanCode);
+
+    if (!currentRoom) {
+      const hostToken = sessionToken || playerId || bearerToken;
+      if (!hostToken) {
+        return NextResponse.json(
+          { success: false, error: "ไม่พบห้องนี้ในระบบ" },
+          { status: 404 }
+        );
+      }
+
+      // Self-healing: Rehydrate/recreate the room in Supabase so the host NEVER loses their room or gets a 404!
+      const hostPlayerId = playerId || sessionToken || bearerToken || "host";
+      const hostDisplayName = settings?.hostDisplayName || "หัวหน้าห้อง";
+      const hostAvatar = settings?.hostAvatar || "🎧";
+
+      const mergedSettings: Record<string, any> = {
+        ...DEFAULT_ROOM_SETTINGS,
+        ...(settings && typeof settings === "object" && !Array.isArray(settings) ? settings : {}),
+        hostDisplayName,
+        hostAvatar,
+        playerCount: typeof settings?.playerCount === "number" ? settings.playerCount : 1,
+      };
+
+      if (
+        !mergedSettings.players ||
+        !Array.isArray(mergedSettings.players) ||
+        mergedSettings.players.length === 0
+      ) {
+        mergedSettings.players = [
+          {
+            id: hostPlayerId,
+            displayName: hostDisplayName,
+            avatarUrl: hostAvatar,
+            isHost: true,
+            isReady: true,
+            score: 0,
+            sessionToken: sessionToken || hostPlayerId,
+            lastSeenAt: new Date().toISOString(),
+          },
+        ];
+      }
+
+      const client = RoomService.getClient();
+      const newRoomData: any = {
+        room_code: cleanCode,
+        host_player_id: hostPlayerId,
+        status: "lobby",
+        settings: mergedSettings,
+        played_song_ids: [],
+        updated_at: new Date().toISOString(),
+      };
+
+      let rehydratedRoom = newRoomData;
+      try {
+        const { data, error } = await client
+          .from("rooms")
+          .upsert(newRoomData, { onConflict: "room_code" })
+          .select()
+          .single();
+
+        if (!error && data) {
+          rehydratedRoom = data;
+        }
+      } catch (upsertErr) {
+        console.warn("[RoomSettingsRoute] Self-healing upsert warning:", upsertErr);
+      }
+
+      await RealtimeBroadcastService.broadcast(cleanCode, "room_settings", {
+        settings: rehydratedRoom.settings || mergedSettings,
+        room: rehydratedRoom,
+      });
+
+      return NextResponse.json({
+        success: true,
+        room: rehydratedRoom,
+      });
+    }
 
     const isHost = typeof RoomService.isCallerHost === "function"
       ? RoomService.isCallerHost(currentRoom, candidateTokens)
