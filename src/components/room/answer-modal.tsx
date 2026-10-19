@@ -16,6 +16,7 @@ export interface AnswerModalProps {
   onClose?: () => void;
   onSubmitAnswer: (answerText: string) => Promise<void>;
   timeRemainingSec?: number; // default 15 seconds (0 = unlimited)
+  buzzDeadline?: string | null;
   inputMode?: AnswerInputMode;
   choices?: ChoiceOption[];
   songLibrary?: Song[];
@@ -36,19 +37,25 @@ export function AnswerModal({
   onClose,
   onSubmitAnswer,
   timeRemainingSec = 15,
+  buzzDeadline,
   inputMode = "autocomplete",
   choices = [],
   songLibrary = [],
   isSubmitting = false,
 }: AnswerModalProps): React.JSX.Element | null {
   const [inputValue, setInputValue] = useState("");
-  const isUnlimited = timeRemainingSec <= 0;
-  const [secondsLeft, setSecondsLeft] = useState(timeRemainingSec);
+  const isUnlimited = !buzzDeadline && timeRemainingSec <= 0;
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    if (buzzDeadline) {
+      return Math.max(0, Math.round(((new Date(buzzDeadline).getTime() - Date.now()) / 1000) * 10) / 10);
+    }
+    return timeRemainingSec;
+  });
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const modalSuggestionsRef = useRef<(HTMLButtonElement | null)[]>([]);
-  const totalSec = Math.max(1, timeRemainingSec);
+  const totalSec = Math.max(1, timeRemainingSec > 0 ? timeRemainingSec : 10);
 
   // Scroll highlighted autocomplete suggestion into view smoothly
   useEffect(() => {
@@ -64,7 +71,10 @@ export function AnswerModal({
   useEffect(() => {
     if (isOpen) {
       setInputValue("");
-      setSecondsLeft(timeRemainingSec);
+      const initial = buzzDeadline
+        ? Math.max(0, Math.round(((new Date(buzzDeadline).getTime() - Date.now()) / 1000) * 10) / 10)
+        : timeRemainingSec;
+      setSecondsLeft(initial);
       setHighlightedIndex(-1);
 
       // Auto-focus input on open
@@ -75,11 +85,25 @@ export function AnswerModal({
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, timeRemainingSec]);
+  }, [isOpen, timeRemainingSec, buzzDeadline]);
 
   // Countdown timer interval (ticks down every 100ms) - only if not unlimited
   useEffect(() => {
     if (!isOpen || isUnlimited) return;
+
+    if (buzzDeadline) {
+      const updateSeconds = () => {
+        const remaining = Math.max(
+          0,
+          Math.round(((new Date(buzzDeadline).getTime() - Date.now()) / 1000) * 10) / 10
+        );
+        setSecondsLeft(remaining);
+      };
+
+      updateSeconds();
+      const interval = setInterval(updateSeconds, 100);
+      return () => clearInterval(interval);
+    }
 
     const interval = setInterval(() => {
       setSecondsLeft((prev) => {
@@ -93,7 +117,7 @@ export function AnswerModal({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isOpen, isUnlimited]);
+  }, [isOpen, isUnlimited, buzzDeadline]);
 
   // Autocomplete search suggestions
   const suggestions = useMemo(() => {

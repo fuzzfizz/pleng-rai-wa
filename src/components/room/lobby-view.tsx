@@ -25,6 +25,7 @@ import {
   Loader2,
   Info,
   Crown,
+  Trophy,
 } from "lucide-react";
 import { soundEffects } from "@/lib/sound-effects";
 import { SettingsMenu } from "@/components/common/settings-menu";
@@ -39,6 +40,9 @@ export interface LobbyViewProps {
   myPlayer: Player | null;
   isHost: boolean;
   settings: RoomSettings;
+  isGameOverPendingHost?: boolean;
+  onViewPodium?: () => void;
+  onResetAllToLobby?: () => Promise<unknown> | void;
   onStartGame: () => Promise<void>;
   onToggleReady: () => Promise<void>;
   onUpdateSettings: (settings: Partial<RoomSettings>) => Promise<boolean | void>;
@@ -97,6 +101,9 @@ export function LobbyView({
   myPlayer,
   isHost,
   settings,
+  isGameOverPendingHost = false,
+  onViewPodium,
+  onResetAllToLobby,
   onStartGame,
   onToggleReady,
   onUpdateSettings,
@@ -313,11 +320,23 @@ export function LobbyView({
         </div>
 
         {/* 3. Settings Summary Pill */}
-        <div className="w-full max-w-2xl lg:max-w-4xl flex items-center justify-center px-2">
+        <div className="w-full max-w-2xl lg:max-w-4xl flex flex-col items-center justify-center gap-2 px-2">
           <div className="max-w-full flex items-center justify-center gap-2 px-3.5 py-2 lg:px-6 lg:py-2.5 rounded-2xl sm:rounded-full bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 text-xs lg:text-sm text-stone-700 dark:text-stone-300 shadow-sm text-center">
             <Sliders className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
             <span className="break-words text-balance">{settingsSummary}</span>
           </div>
+
+          {/* Toggle back to podium button if game over results are still active */}
+          {isGameOverPendingHost && onViewPodium && (
+            <button
+              type="button"
+              onClick={onViewPodium}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shadow-sm"
+            >
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span>📊 ดูสรุปผลการแข่งขันอีกครั้ง (View Results)</span>
+            </button>
+          )}
         </div>
 
         {/* 4. Players Roster Grid */}
@@ -331,7 +350,11 @@ export function LobbyView({
             </div>
 
             <div className="inline-flex items-center gap-1.5 text-xs lg:text-sm px-3 py-1 lg:px-4 lg:py-1.5 rounded-full border border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 text-stone-600 dark:text-stone-400">
-              {allNonHostReady ? (
+              {isGameOverPendingHost ? (
+                <span>
+                  {`กลับล็อบบี้แล้ว ${players.filter((p) => p.isLobbyReady).length}/${players.length} คน`}
+                </span>
+              ) : allNonHostReady ? (
                 <span className="text-emerald-500 font-medium">✓ ทุกคนพร้อมแล้ว!</span>
               ) : (
                 <span>
@@ -347,6 +370,7 @@ export function LobbyView({
                 key={player.id}
                 player={player}
                 isCurrentPlayer={player.id === myPlayer?.id}
+                isGameOverPendingHost={isGameOverPendingHost}
               />
             ))}
           </div>
@@ -397,6 +421,31 @@ export function LobbyView({
                   ✓ ผู้เล่นทุกคนพร้อมแล้ว! Host สามารถกดเริ่มเกมได้ทันที
                 </div>
               )}
+
+              {isGameOverPendingHost && (
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  {onResetAllToLobby && (
+                    <button
+                      type="button"
+                      onClick={onResetAllToLobby}
+                      className="text-xs text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>พาทุกคนกลับล็อบบี้</span>
+                    </button>
+                  )}
+                  {onViewPodium && (
+                    <button
+                      type="button"
+                      onClick={onViewPodium}
+                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                      <span>ดูสรุปผลการแข่งขันอีกครั้ง (View Results)</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             // Non-Host Controls
@@ -428,8 +477,19 @@ export function LobbyView({
               </button>
 
               <div className="text-xs lg:text-sm text-stone-500 text-center">
-                รอ Host กดเริ่มเกม...
+                {isGameOverPendingHost ? "รอ Host กดเริ่มเกมรอบถัดไป..." : "รอ Host กดเริ่มเกม..."}
               </div>
+
+              {isGameOverPendingHost && onViewPodium && (
+                <button
+                  type="button"
+                  onClick={onViewPodium}
+                  className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center justify-center gap-1 cursor-pointer pt-1"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                  <span>ดูสรุปผลการแข่งขันอีกครั้ง (View Results)</span>
+                </button>
+              )}
             </>
           )}
         </div>

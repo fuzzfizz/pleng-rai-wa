@@ -10,12 +10,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const genreId = searchParams.get("genreId") || undefined;
     const era = searchParams.get("era") || undefined;
+    const artistsParam = searchParams.get("artists");
+    const artists = artistsParam ? artistsParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
     const artist = searchParams.get("artist") || undefined;
     const searchQuery = searchParams.get("q") || undefined;
     const limitParam = searchParams.get("limit");
     const limit = limitParam ? Math.min(500, Math.max(1, Number(limitParam) || 100)) : 100;
 
-    const songs = await getSongs({ genreId, era, artist, searchQuery, limit });
+    const songs = await getSongs({ genreId, era, artist, artists, searchQuery, limit });
     return NextResponse.json({ success: true, songs });
   } catch (error) {
     console.error("Fetch songs error:", error);

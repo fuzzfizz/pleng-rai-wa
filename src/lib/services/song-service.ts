@@ -131,6 +131,7 @@ export interface SongFilter {
   limit?: number;
   era?: string;
   artist?: string;
+  artists?: string[];
   yearStart?: number;
   yearEnd?: number;
   searchQuery?: string;
@@ -172,7 +173,10 @@ export async function getSongs(filter?: SongFilter): Promise<Song[]> {
     query = query.eq("era", filter.era);
   }
 
-  if (filter?.artist) {
+  if (filter?.artists && filter.artists.length > 0) {
+    const orCondition = filter.artists.map((a) => `artist.ilike.%${a}%`).join(",");
+    query = query.or(orCondition);
+  } else if (filter?.artist) {
     query = query.ilike("artist", `%${filter.artist}%`);
   }
 
@@ -308,6 +312,7 @@ export interface GetRandomSongsOptions {
   era?: string;
   eraIds?: string[];
   artist?: string;
+  artists?: string[];
   yearStart?: number;
   yearEnd?: number;
   playlistId?: string | null;
@@ -477,7 +482,9 @@ export async function getRandomSongs(
         genreId: options.genreId,
         genreIds: options.genreIds,
         era: options.era,
+        eraIds: options.eraIds,
         artist: options.artist,
+        artists: options.artists,
         yearStart: options.yearStart,
         yearEnd: options.yearEnd,
         excludeIds: options.excludeIds,
@@ -524,7 +531,10 @@ export async function getRandomSongs(
     query = query.eq("era", options.era);
   }
 
-  if (options?.artist) {
+  if (options?.artists && options.artists.length > 0) {
+    const orCondition = options.artists.map((a) => `artist.ilike.%${a}%`).join(",");
+    query = query.or(orCondition);
+  } else if (options?.artist) {
     query = query.ilike("artist", `%${options.artist}%`);
   }
 
@@ -551,6 +561,7 @@ export async function getRandomSongs(
     options?.genreId ||
     (options?.eraIds && options.eraIds.length > 0) ||
     options?.era ||
+    (options?.artists && options.artists.length > 0) ||
     options?.artist ||
     options?.yearStart !== undefined ||
     options?.yearEnd !== undefined

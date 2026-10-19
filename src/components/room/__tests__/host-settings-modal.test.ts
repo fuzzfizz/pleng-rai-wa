@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { prepareSettingsPayload } from "../host-settings-modal";
+import { prepareSettingsPayload, TOTAL_ROUNDS_OPTIONS } from "../host-settings-modal";
 import type { RoomSettings } from "@/types";
 
 describe("HostSettingsModal - prepareSettingsPayload", () => {
@@ -246,6 +246,34 @@ describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
       voiceGender: "random" as any,
     });
     expect(p3.voiceGender).toBe("female");
+  });
+
+  it("replaces 20 rounds with 'ตามจำนวนเพลงทั้งหมด' (-1) in TOTAL_ROUNDS_OPTIONS", () => {
+    expect(TOTAL_ROUNDS_OPTIONS.some((opt) => opt.value === 20)).toBe(false);
+    const allSongsOpt = TOTAL_ROUNDS_OPTIONS.find((opt) => opt.value === -1);
+    expect(allSongsOpt).toBeDefined();
+    expect(allSongsOpt?.label).toBe("ตามจำนวนเพลงทั้งหมด");
+  });
+
+  it("preserves multi-artist filter configuration in prepareSettingsPayload", () => {
+    const payload = prepareSettingsPayload({
+      songFilter: {
+        type: "artist",
+        artist: "Silly Fools",
+        artists: ["Silly Fools", "Bodyslam"],
+      },
+    });
+
+    expect(payload.songFilter?.type).toBe("artist");
+    expect(payload.songFilter?.artist).toBe("Silly Fools");
+    expect(payload.songFilter?.artists).toEqual(["Silly Fools", "Bodyslam"]);
+  });
+
+  it("defaults buzzerPlayRegion to entire_song for buzzer gameMode when not specified", () => {
+    const payload = prepareSettingsPayload({
+      gameMode: "buzzer",
+    });
+    expect(payload.buzzerPlayRegion).toBe("entire_song");
   });
 });
 

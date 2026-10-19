@@ -48,35 +48,36 @@ export async function POST(
     }
 
     // Authorization check:
-    // When game has ended (game_over) or is already in lobby, any player can return everyone to the lobby.
-    // Only during active gameplay (question_active, buzzed, revealing) does aborting require host authorization.
-    const isGameOver = room.status === "game_over" || room.status === "lobby";
-    if (!isGameOver) {
-      const authHeader = request.headers.get("authorization");
-      const bearerToken = authHeader
-        ? authHeader.replace(/^Bearer\s+/i, "").trim()
-        : undefined;
+    // Room-wide reset requires host authorization even during game_over or lobby.
+    // Individual players return to lobby locally via realtime presence (isLobbyReady).
+    const authHeader = request.headers.get("authorization");
+    const bearerToken = authHeader
+      ? authHeader.replace(/^Bearer\s+/i, "").trim()
+      : undefined;
 
-      const hostPlayerId = room.host_player_id || (room as any).hostPlayerId;
-      const providedTokens = [
-        bearerToken,
-        typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0
-          ? body.sessionToken.trim()
-          : undefined,
-        typeof body.playerId === "string" && body.playerId.trim().length > 0
-          ? body.playerId.trim()
-          : undefined,
-      ].filter(Boolean) as string[];
+    const hostPlayerId = room.host_player_id || (room as any).hostPlayerId;
+    const providedTokens = [
+      bearerToken,
+      typeof body.sessionToken === "string" && body.sessionToken.trim().length > 0
+        ? body.sessionToken.trim()
+        : undefined,
+      typeof body.playerId === "string" && body.playerId.trim().length > 0
+        ? body.playerId.trim()
+        : undefined,
+    ].filter(Boolean) as string[];
 
-      if (providedTokens.length > 0 && !providedTokens.includes(hostPlayerId)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "ไม่มีสิทธิ์ยกเลิกเกม (เฉพาะ Host เท่านั้น)",
-          },
-          { status: 403 }
-        );
-      }
+    const isHost = typeof RoomService.isCallerHost === "function"
+      ? RoomService.isCallerHost(room, providedTokens)
+      : providedTokens.includes(hostPlayerId);
+
+    if (providedTokens.length > 0 && !isHost) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ไม่มีสิทธิ์ยกเลิกเกม (เฉพาะ Host เท่านั้น)",
+        },
+        { status: 403 }
+      );
     }
 
     // 1. Update room status in DB / memory back to "lobby", clear roundState, and reset played_song_ids = []

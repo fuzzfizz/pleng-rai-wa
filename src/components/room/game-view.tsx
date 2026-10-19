@@ -1080,6 +1080,7 @@ export function GameView({
               wrongGuess={lastWrongGuess}
               showResumeCue={false}
               gameMode={gameMode}
+              currentPlayerId={myPlayer?.id}
             />
           ) : null
         ) : (
@@ -1087,6 +1088,7 @@ export function GameView({
             wrongGuess={lastWrongGuess}
             showResumeCue={gameMode === "buzzer"}
             gameMode={gameMode}
+            currentPlayerId={myPlayer?.id}
           />
         )}
 
@@ -1606,9 +1608,10 @@ export function GameView({
               <button
                 type="button"
                 onClick={onLeaveRoom}
-                className="w-full min-h-[44px] py-3.5 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-base shadow-md shadow-amber-500/20 transition active:scale-95 cursor-pointer mt-2 touch-manipulation"
+                className="w-full min-h-[44px] py-3.5 px-6 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 font-bold text-base shadow-md transition active:scale-95 cursor-pointer mt-2 touch-manipulation flex items-center justify-center gap-2"
               >
-                กลับสู่หน้าหลัก / ล็อบบี้
+                <LogOut className="w-4 h-4" />
+                <span>ออกจากห้อง (Leave Room)</span>
               </button>
             )}
           </div>
@@ -1626,6 +1629,7 @@ export function GameView({
         songLibrary={effectiveSongLibrary}
         isSubmitting={isSubmittingAnswer}
         timeRemainingSec={room?.settings?.roundTimeoutSec ?? 15}
+        buzzDeadline={roomRealtime.buzzDeadline || roomRealtime.buzzedPlayer?.buzzDeadline || null}
       />
 
       {/* ==================================================== */}

@@ -280,6 +280,14 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   // Ref to prevent duplicate leave requests
   const hasLeftRef = useRef(false);
 
+  // Local navigation state: allow players to toggle between Podium and Lobby individually in game_over
+  const [isLocalInLobby, setIsLocalInLobby] = useState(false);
+  useEffect(() => {
+    if (roomRealtime.status !== "game_over") {
+      setIsLocalInLobby(false);
+    }
+  }, [roomRealtime.status]);
+
   // Keep a ref of storedSession so sendLeaveSignal always accesses the latest value
   // without triggering re-runs of effects or unmount cleanups during initial hydration.
   const storedSessionRef = useRef<PlayerSession | null>(storedSession);
@@ -671,7 +679,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
   const currentSettings: RoomSettings =
     roomRealtime.room?.settings || DEFAULT_CLIENT_ROOM_SETTINGS;
 
-  if (currentStatus === "lobby") {
+  if (currentStatus === "lobby" || (currentStatus === "game_over" && isLocalInLobby)) {
     return (
       <LobbyView
         roomCode={cleanCode}
@@ -679,6 +687,15 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
         myPlayer={roomRealtime.myPlayer}
         isHost={roomRealtime.isHost}
         settings={currentSettings}
+        isGameOverPendingHost={currentStatus === "game_over"}
+        onViewPodium={() => setIsLocalInLobby(false)}
+        onResetAllToLobby={
+          roomRealtime.isHost
+            ? async () => {
+                await roomRealtime.resetToLobby();
+              }
+            : undefined
+        }
         onStartGame={async () => {
           await roomRealtime.nextRound();
         }}
@@ -705,8 +722,16 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
           await roomRealtime.nextRound();
         }}
         onBackToLobby={async () => {
-          await roomRealtime.resetToLobby();
+          await roomRealtime.setLobbyReady?.(true);
+          setIsLocalInLobby(true);
         }}
+        onResetAllToLobby={
+          roomRealtime.isHost
+            ? async () => {
+                await roomRealtime.resetToLobby();
+              }
+            : undefined
+        }
         onLeaveRoom={handleLeave}
       />
     );

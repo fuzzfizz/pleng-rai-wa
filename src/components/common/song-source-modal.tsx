@@ -99,7 +99,12 @@ export function getSongFilterLabel(filter?: SongFilterConfig, customPlaylistTitl
     const matched = ERA_OPTIONS.find((e) => e.id === (filter.eraIds?.[0] || filter.era));
     return `📼 ${matched ? matched.label : `ยุค ${filter.era || "ไม่ระบุ"}`}`;
   }
-  if (filter.type === "artist") return `🎤 ศิลปิน: ${filter.artist}`;
+  if (filter.type === "artist") {
+    if (filter.artists && filter.artists.length > 1) {
+      return `🎤 ศิลปิน (${filter.artists.length} ศิลปิน): ${filter.artists.join(", ")}`;
+    }
+    return `🎤 ศิลปิน: ${filter.artist || filter.artists?.[0] || "ไม่ระบุ"}`;
+  }
   if (filter.type === "playlist") {
     return customPlaylistTitle ? `🎶 เพลย์ลิสต์: ${customPlaylistTitle}` : "🎶 ใช้เพลย์ลิสต์";
   }
@@ -208,9 +213,15 @@ export function SongSourceModal({
 
   const effectivePlaylists = propPlaylists ?? internalPlaylists;
 
-  // Sync draft when modal opens
+  // Track previous isOpen state so draft only initializes when isOpen transitions false -> true
+  const prevIsOpenRef = React.useRef(false);
+
+  // Sync draft when modal opens (only when transitioning from closed to open)
   useEffect(() => {
-    if (isOpen) {
+    const wasOpen = prevIsOpenRef.current;
+    prevIsOpenRef.current = isOpen;
+
+    if (isOpen && !wasOpen) {
       const initial = currentFilter || { type: "all" };
       setDraft(initial);
       setActiveTab(initial.type || "all");
@@ -227,7 +238,7 @@ export function SongSourceModal({
         }
       }
     }
-  }, [isOpen, currentFilter]);
+  }, [isOpen, currentFilter, effectivePlaylists, user]);
 
   // Load Filter Options from API
   useEffect(() => {
@@ -341,7 +352,12 @@ export function SongSourceModal({
     if (draft.type === "genre") {
       return Boolean((draft.genreIds && draft.genreIds.length > 0) || draft.genreId);
     }
-    if (draft.type === "artist") return Boolean(draft.artist && draft.artist.trim().length > 0);
+    if (draft.type === "artist") {
+      return Boolean(
+        (draft.artists && draft.artists.length > 0) ||
+        (draft.artist && draft.artist.trim().length > 0)
+      );
+    }
     if (draft.type === "playlist") return Boolean(draft.playlistId);
     return true;
   }, [draft]);
@@ -500,11 +516,15 @@ export function SongSourceModal({
             type="button"
             onClick={() => {
               setActiveTab("artist");
-              if (draft.type !== "artist" || !draft.artist) {
+              if (
+                draft.type !== "artist" ||
+                (!draft.artist && (!draft.artists || draft.artists.length === 0))
+              ) {
                 const firstArtist = artists[0] || "Silly Fools";
                 setDraft({
                   type: "artist",
                   artist: firstArtist,
+                  artists: [firstArtist],
                 });
               }
             }}
@@ -820,62 +840,107 @@ export function SongSourceModal({
           })()}
 
           {/* TAB 4: ARTIST / BAND */}
-          {activeTab === "artist" && (
-            <div className="space-y-4">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="ค้นหาชื่อศิลปิน หรือ วงดนตรี เช่น Bodyslam, Silly Fools..."
-                  value={artistSearch}
-                  onChange={(e) => setArtistSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                />
-              </div>
+          {activeTab === "artist" && (() => {
+            const selectedArtists: string[] =
+              draft.type === "artist"
+                ? draft.artists && draft.artists.length > 0
+                  ? draft.artists
+                  : draft.artist
+                  ? [draft.artist]
+                  : []
+                : [];
 
-              {/* Verified Artist Chips from Database */}
-              <div>
-                <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 mb-2 uppercase tracking-wider">
-                  ศิลปินในฐานข้อมูล:
-                </label>
-                <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto pr-1">
-                  {filteredArtists.length > 0 ? (
-                    filteredArtists.map((artistName) => {
-                      const isSelected =
-                        draft.type === "artist" &&
-                        draft.artist?.toLowerCase() === artistName.toLowerCase();
-                      return (
-                        <button
-                          key={artistName}
-                          type="button"
-                          onClick={() => {
-                            setDraft({
-                              type: "artist",
-                              artist: artistName,
-                            });
-                          }}
-                          className={`py-1.5 px-3 rounded-full text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
-                            isSelected
-                              ? "bg-amber-500 border-amber-600 text-white font-bold shadow-sm"
-                              : "bg-stone-100 dark:bg-stone-800/80 border-stone-200 dark:border-stone-700/80 text-stone-700 dark:text-stone-300 hover:border-amber-400"
-                          }`}
-                        >
-                          <Mic2 className="w-3 h-3 opacity-70" />
-                          <span>{artistName}</span>
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="w-full p-4 text-center text-xs text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-950/40 rounded-2xl border border-stone-200 dark:border-stone-800">
-                      ไม่พบศิลปินที่ตรงกับคำค้นหา
+            return (
+              <div className="space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="ค้นหาชื่อศิลปิน หรือ วงดนตรี เช่น Bodyslam, Silly Fools..."
+                    value={artistSearch}
+                    onChange={(e) => setArtistSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  />
+                </div>
+
+                {/* Verified Artist Chips from Database */}
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                        ศิลปินในฐานข้อมูล:
+                      </label>
+                      {selectedArtists.length > 0 && (
+                        <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                          เลือกแล้ว {selectedArtists.length} ศิลปิน
+                        </span>
+                      )}
                     </div>
-                  )}
+                    {selectedArtists.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraft({
+                            type: "artist",
+                            artists: [],
+                            artist: undefined,
+                          });
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 text-[11px] font-bold transition-all cursor-pointer"
+                      >
+                        ✕ ล้างค่า
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto pr-1">
+                    {filteredArtists.length > 0 ? (
+                      filteredArtists.map((artistName) => {
+                        const isSelected = selectedArtists.some(
+                          (a) => a.toLowerCase() === artistName.toLowerCase()
+                        );
+                        return (
+                          <button
+                            key={artistName}
+                            type="button"
+                            onClick={() => {
+                              let nextArtists: string[];
+                              if (isSelected) {
+                                nextArtists = selectedArtists.filter(
+                                  (a) => a.toLowerCase() !== artistName.toLowerCase()
+                                );
+                              } else {
+                                nextArtists = [...selectedArtists, artistName];
+                              }
+                              setDraft({
+                                type: "artist",
+                                artists: nextArtists,
+                                artist: nextArtists[0] || undefined,
+                              });
+                            }}
+                            className={`py-1.5 px-3 rounded-full text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isSelected
+                                ? "bg-amber-500 border-amber-600 text-white font-bold shadow-sm"
+                                : "bg-stone-100 dark:bg-stone-800/80 border-stone-200 dark:border-stone-700/80 text-stone-700 dark:text-stone-300 hover:border-amber-400"
+                            }`}
+                          >
+                            <Mic2 className="w-3 h-3 opacity-70" />
+                            <span>{artistName}</span>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="w-full p-4 text-center text-xs text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-950/40 rounded-2xl border border-stone-200 dark:border-stone-800">
+                        ไม่พบศิลปินที่ตรงกับคำค้นหา
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           {/* TAB 5: PLAYLIST */}
           {activeTab === "playlist" && (
             <div className="space-y-4">

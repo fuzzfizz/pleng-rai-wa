@@ -100,6 +100,7 @@ export interface Player {
   avatarUrl?: string;
   isHost: boolean;
   isReady: boolean;
+  isLobbyReady?: boolean;
   score: number;
   sessionToken: string;
   lastSeenAt: string;
@@ -118,6 +119,7 @@ export interface SongFilterConfig {
   era?: string;
   eraIds?: string[];
   artist?: string;
+  artists?: string[];
   yearStart?: number;
   yearEnd?: number;
   playlistId?: string;

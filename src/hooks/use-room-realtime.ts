@@ -34,6 +34,7 @@ export interface BuzzedPlayer {
   displayName: string;
   buzzedAt?: string;
   deadline?: string;
+  buzzDeadline?: string;
 }
 
 export interface RoundWinner {
@@ -47,6 +48,7 @@ export interface WrongGuessRecord {
   playerId: string;
   displayName: string;
   answerText: string;
+  reason?: string;
 }
 
 export type RoomRealtimeStatus =
@@ -68,6 +70,7 @@ export interface RoomRealtimeState {
   gameMode: GameMode;
   activeQuestion: ActiveQuestion | null;
   buzzedPlayer: BuzzedPlayer | null;
+  buzzDeadline?: string | null;
   isMyBuzz: boolean;
   isExcludedFromBuzz: boolean;
   revealedSong: Partial<Song> | null;
@@ -93,7 +96,8 @@ export type RoomRealtimeAction =
   | { type: "set_connection"; isConnected: boolean }
   | { type: "set_error"; error: string | null }
   | { type: "set_audio_playing"; isPlaying: boolean }
-  | { type: "set_ready"; isReady: boolean };
+  | { type: "set_ready"; isReady: boolean }
+  | { type: "set_player_lobby_ready"; playerId: string; isLobbyReady: boolean };
 
 export interface ReducerOptions {
   playSounds?: boolean;
@@ -116,6 +120,7 @@ export function parsePresencePlayers(
             displayName: String(p.displayName || "ผู้เล่น"),
             isHost: Boolean(p.isHost),
             isReady: Boolean(p.isReady),
+            isLobbyReady: Boolean(p.isLobbyReady),
             score: typeof p.score === "number" ? p.score : 0,
             sessionToken: String(p.sessionToken || ""),
             lastSeenAt: String(p.lastSeenAt || new Date().toISOString()),
@@ -144,6 +149,7 @@ export function createInitialRoomRealtimeState(
       displayName: initialPlayer.displayName || "ผู้เล่น",
       isHost: Boolean(initialPlayer.isHost),
       isReady: Boolean(initialPlayer.isReady),
+      isLobbyReady: Boolean(initialPlayer.isLobbyReady),
       score: initialPlayer.score || 0,
       sessionToken: initialPlayer.sessionToken || initialPlayer.id,
       lastSeenAt: new Date().toISOString(),
@@ -165,6 +171,7 @@ export function createInitialRoomRealtimeState(
     gameMode: "audio-slice",
     activeQuestion: null,
     buzzedPlayer: null,
+    buzzDeadline: null,
     isMyBuzz: false,
     isExcludedFromBuzz: false,
     revealedSong: null,
@@ -248,8 +255,16 @@ export function reduceRoomRealtimeEvent(
       for (const p of presenceList) {
         map.set(p.id, p);
       }
-      if (nextState.myPlayer && !map.has(nextState.myPlayer.id)) {
-        map.set(nextState.myPlayer.id, nextState.myPlayer);
+      if (nextState.myPlayer) {
+        if (!map.has(nextState.myPlayer.id)) {
+          map.set(nextState.myPlayer.id, nextState.myPlayer);
+        } else {
+          const remoteMe = map.get(nextState.myPlayer.id)!;
+          nextState.myPlayer = {
+            ...nextState.myPlayer,
+            ...remoteMe,
+          };
+        }
       }
       nextState.players = Array.from(map.values());
       break;
@@ -280,6 +295,19 @@ export function reduceRoomRealtimeEvent(
       break;
     }
 
+    case "set_player_lobby_ready": {
+      if (nextState.myPlayer && nextState.myPlayer.id === action.playerId) {
+        nextState.myPlayer = {
+          ...nextState.myPlayer,
+          isLobbyReady: action.isLobbyReady,
+        };
+      }
+      nextState.players = nextState.players.map((p) =>
+        p.id === action.playerId ? { ...p, isLobbyReady: action.isLobbyReady } : p
+      );
+      break;
+    }
+
     case "broadcast": {
       const { event, payload } = action;
 
@@ -306,6 +334,7 @@ export function reduceRoomRealtimeEvent(
             choices: payload?.choices,
           };
           nextState.buzzedPlayer = null;
+          nextState.buzzDeadline = null;
           nextState.wrongGuesses = [];
           nextState.lastWrongGuess = null;
           nextState.revealedSong = null;
@@ -316,6 +345,10 @@ export function reduceRoomRealtimeEvent(
           nextState.playerHints = {};
           nextState.excludedPlayerIds = [];
           nextState.isAudioPlaying = true;
+          nextState.players = nextState.players.map((p) => ({ ...p, isLobbyReady: false }));
+          if (nextState.myPlayer) {
+            nextState.myPlayer = { ...nextState.myPlayer, isLobbyReady: false };
+          }
           break;
         }
 
@@ -326,12 +359,15 @@ export function reduceRoomRealtimeEvent(
             } catch {}
           }
           nextState.status = "buzzed";
+          const deadline = payload?.deadline || payload?.buzzDeadline || null;
           nextState.buzzedPlayer = {
             id: payload?.playerId,
             displayName: payload?.displayName || "ผู้เล่น",
             buzzedAt: payload?.buzzedAt,
-            deadline: payload?.deadline,
+            deadline: deadline || undefined,
+            buzzDeadline: deadline || undefined,
           };
+          nextState.buzzDeadline = deadline;
           nextState.isAudioPlaying = false;
           break;
         }
@@ -344,11 +380,13 @@ export function reduceRoomRealtimeEvent(
           }
           nextState.status = "question_active";
           nextState.buzzedPlayer = null;
+          nextState.buzzDeadline = null;
 
           const wrongRecord: WrongGuessRecord = {
             playerId: payload?.playerId,
             displayName: payload?.displayName || "ผู้เล่น",
             answerText: payload?.answerText || "",
+            reason: payload?.reason,
           };
           nextState.lastWrongGuess = wrongRecord;
 
@@ -357,6 +395,7 @@ export function reduceRoomRealtimeEvent(
               playerId: g.playerId,
               displayName: g.displayName || "ผู้เล่น",
               answerText: g.answerText || "",
+              reason: g.reason,
             }));
           } else {
             const alreadyExists = nextState.wrongGuesses.some(
@@ -409,6 +448,7 @@ export function reduceRoomRealtimeEvent(
           }
           nextState.status = "revealing";
           nextState.buzzedPlayer = null;
+          nextState.buzzDeadline = null;
           nextState.revealedSong = payload?.song || null;
           const singleWinner = payload?.winnerPlayerId
             ? {
@@ -454,6 +494,7 @@ export function reduceRoomRealtimeEvent(
             nextState.currentRound = 0;
             nextState.activeQuestion = null;
             nextState.buzzedPlayer = null;
+            nextState.buzzDeadline = null;
             nextState.isMyBuzz = false;
             nextState.isExcludedFromBuzz = false;
             nextState.wrongGuesses = [];
@@ -466,6 +507,10 @@ export function reduceRoomRealtimeEvent(
             nextState.playerHintLevels = {};
             nextState.playerHints = {};
             nextState.excludedPlayerIds = [];
+            nextState.players = nextState.players.map((p) => ({ ...p, isLobbyReady: false }));
+            if (nextState.myPlayer) {
+              nextState.myPlayer = { ...nextState.myPlayer, isLobbyReady: false };
+            }
             if (payload?.scores && Object.keys(payload.scores).length > 0) {
               nextState.scores = payload.scores;
             } else {
@@ -1179,6 +1224,7 @@ export function useRoomRealtime(
             displayName: state.myPlayer.displayName,
             isHost: state.myPlayer.isHost,
             isReady,
+            isLobbyReady: state.myPlayer.isLobbyReady,
             score: state.myPlayer.score,
             sessionToken: state.myPlayer.sessionToken,
             lastSeenAt: new Date().toISOString(),
@@ -1187,6 +1233,35 @@ export function useRoomRealtime(
         } catch (err) {
           console.warn("[useRoomRealtime] Failed to update presence ready state:", err);
         }
+      }
+    },
+    [state.myPlayer]
+  );
+
+  // Action: setLobbyReady
+  const setLobbyReady = useCallback(
+    async (isReady: boolean = true): Promise<void> => {
+      if (!channelRef.current || !state.myPlayer) return;
+      try {
+        const updated = { ...state.myPlayer, isLobbyReady: isReady };
+        await channelRef.current.track({
+          id: updated.id,
+          displayName: updated.displayName,
+          isHost: updated.isHost,
+          isReady: updated.isReady,
+          isLobbyReady: isReady,
+          score: updated.score,
+          sessionToken: updated.sessionToken,
+          lastSeenAt: new Date().toISOString(),
+          avatarUrl: updated.avatarUrl,
+        });
+        dispatch({
+          type: "set_player_lobby_ready",
+          playerId: state.myPlayer.id,
+          isLobbyReady: isReady,
+        });
+      } catch (err) {
+        console.warn("[useRoomRealtime] setLobbyReady track warning:", err);
       }
     },
     [state.myPlayer]
@@ -1330,6 +1405,7 @@ export function useRoomRealtime(
             displayName: state.myPlayer.displayName,
             isHost: state.myPlayer.isHost,
             isReady: false,
+            isLobbyReady: false,
             score: 0,
             sessionToken: state.myPlayer.sessionToken,
             lastSeenAt: new Date().toISOString(),
@@ -1485,6 +1561,7 @@ export function useRoomRealtime(
 
   return {
     ...state,
+    buzzDeadline: state.buzzDeadline || state.buzzedPlayer?.deadline || state.buzzedPlayer?.buzzDeadline || null,
     isMuted: isMutedState,
     buzz,
     submitAnswer,
@@ -1493,6 +1570,7 @@ export function useRoomRealtime(
     surrender,
     resetToLobby,
     setReady,
+    setLobbyReady,
     updateSettings,
     transferHost,
     requestHint,

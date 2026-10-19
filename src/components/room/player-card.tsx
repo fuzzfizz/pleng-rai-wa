@@ -12,6 +12,7 @@ import { Crown, Clock, Trophy } from "lucide-react";
 export interface PlayerCardProps {
   player: Player;
   isCurrentPlayer?: boolean;
+  isGameOverPendingHost?: boolean;
 }
 
 export const DETERMINISTIC_AVATARS: string[] = [
@@ -49,7 +50,25 @@ export interface PlayerStatusBadgeInfo {
 /**
  * Derives player ready status badge label and style variants.
  */
-export function getPlayerStatusBadge(player: Player): PlayerStatusBadgeInfo {
+export function getPlayerStatusBadge(
+  player: Player,
+  isGameOverPendingHost?: boolean
+): PlayerStatusBadgeInfo {
+  if (isGameOverPendingHost) {
+    if (player.isLobbyReady) {
+      return {
+        text: "✓ รอกลับห้องแล้ว",
+        variant: "ready",
+        colorClass: "bg-emerald-500/15 border-emerald-500/40 text-emerald-800 dark:text-emerald-300",
+      };
+    }
+    return {
+      text: "📊 กำลังดูสรุปผล",
+      variant: "waiting",
+      colorClass: "bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-300",
+    };
+  }
+
   if (player.isHost) {
     return {
       text: "👑 ผู้สร้างห้อง",
@@ -71,9 +90,13 @@ export function getPlayerStatusBadge(player: Player): PlayerStatusBadgeInfo {
   };
 }
 
-export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps): React.JSX.Element {
+export function PlayerCard({
+  player,
+  isCurrentPlayer = false,
+  isGameOverPendingHost = false,
+}: PlayerCardProps): React.JSX.Element {
   const avatar = getDeterministicAvatar(player);
-  const statusBadge = getPlayerStatusBadge(player);
+  const statusBadge = getPlayerStatusBadge(player, isGameOverPendingHost);
   const isImageAvatar =
     avatar.startsWith("http://") ||
     avatar.startsWith("https://") ||
@@ -85,7 +108,7 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
   if (isCurrentPlayer) {
     containerStyle =
       "border-amber-500/60 bg-amber-500/5 dark:bg-amber-950/20 ring-2 ring-amber-500/40 shadow-md shadow-amber-500/10";
-  } else if (player.isReady) {
+  } else if (isGameOverPendingHost ? player.isLobbyReady : player.isReady) {
     containerStyle =
       "border-emerald-500/40 bg-white/95 dark:bg-stone-900/90 ring-1 ring-emerald-500/30 shadow-sm";
   }
@@ -149,7 +172,9 @@ export function PlayerCard({ player, isCurrentPlayer = false }: PlayerCardProps)
           <span
             className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${statusBadge.colorClass}`}
           >
-            {statusBadge.variant === "waiting" && <Clock className="w-3.5 h-3.5" />}
+            {statusBadge.variant === "waiting" && !isGameOverPendingHost && (
+              <Clock className="w-3.5 h-3.5" />
+            )}
             <span>{statusBadge.text}</span>
           </span>
 

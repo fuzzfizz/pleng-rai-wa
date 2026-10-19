@@ -331,7 +331,7 @@ export function RoundRevealCard({
                 <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>{w.displayName}</span>
                 <span className="font-mono text-amber-300 font-extrabold">
-                  (+{w.scoreDelta || 100})
+                  (+{typeof w.scoreDelta === "number" ? w.scoreDelta : 100})
                 </span>
               </span>
             ))}

@@ -130,6 +130,13 @@ export async function POST(
     } else {
       // Check if game has reached maximum rounds
       if (settings.totalRounds > 0 && completedRounds >= settings.totalRounds) {
+        const finalScores =
+          (existingRoundState?.scores && Object.keys(existingRoundState.scores).length > 0)
+            ? existingRoundState.scores
+            : (dbRoundState?.scores && Object.keys(dbRoundState.scores).length > 0)
+            ? dbRoundState.scores
+            : (room.settings?.round_state?.scores || {});
+
         await RoomService.updateRoomStatus(cleanCode, "game_over");
         RoomStateStore.setGameOver(cleanCode);
 
@@ -137,14 +144,14 @@ export async function POST(
           gameOver: true,
           round: completedRounds,
           totalRounds: settings.totalRounds,
-          finalScores: existingRoundState?.scores || {},
+          finalScores,
         });
 
         return NextResponse.json({
           success: true,
           gameOver: true,
           message: "เกมจบแล้ว (ครบจำนวนรอบ)",
-          finalScores: existingRoundState?.scores || {},
+          finalScores,
         });
       }
     }
@@ -158,6 +165,7 @@ export async function POST(
     let filterEra: string | undefined = undefined;
     let filterEraIds: string[] | undefined = undefined;
     let filterArtist: string | undefined = undefined;
+    let filterArtists: string[] | undefined = undefined;
     let filterYearStart: number | undefined = undefined;
     let filterYearEnd: number | undefined = undefined;
     let filterPlaylistId: string | null | undefined = undefined;
@@ -181,6 +189,12 @@ export async function POST(
             : undefined;
       } else if (songFilter.type === "artist") {
         filterArtist = songFilter.artist;
+        filterArtists =
+          songFilter.artists && songFilter.artists.length > 0
+            ? songFilter.artists
+            : songFilter.artist
+            ? [songFilter.artist]
+            : undefined;
       } else if (songFilter.type === "playlist") {
         filterPlaylistId = songFilter.playlistId;
       }
@@ -205,6 +219,7 @@ export async function POST(
       era: filterEra,
       eraIds: filterEraIds,
       artist: filterArtist,
+      artists: filterArtists,
       yearStart: filterYearStart,
       yearEnd: filterYearEnd,
       playlistId: filterPlaylistId,
@@ -212,6 +227,13 @@ export async function POST(
     });
 
     if (!songs || songs.length === 0) {
+      const finalScores =
+        (existingRoundState?.scores && Object.keys(existingRoundState.scores).length > 0)
+          ? existingRoundState.scores
+          : (dbRoundState?.scores && Object.keys(dbRoundState.scores).length > 0)
+          ? dbRoundState.scores
+          : (room.settings?.round_state?.scores || {});
+
       await RoomService.updateRoomStatus(cleanCode, "game_over");
       RoomStateStore.setGameOver(cleanCode);
 
@@ -221,7 +243,7 @@ export async function POST(
         gameOver: true,
         round: completedRounds,
         totalRounds: settings.totalRounds,
-        finalScores: existingRoundState?.scores || {},
+        finalScores,
         reason: "no_more_songs",
         message: noMoreSongsMessage,
       });
@@ -231,7 +253,7 @@ export async function POST(
         gameOver: true,
         reason: "no_more_songs",
         message: noMoreSongsMessage,
-        finalScores: existingRoundState?.scores || {},
+        finalScores,
       });
     }
 

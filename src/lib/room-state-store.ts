@@ -255,6 +255,15 @@ export class RoomStateStore {
             }
           }
         }
+        if (dbRoundState?.playerHintLevels && Object.keys(dbRoundState.playerHintLevels).length > 0) {
+          existing.playerHintLevels = { ...existing.playerHintLevels, ...dbRoundState.playerHintLevels };
+        }
+        if (typeof dbRoundState?.revealedHintLevel === "number") {
+          existing.revealedHintLevel = Math.max(existing.revealedHintLevel || 0, dbRoundState.revealedHintLevel);
+        }
+        if (dbRoundState?.revealedHints) {
+          existing.revealedHints = { ...existing.revealedHints, ...dbRoundState.revealedHints };
+        }
       }
       return existing;
     }
@@ -442,11 +451,11 @@ export class RoomStateStore {
     }
 
     if (state.roundStatus === "buzzed") {
-      // Auto-expire previous buzzer if deadline exceeded without submitting
+      // Auto-expire previous buzzer if deadline exceeded without submitting (with 1.2s grace period)
       if (
         state.buzzedPlayerId &&
         state.buzzDeadline &&
-        Date.now() > new Date(state.buzzDeadline).getTime()
+        Date.now() > new Date(state.buzzDeadline).getTime() + 1200
       ) {
         this.timeoutBuzzer(cleanCode, state.buzzedPlayerId);
       } else {
@@ -466,8 +475,12 @@ export class RoomStateStore {
       return { success: false, reason: "already_buzzed" };
     }
 
+    const timeoutSec =
+      state.settings?.roundTimeoutSec && state.settings.roundTimeoutSec > 0
+        ? state.settings.roundTimeoutSec
+        : 10;
     const now = new Date();
-    const deadline = new Date(now.getTime() + 10000); // 10 seconds answer timeout
+    const deadline = new Date(now.getTime() + timeoutSec * 1000);
 
     state.buzzedPlayerId = playerId;
     state.buzzedPlayerName = displayName;
@@ -479,6 +492,17 @@ export class RoomStateStore {
       success: true,
       roundState: state,
     };
+  }
+
+  /**
+   * Alias for buzz (First-Come-First-Serve atomic buzzer hit).
+   */
+  static hitBuzzer(
+    roomCode: string,
+    playerId: string,
+    displayName: string
+  ): BuzzResult {
+    return this.buzz(roomCode, playerId, displayName);
   }
 
   /**
@@ -561,8 +585,9 @@ export class RoomStateStore {
       };
     }
 
-    // Standard buzzer mode: check if buzzer deadline expired before answering
-    if (isStandardBuzzer && state.buzzDeadline && Date.now() > new Date(state.buzzDeadline).getTime()) {
+    // Standard buzzer mode: check if buzzer deadline expired before answering (with 1.2s grace period)
+    const deadlineMs = state.buzzDeadline ? new Date(state.buzzDeadline).getTime() : 0;
+    if (isStandardBuzzer && state.buzzDeadline && Date.now() > deadlineMs + 1200) {
       this.timeoutBuzzer(cleanCode, playerId);
       return {
         success: false,

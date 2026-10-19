@@ -884,7 +884,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                           <Trophy className="w-5 h-5 text-amber-400 shrink-0" />
                           <span className="text-lg sm:text-xl font-extrabold">{w.displayName}</span>
                           <span className="font-mono font-black text-amber-300 text-base sm:text-lg">
-                            (+{w.scoreDelta || 100})
+                            (+{typeof w.scoreDelta === "number" ? w.scoreDelta : 100})
                           </span>
                         </div>
                       ))}
@@ -894,7 +894,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   <div className="inline-flex items-center gap-3 px-8 py-4 rounded-3xl bg-gradient-to-r from-emerald-500/20 via-teal-500/25 to-emerald-500/20 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_40px_rgba(16,185,129,0.3)]">
                     <Trophy className="w-8 h-8 text-emerald-400" />
                     <span className="text-2xl sm:text-3xl font-black">
-                      🎉 {roundWinner.displayName} ตอบถูก! (+{roundWinner.scoreDelta || 100}{" "}
+                      🎉 {roundWinner.displayName} ตอบถูก! (+{typeof roundWinner.scoreDelta === "number" ? roundWinner.scoreDelta : 100}{" "}
                       คะแนน)
                     </span>
                   </div>

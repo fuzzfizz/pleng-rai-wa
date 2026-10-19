@@ -373,4 +373,48 @@ describe("SongSourceModal Playlist Tab & Game Room Integration (Task 3)", () => 
       expect(effectiveRounds).toBe(12);
     });
   });
+
+  describe("Multi-Artist Selection & Auto-Reset Prevention (Task 1 / should fix.md)", () => {
+    it("formats getSongFilterLabel correctly for single and multi-artist selections", () => {
+      // Single artist via artist property
+      const singleArtist: SongFilterConfig = { type: "artist", artist: "Silly Fools" };
+      expect(getSongFilterLabel(singleArtist)).toBe("🎤 ศิลปิน: Silly Fools");
+
+      // Single artist via artists array
+      const singleInArray: SongFilterConfig = { type: "artist", artists: ["Bodyslam"] };
+      expect(getSongFilterLabel(singleInArray)).toBe("🎤 ศิลปิน: Bodyslam");
+
+      // Multiple artists
+      const multiArtists: SongFilterConfig = {
+        type: "artist",
+        artists: ["Silly Fools", "Bodyslam", "Potato"],
+      };
+      expect(getSongFilterLabel(multiArtists)).toBe(
+        "🎤 ศิลปิน (3 ศิลปิน): Silly Fools, Bodyslam, Potato"
+      );
+
+      // Empty artists fallback
+      const emptyArtist: SongFilterConfig = { type: "artist", artists: [] };
+      expect(getSongFilterLabel(emptyArtist)).toBe("🎤 ศิลปิน: ไม่ระบุ");
+    });
+
+    it("renders modal with multi-artist filter active", () => {
+      const filter: SongFilterConfig = {
+        type: "artist",
+        artist: "Silly Fools",
+        artists: ["Silly Fools", "Bodyslam"],
+      };
+
+      const html = renderToString(
+        React.createElement(SongSourceModal, {
+          isOpen: true,
+          onClose: vi.fn(),
+          currentFilter: filter,
+          onSelectFilter: vi.fn(),
+        })
+      );
+
+      expect(html).toContain("🎤 ศิลปิน (2 ศิลปิน): Silly Fools, Bodyslam");
+    });
+  });
 });

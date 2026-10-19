@@ -8,6 +8,7 @@ import { RoomService } from "@/lib/services/room-service";
 import { RoomStateStore } from "@/lib/room-state-store";
 import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { isValidRoomCode } from "@/lib/room-code";
+import { RedisService } from "@/lib/services/redis-service";
 
 export async function POST(
   request: NextRequest,
@@ -68,6 +69,7 @@ export async function POST(
 
     const state = RoomStateStore.getRoomRoundState(cleanCode);
     if (state) {
+      RedisService.saveRoundState(cleanCode, RoomStateStore.serializeRoundState(state)).catch(() => {});
       RoomService.updateRoomRoundState(
         cleanCode,
         RoomStateStore.serializeRoundState(state)

@@ -143,10 +143,9 @@ describe("Reset Lobby Endpoint (/api/room/[code]/reset-lobby)", () => {
     expect(RoomService.updateRoomRound).not.toHaveBeenCalled();
   });
 
-  it("allows non-host player to reset room to lobby when room status is game_over", async () => {
+  it("returns 403 for non-host player even when room status is game_over", async () => {
     const gameOverRoom = { ...mockRoom, status: "game_over" };
     (RoomService.getRoomByCode as any).mockResolvedValue(gameOverRoom);
-    (RoomService.updateRoomRound as any).mockResolvedValue({ ...mockUpdatedRoom, status: "lobby" });
 
     const req = new NextRequest(`http://localhost/api/room/${roomCode}/reset-lobby`, {
       method: "POST",
@@ -161,15 +160,11 @@ describe("Reset Lobby Endpoint (/api/room/[code]/reset-lobby)", () => {
       params: Promise.resolve({ code: roomCode }),
     });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
     const data = await res.json();
-    expect(data.success).toBe(true);
-    expect(RoomService.updateRoomRound).toHaveBeenCalledWith(roomCode, {
-      status: "lobby",
-      playedSongIds: [],
-      currentSongId: null,
-      roundState: null,
-    });
+    expect(data.success).toBe(false);
+    expect(data.error).toContain("ไม่มีสิทธิ์ยกเลิกเกม (เฉพาะ Host เท่านั้น)");
+    expect(RoomService.updateRoomRound).not.toHaveBeenCalled();
   });
 
   it("authorizes host via body.playerId and resets room state cleanly", async () => {

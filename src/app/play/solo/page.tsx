@@ -370,8 +370,13 @@ function SoloPlayContent() {
         if (filter.type === "era" && filter.era) {
           queryParams.set("era", filter.era);
         }
-        if (filter.type === "artist" && filter.artist) {
-          queryParams.set("artist", filter.artist);
+        if (filter.type === "artist") {
+          if (filter.artists && filter.artists.length > 0) {
+            queryParams.set("artists", filter.artists.join(","));
+            queryParams.set("artist", filter.artists[0]);
+          } else if (filter.artist) {
+            queryParams.set("artist", filter.artist);
+          }
         }
 
         const queryString = queryParams.toString();
@@ -394,9 +399,11 @@ function SoloPlayContent() {
           } else if (filter.type === "genre" && filter.genreId) {
             const genreFiltered = pool.filter((s) => s.genreId === filter.genreId);
             if (genreFiltered.length > 0) pool = genreFiltered;
-          } else if (filter.type === "artist" && filter.artist) {
+          } else if (filter.type === "artist") {
             const artistFiltered = pool.filter((s) =>
-              s.artist?.toLowerCase().includes(filter.artist!.toLowerCase())
+              filter.artists && filter.artists.length > 0
+                ? filter.artists.some((a) => s.artist?.toLowerCase().includes(a.toLowerCase()))
+                : s.artist?.toLowerCase().includes(filter.artist!.toLowerCase())
             );
             if (artistFiltered.length > 0) pool = artistFiltered;
           }
