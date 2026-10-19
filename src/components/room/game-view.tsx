@@ -12,6 +12,7 @@ import {
   VolumeX,
   LogOut,
   Trophy,
+  Crown,
   Music,
   Sparkles,
   Zap,
@@ -1083,7 +1084,7 @@ export function GameView({
             </div>
           ) : (
             <div className="flex items-center gap-2 overflow-x-auto max-w-[50%] sm:max-w-md lg:max-w-xl py-1 no-scrollbar">
-              {sortedPlayers.slice(0, 4).map((p) => {
+              {sortedPlayers.slice(0, 4).map((p, idx) => {
                 const isMe = myPlayer && p.id === myPlayer.id;
                 const avatar = getDeterministicAvatar({ id: p.id, avatarUrl: p.avatarUrl });
                 return (
@@ -1097,6 +1098,10 @@ export function GameView({
                   >
                     <span className="text-[13px] lg:text-base">{avatar}</span>
                     <span className="truncate max-w-[70px] sm:max-w-[90px] lg:max-w-[130px] lg:text-sm">{p.displayName}</span>
+                    {idx === 0 && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
+                    <span className="px-1.5 lg:px-2 py-0.2 rounded bg-stone-100 dark:bg-stone-950 text-amber-600 dark:text-amber-400 font-mono text-[11px] lg:text-xs">
+                      {p.score}
+                    </span>
                   </div>
                 );
               })}
@@ -1689,13 +1694,16 @@ export function GameView({
                     }`}
                   >
                     <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-sm w-5 text-stone-400">
+                        #{rank + 1}
+                      </span>
                       <span className="text-xl">{avatar}</span>
                       <span className="font-bold text-sm truncate max-w-[140px]">
                         {p.displayName}
                       </span>
                     </div>
-                    <span className="text-xs font-semibold text-stone-400">
-                      ผู้เล่น
+                    <span className="font-mono font-black text-base text-amber-600 dark:text-amber-400">
+                      {p.score} แต้ม
                     </span>
                   </div>
                 );

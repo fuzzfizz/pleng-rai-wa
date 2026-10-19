@@ -7,7 +7,7 @@
 
 import React from "react";
 import type { Player } from "@/types";
-import { Crown, Clock, Trophy } from "lucide-react";
+import { Crown, Clock } from "lucide-react";
 
 export interface PlayerCardProps {
   player: Player;
@@ -159,7 +159,7 @@ export function PlayerCard({
           </span>
         </div>
 
-        {/* Row 2 (Badges): flex-wrap container for status and score badges */}
+        {/* Row 2 (Badges): status badge */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Status badge */}
           <span
@@ -169,12 +169,6 @@ export function PlayerCard({
               <Clock className="w-3.5 h-3.5" />
             )}
             <span>{statusBadge.text}</span>
-          </span>
-
-          {/* Score badge */}
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full text-amber-800 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30">
-            <Trophy className="w-3 h-3" />
-            <span>{player.score ?? 0} คะแนน</span>
           </span>
         </div>
       </div>

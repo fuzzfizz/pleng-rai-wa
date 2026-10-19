@@ -291,6 +291,7 @@ describe("Task 4: Post-Game Mobile Responsive & LoL-style Individual Lobby Retur
 
       expect(renderedStr).toContain("✓ พร้อมแล้ว");
       expect(renderedStr).not.toContain("รอกลับห้องแล้ว");
+      expect(renderedStr).not.toContain("คะแนน");
     });
   });
 

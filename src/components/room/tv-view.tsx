@@ -1019,9 +1019,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-400" />
                 <h3 className="font-black text-lg text-white">
-                  {status === "question_active" || status === "buzzed"
-                    ? "รายชื่อผู้เล่น"
-                    : "ตารางคะแนนสด"}
+                  {status === "lobby" ? "รายชื่อผู้เล่น" : "ตารางคะแนนสด"}
                 </h3>
               </div>
               <span className="text-xs font-bold text-stone-400 bg-stone-800 px-2.5 py-1 rounded-full">
@@ -1050,8 +1048,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   const isTop2 = rank === 2;
                   const isTop3 = rank === 3;
                   const isBuzzedNow = buzzedPlayer?.id === player.id;
-                  const isQuestionInProgress =
-                    status === "question_active" || status === "buzzed";
+                  const isLobby = status === "lobby";
                   const avatar = getDeterministicAvatar(player);
                   const isImage =
                     avatar.startsWith("http://") ||
@@ -1062,12 +1059,12 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   if (isBuzzedNow) {
                     cardStyle =
                       "bg-amber-500/20 border-amber-400 ring-2 ring-amber-400/50 text-amber-200 animate-pulse";
-                  } else if (!isQuestionInProgress && isTop1) {
+                  } else if (!isLobby && isTop1) {
                     cardStyle =
                       "bg-amber-500/10 border-amber-400/60 shadow-sm shadow-amber-500/10 text-amber-200";
-                  } else if (!isQuestionInProgress && isTop2) {
+                  } else if (!isLobby && isTop2) {
                     cardStyle = "bg-stone-800/60 border-stone-600/50 text-stone-100";
-                  } else if (!isQuestionInProgress && isTop3) {
+                  } else if (!isLobby && isTop3) {
                     cardStyle = "bg-amber-950/30 border-amber-800/50 text-amber-300";
                   }
 
@@ -1079,7 +1076,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                       <div className="flex items-center gap-3 min-w-0">
                         {/* Rank Icon / Number */}
                         <div className="w-6 text-center font-mono font-black text-sm shrink-0">
-                          {isQuestionInProgress ? (
+                          {isLobby ? (
                             <span className="text-stone-500 text-xs font-bold">#{rank}</span>
                           ) : isTop1 ? (
                             <span className="text-base select-none">👑</span>
@@ -1138,8 +1135,8 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                         </div>
                       </div>
 
-                      {/* Score (Hidden during active question to prevent distraction / meta-gaming) */}
-                      {!isQuestionInProgress && (
+                      {/* Score: Hidden only in lobby before game starts */}
+                      {!isLobby && (
                         <div className="shrink-0 pl-2">
                           <span className="inline-block font-mono text-base sm:text-lg font-black text-amber-400">
                             {player.score ?? 0}
