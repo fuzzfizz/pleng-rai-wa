@@ -612,7 +612,7 @@ export function GameView({
         }
 
         const nextVal = prev - 1;
-        if (nextVal <= 5 && nextVal > 0) {
+        if (nextVal <= 3 && nextVal > 0) {
           try {
             soundEffects.countdownTick();
           } catch {}
@@ -851,13 +851,13 @@ export function GameView({
 
   const handleSelectSuggestion = useCallback(
     (title: string) => {
-      if (!canSubmitAnswer(isExcludedFromBuzz)) return;
+      if (!canSubmitAnswer(isExcludedFromBuzz) || (countdownRemaining !== null && countdownRemaining <= 0)) return;
       setDirectAnswer(title);
       setShowSuggestions(false);
       setHighlightedIndex(-1);
       handleSubmitAnswer(title);
     },
-    [handleSubmitAnswer, isExcludedFromBuzz]
+    [handleSubmitAnswer, isExcludedFromBuzz, countdownRemaining]
   );
 
   const handleChoiceSubmit = useCallback(
@@ -866,18 +866,20 @@ export function GameView({
         isExcludedFromBuzz ||
         isSubmittingAnswer ||
         clickedWrongChoices.includes(choiceTitle) ||
-        status !== "question_active"
+        status !== "question_active" ||
+        (countdownRemaining !== null && countdownRemaining <= 0)
       ) {
         return;
       }
       await handleSubmitAnswer(choiceTitle);
     },
-    [isExcludedFromBuzz, isSubmittingAnswer, clickedWrongChoices, status, handleSubmitAnswer]
+    [isExcludedFromBuzz, isSubmittingAnswer, clickedWrongChoices, status, countdownRemaining, handleSubmitAnswer]
   );
 
   const handleDirectAnswerSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+      if (countdownRemaining !== null && countdownRemaining <= 0) return;
       if (highlightedIndex >= 0 && directSuggestions[highlightedIndex]) {
         const selectedTitle = directSuggestions[highlightedIndex].title;
         setDirectAnswer(selectedTitle);
@@ -892,7 +894,7 @@ export function GameView({
         handleSubmitAnswer(trimmed);
       }
     },
-    [directAnswer, directSuggestions, highlightedIndex, handleSubmitAnswer, isSubmittingAnswer, isExcludedFromBuzz, status]
+    [directAnswer, directSuggestions, highlightedIndex, handleSubmitAnswer, isSubmittingAnswer, isExcludedFromBuzz, status, countdownRemaining]
   );
 
   const handleDirectInputKeyDown = useCallback(
@@ -1407,7 +1409,13 @@ export function GameView({
                         <button
                           key={choice.id || idx}
                           type="button"
-                          disabled={isExcludedFromBuzz || isSubmittingAnswer || isWrong || status !== "question_active"}
+                          disabled={
+                            isExcludedFromBuzz ||
+                            isSubmittingAnswer ||
+                            isWrong ||
+                            status !== "question_active" ||
+                            (countdownRemaining !== null && countdownRemaining <= 0)
+                          }
                           onClick={() => handleChoiceSubmit(choice.title)}
                           className={`min-h-[58px] sm:min-h-[66px] p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 transition-all cursor-pointer touch-manipulation shadow-md ${
                             isWrong
@@ -1463,7 +1471,12 @@ export function GameView({
                           setTimeout(() => setShowSuggestions(false), 200);
                         }}
                         onKeyDown={handleDirectInputKeyDown}
-                        disabled={isExcludedFromBuzz || isSubmittingAnswer || status !== "question_active"}
+                        disabled={
+                          isExcludedFromBuzz ||
+                          isSubmittingAnswer ||
+                          status !== "question_active" ||
+                          (countdownRemaining !== null && countdownRemaining <= 0)
+                        }
                         placeholder={
                           isExcludedFromBuzz
                             ? "คุณหมดสิทธิ์ตอบในข้อนี้แล้ว"
@@ -1487,6 +1500,11 @@ export function GameView({
                                   directSuggestionsRef.current[idx] = el;
                                 }}
                                 type="button"
+                                disabled={
+                                  isExcludedFromBuzz ||
+                                  isSubmittingAnswer ||
+                                  (countdownRemaining !== null && countdownRemaining <= 0)
+                                }
                                 onPointerDown={(e) => {
                                   e.preventDefault();
                                   handleSelectSuggestion(song.title);
@@ -1495,7 +1513,7 @@ export function GameView({
                                   isHighlighted
                                     ? "bg-amber-500 text-stone-950 font-bold"
                                     : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
-                                }`}
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
                               >
                                 <div className="truncate pr-2">
                                   <div className="font-semibold truncate">{song.title}</div>
@@ -1530,7 +1548,8 @@ export function GameView({
                         !directAnswer.trim() ||
                         isExcludedFromBuzz ||
                         isSubmittingAnswer ||
-                        status !== "question_active"
+                        status !== "question_active" ||
+                        (countdownRemaining !== null && countdownRemaining <= 0)
                       }
                       className="w-full min-h-[46px] lg:min-h-[52px] py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-stone-950 font-bold text-base lg:text-lg shadow-md shadow-amber-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500 touch-manipulation"
                     >
@@ -1630,6 +1649,12 @@ export function GameView({
         isSubmitting={isSubmittingAnswer}
         timeRemainingSec={room?.settings?.roundTimeoutSec ?? 15}
         buzzDeadline={roomRealtime.buzzDeadline || roomRealtime.buzzedPlayer?.buzzDeadline || null}
+        onTimeout={async () => {
+          // Auto-submit timeout immediately
+          if (isMyBuzz && status === "buzzed" && !isSubmittingAnswer) {
+            await handleSubmitAnswer("(หมดเวลา)");
+          }
+        }}
       />
 
       {/* ==================================================== */}

@@ -260,10 +260,13 @@ export function reduceRoomRealtimeEvent(
           map.set(nextState.myPlayer.id, nextState.myPlayer);
         } else {
           const remoteMe = map.get(nextState.myPlayer.id)!;
-          nextState.myPlayer = {
+          const mergedMe: Player = {
             ...nextState.myPlayer,
             ...remoteMe,
+            isLobbyReady: nextState.myPlayer.isLobbyReady || Boolean(remoteMe.isLobbyReady),
           };
+          nextState.myPlayer = mergedMe;
+          map.set(nextState.myPlayer.id, mergedMe);
         }
       }
       nextState.players = Array.from(map.values());
@@ -950,6 +953,7 @@ export function useRoomRealtime(
                 displayName: myPlayerRef.current.displayName,
                 isHost: true,
                 isReady: myPlayerRef.current.isReady,
+                isLobbyReady: Boolean(myPlayerRef.current.isLobbyReady),
                 score: myPlayerRef.current.score,
                 sessionToken: myPlayerRef.current.sessionToken,
                 lastSeenAt: new Date().toISOString(),
@@ -1041,6 +1045,7 @@ export function useRoomRealtime(
               displayName: currentPlayer.displayName,
               isHost: currentPlayer.isHost,
               isReady: currentPlayer.isReady,
+              isLobbyReady: Boolean(currentPlayer.isLobbyReady),
               score: currentPlayer.score,
               sessionToken: currentPlayer.sessionToken,
               lastSeenAt: new Date().toISOString(),
@@ -1078,6 +1083,7 @@ export function useRoomRealtime(
           displayName: state.myPlayer.displayName,
           isHost: state.myPlayer.isHost,
           isReady: state.myPlayer.isReady,
+          isLobbyReady: state.myPlayer?.isLobbyReady ?? false,
           score: state.myPlayer.score,
           sessionToken: state.myPlayer.sessionToken,
           lastSeenAt: new Date().toISOString(),
@@ -1093,7 +1099,6 @@ export function useRoomRealtime(
     state.myPlayer?.avatarUrl,
     state.myPlayer?.displayName,
     state.myPlayer?.isHost,
-    state.myPlayer?.isReady,
     state.myPlayer?.score,
     state.myPlayer?.sessionToken,
   ]);
@@ -1224,7 +1229,7 @@ export function useRoomRealtime(
             displayName: state.myPlayer.displayName,
             isHost: state.myPlayer.isHost,
             isReady,
-            isLobbyReady: state.myPlayer.isLobbyReady,
+            isLobbyReady: state.myPlayer.isLobbyReady ?? false,
             score: state.myPlayer.score,
             sessionToken: state.myPlayer.sessionToken,
             lastSeenAt: new Date().toISOString(),

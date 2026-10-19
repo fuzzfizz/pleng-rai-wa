@@ -223,4 +223,129 @@ describe("RoomStateStore - Hint Scoring & Deadlock Prevention", () => {
       expect(state?.winnerPlayerId).toBeNull();
     });
   });
+
+  describe("Party Mode Score Preservation Policy (No Wrong Guess Deductions)", () => {
+    it("preserves player score (scoreDelta: 0) on wrong answer in race mode", () => {
+      RoomStateStore.initRound(roomCode, 1, dummySong, {
+        ...baseSettings,
+        playerCount: 2,
+        maxWrongGuesses: 2,
+      });
+
+      // Give player initial score of 100
+      const state = RoomStateStore.getRoomRoundState(roomCode)!;
+      state.scores["p1"] = 100;
+
+      const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "คำตอบที่ผิด", {
+        gameMode: "audio-slice",
+        roomSettings: baseSettings,
+        totalPlayers: 2,
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.isCorrect).toBe(false);
+      expect(res.scoreDelta).toBe(0);
+      expect(res.newScore).toBe(100);
+      expect(state.scores["p1"]).toBe(100);
+    });
+
+    it("preserves player score (scoreDelta: 0) on wrong answer in wait_all mode", () => {
+      const waitAllSettings: RoomSettings = {
+        ...baseSettings,
+        answerResolutionMode: "wait_all",
+        playerCount: 2,
+        maxWrongGuesses: 2,
+      };
+
+      RoomStateStore.initRound(roomCode, 1, dummySong, waitAllSettings);
+      const state = RoomStateStore.getRoomRoundState(roomCode)!;
+      state.scores["p1"] = 100;
+
+      const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "คำตอบที่ผิด", {
+        gameMode: "audio-slice",
+        roomSettings: waitAllSettings,
+        totalPlayers: 2,
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.isCorrect).toBe(false);
+      expect(res.scoreDelta).toBe(0);
+      expect(res.newScore).toBe(100);
+      expect(state.scores["p1"]).toBe(100);
+    });
+
+    it("preserves player score (scoreDelta: 0) on wrong answer in buzzer mode", () => {
+      const buzzerSettings: RoomSettings = {
+        ...baseSettings,
+        gameMode: "buzzer",
+        playerCount: 2,
+      };
+
+      RoomStateStore.initRound(roomCode, 1, dummySong, buzzerSettings);
+      const state = RoomStateStore.getRoomRoundState(roomCode)!;
+      state.scores["p1"] = 100;
+
+      RoomStateStore.buzz(roomCode, "p1", "Player 1");
+
+      const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "คำตอบที่ผิด", {
+        gameMode: "buzzer",
+        roomSettings: buzzerSettings,
+        totalPlayers: 2,
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.isCorrect).toBe(false);
+      expect(res.scoreDelta).toBe(0);
+      expect(res.newScore).toBe(100);
+      expect(state.scores["p1"]).toBe(100);
+    });
+
+    it("preserves player score (scoreDelta: 0) on timeoutBuzzer", () => {
+      const buzzerSettings: RoomSettings = {
+        ...baseSettings,
+        gameMode: "buzzer",
+        playerCount: 2,
+      };
+
+      RoomStateStore.initRound(roomCode, 1, dummySong, buzzerSettings);
+      const state = RoomStateStore.getRoomRoundState(roomCode)!;
+      state.scores["p1"] = 100;
+
+      RoomStateStore.buzz(roomCode, "p1", "Player 1");
+
+      const res = RoomStateStore.timeoutBuzzer(roomCode, "p1");
+
+      expect(res.success).toBe(true);
+      expect(res.scoreDelta).toBe(0);
+      expect(res.newScore).toBe(100);
+      expect(state.scores["p1"]).toBe(100);
+    });
+
+    it("preserves player score (scoreDelta: 0) when buzzer deadline expires in submitAnswer", () => {
+      const buzzerSettings: RoomSettings = {
+        ...baseSettings,
+        gameMode: "buzzer",
+        playerCount: 2,
+      };
+
+      RoomStateStore.initRound(roomCode, 1, dummySong, buzzerSettings);
+      const state = RoomStateStore.getRoomRoundState(roomCode)!;
+      state.scores["p1"] = 100;
+
+      RoomStateStore.buzz(roomCode, "p1", "Player 1");
+      state.buzzDeadline = new Date(Date.now() - 2000).toISOString();
+
+      const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "คำตอบ", {
+        gameMode: "buzzer",
+        roomSettings: buzzerSettings,
+        totalPlayers: 2,
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.reason).toBe("buzzer_timeout");
+      expect(res.scoreDelta).toBe(0);
+      expect(res.newScore).toBe(100);
+      expect(state.scores["p1"]).toBe(100);
+    });
+  });
 });

@@ -9,6 +9,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Search, Send, Clock, Sparkles, Loader2, Music, X } from "lucide-react";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
+import { soundEffects } from "@/lib/sound-effects";
 import type { Song, AnswerInputMode, ChoiceOption } from "@/types";
 
 export interface AnswerModalProps {
@@ -21,6 +22,7 @@ export interface AnswerModalProps {
   choices?: ChoiceOption[];
   songLibrary?: Song[];
   isSubmitting?: boolean;
+  onTimeout?: () => void;
 }
 
 /**
@@ -42,6 +44,7 @@ export function AnswerModal({
   choices = [],
   songLibrary = [],
   isSubmitting = false,
+  onTimeout,
 }: AnswerModalProps): React.JSX.Element | null {
   const [inputValue, setInputValue] = useState("");
   const isUnlimited = !buzzDeadline && timeRemainingSec <= 0;
@@ -55,6 +58,13 @@ export function AnswerModal({
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const modalSuggestionsRef = useRef<(HTMLButtonElement | null)[]>([]);
+  const lastTickedSecRef = useRef<number | null>(null);
+  const timeoutTriggeredRef = useRef(false);
+  const onTimeoutRef = useRef(onTimeout);
+  useEffect(() => {
+    onTimeoutRef.current = onTimeout;
+  }, [onTimeout]);
+
   const totalSec = Math.max(1, timeRemainingSec > 0 ? timeRemainingSec : 10);
 
   // Scroll highlighted autocomplete suggestion into view smoothly
@@ -76,6 +86,8 @@ export function AnswerModal({
         : timeRemainingSec;
       setSecondsLeft(initial);
       setHighlightedIndex(-1);
+      lastTickedSecRef.current = null;
+      timeoutTriggeredRef.current = false;
 
       // Auto-focus input on open
       const timer = setTimeout(() => {
@@ -92,24 +104,66 @@ export function AnswerModal({
     if (!isOpen || isUnlimited) return;
 
     if (buzzDeadline) {
+      let interval: ReturnType<typeof setInterval> | null = null;
       const updateSeconds = () => {
         const remaining = Math.max(
           0,
           Math.round(((new Date(buzzDeadline).getTime() - Date.now()) / 1000) * 10) / 10
         );
         setSecondsLeft(remaining);
+
+        // Issue 3: Ticking sound at 3, 2, 1 seconds
+        const wholeSec = Math.ceil(remaining);
+        if (wholeSec <= 3 && wholeSec > 0 && wholeSec !== lastTickedSecRef.current) {
+          lastTickedSecRef.current = wholeSec;
+          try {
+            soundEffects.countdownTick();
+          } catch {}
+        }
+
+        // Issue 1: Cutoff at 0s and trigger onTimeout immediately
+        if (remaining <= 0) {
+          if (interval) clearInterval(interval);
+          if (!timeoutTriggeredRef.current) {
+            timeoutTriggeredRef.current = true;
+            onTimeoutRef.current?.();
+          }
+        }
       };
 
       updateSeconds();
-      const interval = setInterval(updateSeconds, 100);
-      return () => clearInterval(interval);
+      const currentRemaining = Math.max(
+        0,
+        Math.round(((new Date(buzzDeadline).getTime() - Date.now()) / 1000) * 10) / 10
+      );
+      if (currentRemaining > 0) {
+        interval = setInterval(updateSeconds, 100);
+      }
+      return () => {
+        if (interval) clearInterval(interval);
+      };
     }
 
     const interval = setInterval(() => {
       setSecondsLeft((prev) => {
-        const next = prev - 0.1;
+        const next = Math.max(0, Math.round((prev - 0.1) * 10) / 10);
+
+        // Issue 3: Ticking sound at 3, 2, 1 seconds
+        const wholeSec = Math.ceil(next);
+        if (wholeSec <= 3 && wholeSec > 0 && wholeSec !== lastTickedSecRef.current) {
+          lastTickedSecRef.current = wholeSec;
+          try {
+            soundEffects.countdownTick();
+          } catch {}
+        }
+
+        // Issue 1: Cutoff at 0s and trigger onTimeout immediately
         if (next <= 0) {
           clearInterval(interval);
+          if (!timeoutTriggeredRef.current) {
+            timeoutTriggeredRef.current = true;
+            onTimeoutRef.current?.();
+          }
           return 0;
         }
         return next;
@@ -135,10 +189,10 @@ export function AnswerModal({
   const handleSubmit = useCallback(
     async (answer: string) => {
       const trimmed = (answer || "").trim();
-      if (!trimmed || isSubmitting) return;
+      if (!trimmed || isSubmitting || (!isUnlimited && secondsLeft <= 0)) return;
       await onSubmitAnswer(trimmed);
     },
-    [isSubmitting, onSubmitAnswer]
+    [isSubmitting, isUnlimited, secondsLeft, onSubmitAnswer]
   );
 
   // Form submit event
@@ -264,7 +318,7 @@ export function AnswerModal({
                     key={choice.id || idx}
                     type="button"
                     onClick={() => handleSubmit(choice.title)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || (!isUnlimited && secondsLeft <= 0)}
                     className="min-h-[52px] p-3.5 rounded-2xl border-2 border-stone-200 dark:border-stone-800 hover:border-amber-500 hover:bg-amber-500/10 active:scale-[0.98] bg-stone-50 dark:bg-stone-900 flex items-center gap-3 text-left transition cursor-pointer touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="w-7 h-7 rounded-lg bg-amber-500 text-stone-950 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
@@ -311,7 +365,7 @@ export function AnswerModal({
                     setHighlightedIndex(-1);
                   }}
                   onKeyDown={handleKeyDown}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (!isUnlimited && secondsLeft <= 0)}
                   placeholder={
                     inputMode === "autocomplete"
                       ? "พิมพ์ชื่อเพลง ศิลปิน หรือคำร้อง..."
@@ -335,12 +389,13 @@ export function AnswerModal({
                           modalSuggestionsRef.current[idx] = el;
                         }}
                         type="button"
+                        disabled={isSubmitting || (!isUnlimited && secondsLeft <= 0)}
                         onClick={() => handleSubmit(song.title)}
                         className={`w-full text-left px-3 py-2.5 lg:py-3 lg:px-4 min-h-[44px] rounded-xl flex items-center justify-between text-sm lg:text-base transition group cursor-pointer ${
                           isHighlighted
                             ? "bg-amber-500 text-stone-950 font-bold"
                             : "hover:bg-stone-100 dark:hover:bg-stone-800/80 text-stone-800 dark:text-stone-200"
-                        }`}
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
                         <div className="truncate pr-2">
                           <div className="font-semibold truncate">{song.title}</div>
@@ -370,9 +425,9 @@ export function AnswerModal({
               {/* Submit Action Button */}
               <button
                 type="submit"
-                disabled={!inputValue.trim() || isSubmitting}
+                disabled={!inputValue.trim() || isSubmitting || (!isUnlimited && secondsLeft <= 0)}
                 className={`w-full min-h-[44px] py-3.5 lg:py-4 px-6 rounded-2xl font-bold text-base sm:text-lg lg:text-lg flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] ${
-                  inputValue.trim() && !isSubmitting
+                  inputValue.trim() && !isSubmitting && !(!isUnlimited && secondsLeft <= 0)
                     ? "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-amber-500/30 cursor-pointer"
                     : "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed border border-stone-300 dark:border-stone-700/50"
                 }`}

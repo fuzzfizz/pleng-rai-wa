@@ -154,7 +154,7 @@ describe("Items 4, 5, 6 - Timer Sync, Wrong Guess Banner & Hint Score Sync", () 
       const result = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "วาฬเกยตื้น");
       expect(result.success).toBe(false);
       expect(result.reason).toBe("buzzer_timeout");
-      expect(result.scoreDelta).toBe(-20);
+      expect(result.scoreDelta).toBe(0);
     });
   });
 

@@ -572,7 +572,7 @@ function SoloPlayContent() {
           setIsRevealed(true);
           return 0;
         }
-        if (prev <= 5) {
+        if (prev <= 3 && prev > 0) {
           playCountdownTickSound(prev);
         }
         return prev - 1;

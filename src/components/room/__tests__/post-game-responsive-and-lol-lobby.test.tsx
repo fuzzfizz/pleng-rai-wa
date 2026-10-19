@@ -236,11 +236,21 @@ describe("Task 4: Post-Game Mobile Responsive & LoL-style Individual Lobby Retur
   });
 
   describe("PlayerCard & getPlayerStatusBadge in GameOver Pending Mode", () => {
-    it("returns '✓ รอกลับห้องแล้ว' when isGameOverPendingHost is true and isLobbyReady is true", () => {
-      const readyPlayer = mockPlayers[1]; // isLobbyReady: true
+    it("returns standard status ('✓ พร้อมแล้ว') when isGameOverPendingHost is true and isLobbyReady is true", () => {
+      const readyPlayer = mockPlayers[1]; // isLobbyReady: true, isReady: true
       const badge = getPlayerStatusBadge(readyPlayer, true);
-      expect(badge.text).toBe("✓ รอกลับห้องแล้ว");
+      expect(badge.text).toBe("✓ พร้อมแล้ว");
       expect(badge.variant).toBe("ready");
+
+      const notReadyLobbyPlayer = { ...mockPlayers[2], isLobbyReady: true, isReady: false };
+      const waitingBadge = getPlayerStatusBadge(notReadyLobbyPlayer, true);
+      expect(waitingBadge.text).toBe("รอสักครู่...");
+      expect(waitingBadge.variant).toBe("waiting");
+
+      const hostLobbyPlayer = { ...mockPlayers[0], isLobbyReady: true };
+      const hostBadge = getPlayerStatusBadge(hostLobbyPlayer, true);
+      expect(hostBadge.text).toBe("👑 ผู้สร้างห้อง");
+      expect(hostBadge.variant).toBe("host");
     });
 
     it("returns '📊 กำลังดูสรุปผล' when isGameOverPendingHost is true and isLobbyReady is false", () => {
@@ -271,7 +281,7 @@ describe("Task 4: Post-Game Mobile Responsive & LoL-style Individual Lobby Retur
       expect(renderedStr).toContain("📊 กำลังดูสรุปผล");
     });
 
-    it("renders PlayerCard with '✓ รอกลับห้องแล้ว' badge for player who returned to lobby", () => {
+    it("renders PlayerCard with standard '✓ พร้อมแล้ว' badge for player who returned to lobby", () => {
       const renderedStr = renderToString(
         <PlayerCard
           player={mockPlayers[1]}
@@ -279,7 +289,8 @@ describe("Task 4: Post-Game Mobile Responsive & LoL-style Individual Lobby Retur
         />
       );
 
-      expect(renderedStr).toContain("✓ รอกลับห้องแล้ว");
+      expect(renderedStr).toContain("✓ พร้อมแล้ว");
+      expect(renderedStr).not.toContain("รอกลับห้องแล้ว");
     });
   });
 
@@ -429,6 +440,35 @@ describe("Task 4: Post-Game Mobile Responsive & LoL-style Individual Lobby Retur
       expect(afterLobbyReset.players[0].isLobbyReady).toBe(false);
       expect(afterLobbyReset.players[1].isLobbyReady).toBe(false);
       expect(afterLobbyReset.myPlayer?.isLobbyReady).toBe(false);
+    });
+
+    it("presence_sync preserves myPlayer isLobbyReady when remote presence briefly omitted isLobbyReady", () => {
+      const stateWithLobbyReady = {
+        ...createInitialRoomRealtimeState("ROOM1", {
+          id: "p1",
+          displayName: "Me",
+          isLobbyReady: true,
+        }),
+      };
+
+      const syncState = reduceRoomRealtimeEvent(stateWithLobbyReady, {
+        type: "presence_sync",
+        players: [
+          {
+            id: "p1",
+            displayName: "Me",
+            isHost: false,
+            isReady: false,
+            isLobbyReady: false, // simulated missing/omitted key converted by parser to false
+            score: 0,
+            sessionToken: "",
+            lastSeenAt: "",
+          },
+        ],
+      });
+
+      expect(syncState.myPlayer?.isLobbyReady).toBe(true);
+      expect(syncState.players[0].isLobbyReady).toBe(true);
     });
   });
 });

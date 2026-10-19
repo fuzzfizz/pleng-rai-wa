@@ -54,14 +54,7 @@ export function getPlayerStatusBadge(
   player: Player,
   isGameOverPendingHost?: boolean
 ): PlayerStatusBadgeInfo {
-  if (isGameOverPendingHost) {
-    if (player.isLobbyReady) {
-      return {
-        text: "✓ รอกลับห้องแล้ว",
-        variant: "ready",
-        colorClass: "bg-emerald-500/15 border-emerald-500/40 text-emerald-800 dark:text-emerald-300",
-      };
-    }
+  if (isGameOverPendingHost && !player.isLobbyReady) {
     return {
       text: "📊 กำลังดูสรุปผล",
       variant: "waiting",
@@ -108,7 +101,7 @@ export function PlayerCard({
   if (isCurrentPlayer) {
     containerStyle =
       "border-amber-500/60 bg-amber-500/5 dark:bg-amber-950/20 ring-2 ring-amber-500/40 shadow-md shadow-amber-500/10";
-  } else if (isGameOverPendingHost ? player.isLobbyReady : player.isReady) {
+  } else if (player.isReady && (!isGameOverPendingHost || player.isLobbyReady)) {
     containerStyle =
       "border-emerald-500/40 bg-white/95 dark:bg-stone-900/90 ring-1 ring-emerald-500/30 shadow-sm";
   }
@@ -172,7 +165,7 @@ export function PlayerCard({
           <span
             className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${statusBadge.colorClass}`}
           >
-            {statusBadge.variant === "waiting" && !isGameOverPendingHost && (
+            {statusBadge.variant === "waiting" && (!isGameOverPendingHost || player.isLobbyReady) && (
               <Clock className="w-3.5 h-3.5" />
             )}
             <span>{statusBadge.text}</span>

@@ -509,7 +509,7 @@ export class RoomStateStore {
    * Validates buzzer holder's or direct answering player's answer with Thai fuzzy checker.
    * Multi-chance rules:
    * - Correct: +100 points, roundStatus -> 'revealing', winner declared.
-   * - Wrong: -20 points (clamped to 0), excluded from re-guessing this round.
+   * - Wrong: 0 points (no penalty), excluded from re-guessing this round.
    *   In buzzer mode: buzzer unlocked, roundStatus -> 'question_active'.
    *   In ai-lyrics direct mode: roundStatus remains 'question_active' unless ALL players are excluded, then roundStatus -> 'revealing'.
    */
@@ -594,7 +594,7 @@ export class RoomStateStore {
         isCorrect: false,
         matchedAs: "",
         similarity: 0,
-        scoreDelta: -20,
+        scoreDelta: 0,
         newScore: state.scores[playerId] ?? 0,
         scores: { ...state.scores },
         reason: "buzzer_timeout",
@@ -642,9 +642,9 @@ export class RoomStateStore {
           ? 25
           : 100;
 
-      const scoreDelta = check.isCorrect ? points : -20;
+      const scoreDelta = check.isCorrect ? points : 0;
       const currentScore = state.scores[playerId] || 0;
-      const newScore = Math.max(0, currentScore + scoreDelta);
+      const newScore = currentScore + scoreDelta;
       state.scores[playerId] = newScore;
 
       const maxWrongGuesses =
@@ -838,7 +838,7 @@ export class RoomStateStore {
         fullSong: state.currentSong,
       };
     } else {
-      // Wrong guess: -20 points (clamped to 0)
+      // Wrong guess: 0 penalty (score preserved)
       if (!state.playerWrongCounts) state.playerWrongCounts = {};
       state.playerWrongCounts[playerId] = (state.playerWrongCounts[playerId] || 0) + 1;
       const wrongCount = state.playerWrongCounts[playerId];
@@ -847,8 +847,9 @@ export class RoomStateStore {
         state.settings?.maxWrongGuesses ??
         1;
 
+      const scoreDelta = 0;
       const currentScore = state.scores[playerId] || 0;
-      const newScore = Math.max(0, currentScore - 20);
+      const newScore = currentScore;
       state.scores[playerId] = newScore;
 
       const canRetry = isStandardBuzzer
@@ -875,7 +876,7 @@ export class RoomStateStore {
         displayName: displayName || state.buzzedPlayerName || "ผู้เล่น",
         answerText,
         isCorrect: false,
-        scoreDelta: -20,
+        scoreDelta: 0,
         timestamp: new Date().toISOString(),
       };
 
@@ -941,7 +942,7 @@ export class RoomStateStore {
         isCorrect: false,
         matchedAs: check.matchedAs,
         similarity: check.similarity,
-        scoreDelta: -20,
+        scoreDelta: 0,
         newScore,
         scores: { ...state.scores },
         roundState: state,
@@ -955,7 +956,7 @@ export class RoomStateStore {
 
   /**
    * Handles buzzer expiration when the buzzer holder fails to answer in time.
-   * Penalizes player by -20 points and re-opens buzzer for others.
+   * Preserves player score (0 penalty) and re-opens buzzer for others.
    */
   static timeoutBuzzer(code: string, playerId: string): TimeoutBuzzerResult {
     const cleanCode = code.trim().toUpperCase();
@@ -966,7 +967,7 @@ export class RoomStateStore {
     }
 
     const currentScore = state.scores[playerId] || 0;
-    const newScore = Math.max(0, currentScore - 20);
+    const newScore = currentScore;
     state.scores[playerId] = newScore;
 
     if (!state.playerWrongCounts) state.playerWrongCounts = {};
@@ -1018,7 +1019,7 @@ export class RoomStateStore {
       success: true,
       roundState: state,
       wrongGuess,
-      scoreDelta: -20,
+      scoreDelta: 0,
       newScore,
     };
   }

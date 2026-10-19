@@ -36,6 +36,7 @@ import { formatWrongGuessMessage, RESUME_AUDIO_CUE } from "./wrong-guess-banner"
 import { PodiumView, getSortedPodiumPlayers } from "./podium-view";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 import { getWaitAllPlayerStatus, calculateSliceRemainingTime } from "./game-view";
+import { soundEffects } from "@/lib/sound-effects";
 
 export interface TVViewProps {
   roomRealtime: ReturnType<typeof useRoomRealtime>;
@@ -212,8 +213,16 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   useEffect(() => {
     if (status !== "buzzed") return;
 
+    let lastTickedSec: number | null = null;
     const tick = () => {
-      setBuzzerSecondsLeft(getBuzzerRemainingSeconds(buzzedPlayer?.deadline));
+      const remaining = getBuzzerRemainingSeconds(buzzedPlayer?.deadline);
+      setBuzzerSecondsLeft(remaining);
+      if (remaining <= 3 && remaining > 0 && remaining !== lastTickedSec) {
+        lastTickedSec = remaining;
+        try {
+          soundEffects.countdownTick();
+        } catch {}
+      }
     };
     tick();
 
@@ -243,7 +252,16 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
     if (questionSecondsLeft <= 0) return;
 
     const timer = setInterval(() => {
-      setQuestionSecondsLeft((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+      setQuestionSecondsLeft((prev) => {
+        if (prev === null || prev <= 0) return 0;
+        const nextVal = prev - 1;
+        if (nextVal <= 3 && nextVal > 0) {
+          try {
+            soundEffects.countdownTick();
+          } catch {}
+        }
+        return nextVal;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
