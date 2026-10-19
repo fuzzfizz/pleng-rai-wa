@@ -105,6 +105,9 @@ export interface TimeoutBuzzerResult {
   wrongGuess?: WrongGuess;
   scoreDelta?: number;
   newScore?: number;
+  canRetry?: boolean;
+  remainingAttempts?: number;
+  shouldReveal?: boolean;
 }
 
 // In-memory store persistent across hot-reloads in development
@@ -588,7 +591,7 @@ export class RoomStateStore {
     // Standard buzzer mode: check if buzzer deadline expired before answering (with 1.2s grace period)
     const deadlineMs = state.buzzDeadline ? new Date(state.buzzDeadline).getTime() : 0;
     if (isStandardBuzzer && state.buzzDeadline && Date.now() > deadlineMs + 1200) {
-      this.timeoutBuzzer(cleanCode, playerId);
+      const timeoutRes = this.timeoutBuzzer(cleanCode, playerId, options);
       return {
         success: false,
         isCorrect: false,
@@ -598,6 +601,10 @@ export class RoomStateStore {
         newScore: state.scores[playerId] ?? 0,
         scores: { ...state.scores },
         reason: "buzzer_timeout",
+        roundState: state,
+        canRetry: timeoutRes.canRetry,
+        remainingAttempts: timeoutRes.remainingAttempts,
+        shouldReveal: timeoutRes.shouldReveal,
       };
     }
 
@@ -852,16 +859,20 @@ export class RoomStateStore {
       const newScore = currentScore;
       state.scores[playerId] = newScore;
 
-      const canRetry = isStandardBuzzer
-        ? false
-        : (maxWrong === 0 || (maxWrong > 0 && wrongCount < maxWrong));
-      const remainingAttempts = isStandardBuzzer
-        ? 0
-        : (maxWrong === 0 ? 999 : Math.max(0, maxWrong - wrongCount));
+      const canRetry = maxWrong === 0 || (maxWrong > 0 && wrongCount < maxWrong);
+      const remainingAttempts = maxWrong === 0 ? 999 : Math.max(0, maxWrong - wrongCount);
 
       if (isStandardBuzzer) {
-        if (!state.excludedPlayerIds.includes(playerId)) {
-          state.excludedPlayerIds.push(playerId);
+        // Reset buzzer lock so other players (or this player on a next buzz) can hit buzzer
+        state.buzzedPlayerId = null;
+        state.buzzedPlayerName = null;
+        state.buzzedAt = null;
+        state.buzzDeadline = null;
+
+        if (!canRetry) {
+          if (!state.excludedPlayerIds.includes(playerId)) {
+            state.excludedPlayerIds.push(playerId);
+          }
         }
       } else {
         if (answerText === "(ยอมแพ้)" || !canRetry) {
@@ -909,14 +920,6 @@ export class RoomStateStore {
         allKnownPlayersExcluded;
 
       if (isStandardBuzzer) {
-        // Release buzzer lock and allow other players to buzz if this was the buzzed player
-        if (state.buzzedPlayerId === playerId) {
-          state.buzzedPlayerId = null;
-          state.buzzedPlayerName = null;
-          state.buzzedAt = null;
-          state.buzzDeadline = null;
-        }
-
         if (shouldReveal) {
           state.roundStatus = "revealing";
           state.winnerPlayerId = null;
@@ -958,7 +961,14 @@ export class RoomStateStore {
    * Handles buzzer expiration when the buzzer holder fails to answer in time.
    * Preserves player score (0 penalty) and re-opens buzzer for others.
    */
-  static timeoutBuzzer(code: string, playerId: string): TimeoutBuzzerResult {
+  static timeoutBuzzer(
+    code: string,
+    playerId: string,
+    options?: {
+      roomSettings?: RoomSettings;
+      totalPlayers?: number;
+    }
+  ): TimeoutBuzzerResult {
     const cleanCode = code.trim().toUpperCase();
     const state = roomRoundStates.get(cleanCode);
 
@@ -972,9 +982,19 @@ export class RoomStateStore {
 
     if (!state.playerWrongCounts) state.playerWrongCounts = {};
     state.playerWrongCounts[playerId] = (state.playerWrongCounts[playerId] || 0) + 1;
+    const wrongCount = state.playerWrongCounts[playerId];
+    const maxWrong =
+      options?.roomSettings?.maxWrongGuesses ??
+      state.settings?.maxWrongGuesses ??
+      1;
 
-    if (!state.excludedPlayerIds.includes(playerId)) {
-      state.excludedPlayerIds.push(playerId);
+    const canRetry = maxWrong === 0 || (maxWrong > 0 && wrongCount < maxWrong);
+    const remainingAttempts = maxWrong === 0 ? 999 : Math.max(0, maxWrong - wrongCount);
+
+    if (!canRetry) {
+      if (!state.excludedPlayerIds.includes(playerId)) {
+        state.excludedPlayerIds.push(playerId);
+      }
     }
 
     const wrongGuess: WrongGuess = {
@@ -992,7 +1012,11 @@ export class RoomStateStore {
     state.buzzDeadline = null;
 
     const effectiveTotalPlayers =
-      state.settings?.playerCount && state.settings.playerCount > 0
+      options?.totalPlayers && options.totalPlayers > 0
+        ? options.totalPlayers
+        : options?.roomSettings?.playerCount && options.roomSettings.playerCount > 0
+        ? options.roomSettings.playerCount
+        : state.settings?.playerCount && state.settings.playerCount > 0
         ? state.settings.playerCount
         : Object.keys(state.scores).length > 0
         ? Object.keys(state.scores).length
@@ -1021,6 +1045,9 @@ export class RoomStateStore {
       wrongGuess,
       scoreDelta: 0,
       newScore,
+      canRetry,
+      remainingAttempts,
+      shouldReveal,
     };
   }
 

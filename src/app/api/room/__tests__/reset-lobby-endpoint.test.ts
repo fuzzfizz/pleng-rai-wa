@@ -266,6 +266,40 @@ describe("Reset Lobby Endpoint (/api/room/[code]/reset-lobby)", () => {
     expect(data.success).toBe(true);
   });
 
+  it("supports reason: 'single_player_abort' and broadcasts notification message", async () => {
+    (RoomService.getRoomByCode as any).mockResolvedValue(mockRoom);
+    (RoomService.updateRoomRound as any).mockResolvedValue(mockUpdatedRoom);
+
+    const req = new NextRequest(`http://localhost/api/room/${roomCode}/reset-lobby`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        playerId: hostId,
+        reason: "single_player_abort",
+      }),
+    });
+
+    const res = await resetLobbyHandler(req, {
+      params: Promise.resolve({ code: roomCode }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.reason).toBe("single_player_abort");
+    expect(data.message).toContain("ยุติเกมเนื่องจากเหลือผู้เล่นคนเดียว");
+
+    expect(RealtimeBroadcastService.broadcast).toHaveBeenCalledWith(
+      roomCode,
+      "room_state",
+      expect.objectContaining({
+        status: "lobby",
+        reason: "single_player_abort",
+        message: expect.stringContaining("เหลือคุณเพียงคนเดียว"),
+      })
+    );
+  });
+
   it("returns 500 when an unexpected exception occurs", async () => {
     (RoomService.getRoomByCode as any).mockRejectedValue(new Error("Database connection lost"));
 

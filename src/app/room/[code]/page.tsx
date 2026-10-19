@@ -744,6 +744,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
       songLibrary={songLibrary}
       onLeaveRoom={handleLeave}
       onSkipRound={roomRealtime.skipRound}
+      onBackToLobby={() => setIsLocalInLobby(true)}
     />
   );
 }

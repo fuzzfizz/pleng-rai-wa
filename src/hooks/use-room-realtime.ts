@@ -73,6 +73,7 @@ export interface RoomRealtimeState {
   buzzDeadline?: string | null;
   isMyBuzz: boolean;
   isExcludedFromBuzz: boolean;
+  remainingAttempts?: number;
   revealedSong: Partial<Song> | null;
   roundWinner: RoundWinner | null;
   roundWinners?: RoundWinner[];
@@ -174,6 +175,7 @@ export function createInitialRoomRealtimeState(
     buzzDeadline: null,
     isMyBuzz: false,
     isExcludedFromBuzz: false,
+    remainingAttempts: undefined,
     revealedSong: null,
     roundWinner: null,
     roundWinners: [],
@@ -347,6 +349,8 @@ export function reduceRoomRealtimeEvent(
           nextState.playerHintLevels = {};
           nextState.playerHints = {};
           nextState.excludedPlayerIds = [];
+          nextState.remainingAttempts = undefined;
+          nextState.isExcludedFromBuzz = false;
           nextState.isAudioPlaying = true;
           nextState.players = nextState.players.map((p) => ({ ...p, isLobbyReady: false }));
           if (nextState.myPlayer) {
@@ -418,7 +422,23 @@ export function reduceRoomRealtimeEvent(
             nextState.isAudioPlaying = true;
           }
 
-          if (payload?.excluded !== false) {
+          const isPlayerExcluded =
+            payload?.isExcluded === true ||
+            payload?.canRetry === false ||
+            (payload?.excluded !== false && payload?.canRetry !== true && payload?.isExcluded !== false);
+
+          if (payload?.playerId && nextState.myPlayer && payload.playerId === nextState.myPlayer.id) {
+            if (typeof payload?.remainingAttempts === "number") {
+              nextState.remainingAttempts = payload.remainingAttempts;
+            }
+            if (payload?.canRetry === true || payload?.isExcluded === false) {
+              nextState.isExcludedFromBuzz = false;
+            } else if (isPlayerExcluded) {
+              nextState.isExcludedFromBuzz = true;
+            }
+          }
+
+          if (isPlayerExcluded) {
             if (payload?.playerId) {
               const currentExcluded = nextState.excludedPlayerIds || [];
               if (!currentExcluded.includes(payload.playerId)) {
@@ -736,11 +756,16 @@ export function reduceRoomRealtimeEvent(
   nextState.isMyBuzz = Boolean(
     myId && nextState.buzzedPlayer && nextState.buzzedPlayer.id === myId
   );
+  const isExcludedInList = Boolean(
+    myId && nextState.excludedPlayerIds && nextState.excludedPlayerIds.includes(myId)
+  );
+  const hasRemainingAttempts =
+    typeof nextState.remainingAttempts === "number" && nextState.remainingAttempts > 0;
   nextState.isExcludedFromBuzz = Boolean(
-    myId && (
-      Boolean(nextState.excludedPlayerIds && nextState.excludedPlayerIds.includes(myId)) ||
-      (nextState.isExcludedFromBuzz && nextState.wrongGuesses.some((g) => g.playerId === myId))
-    )
+    myId &&
+      !hasRemainingAttempts &&
+      (isExcludedInList ||
+        (nextState.isExcludedFromBuzz && nextState.wrongGuesses.some((g) => g.playerId === myId)))
   );
   nextState.isHost = Boolean(
     nextState.myPlayer?.isHost ||
@@ -999,6 +1024,18 @@ export function useRoomRealtime(
         const presenceState = channel.presenceState();
         const players = parsePresencePlayers(presenceState);
         dispatch({ type: "presence_sync", players });
+
+        // When all human players have left, dissolve empty room (Issue 2)
+        const remainingHumanPlayers = players.filter(
+          (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+        );
+        if (remainingHumanPlayers.length === 0) {
+          fetch(`/api/room/${cleanCode}/leave`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ remainingPlayers: [] }),
+          }).catch(() => {});
+        }
       })
       .on("broadcast", { event: "round_start" }, ({ payload }) => {
         handleBroadcast("round_start", payload);
@@ -1376,7 +1413,7 @@ export function useRoomRealtime(
   );
 
   // Action: resetToLobby
-  const resetToLobby = useCallback(async (): Promise<{
+  const resetToLobby = useCallback(async (options?: { reason?: string }): Promise<{
     success: boolean;
     error?: string;
   }> => {
@@ -1391,6 +1428,7 @@ export function useRoomRealtime(
         body: JSON.stringify({
           playerId,
           sessionToken: state.myPlayer?.sessionToken || playerId,
+          reason: options?.reason,
         }),
       });
       const data = await res.json();

@@ -4,6 +4,8 @@
 
 import { supabase, getServiceSupabase } from "@/lib/supabase";
 import { generateRoomCode } from "@/lib/room-code";
+import { RoomStateStore } from "@/lib/room-state-store";
+import { RedisService } from "@/lib/services/redis-service";
 import type { RoomSettings, RoomRow, RoomUpdate, Json } from "@/types";
 
 export interface CreateRoomResult {
@@ -430,6 +432,10 @@ export class RoomService {
     const cleanCode = code.trim().toUpperCase();
     const client = this.getClient();
     const { error } = await client.from("rooms").delete().eq("room_code", cleanCode);
+    try {
+      RoomStateStore.deleteRoom(cleanCode);
+      RedisService.deleteRoom(cleanCode).catch(() => {});
+    } catch {}
     if (error) {
       console.warn("[RoomService] Failed to delete room:", cleanCode, error.message);
       return false;
@@ -453,9 +459,10 @@ export class RoomService {
 
   /**
    * Automatically cleans up inactive / abandoned rooms from database in near real-time.
-   * - Ended rooms ('game_over') older than 60 minutes.
-   * - Abandoned lobby rooms ('lobby') with no activity older than 120 minutes (2 hours).
-   * - Inactive in-game rooms with no updates older than 180 minutes (3 hours).
+   * - Ended rooms ('game_over') older than 30 minutes.
+   * - Abandoned lobby rooms ('lobby') with no activity older than 30 minutes.
+   * - Inactive in-game rooms with no updates older than 30 minutes.
+   * - Empty rooms with playerCount <= 0 or empty players.
    */
   static async cleanupStaleRooms(optionsOrHours?: number | {
     endedMinutes?: number;
@@ -466,7 +473,7 @@ export class RoomService {
       const client = this.getClient();
       let endedMins = 60; // Was 10 mins, now 1 hour (60 mins)
       let lobbyMins = 120; // Was 5 mins, now 2 hours (120 mins)
-      let inactiveMins = 180; // Was 40 mins, now 3 hours (180 mins)
+      let inactiveMins = 30; // Reduced from 180 mins (3 hours) to 30 minutes (Issue 2)
 
       if (typeof optionsOrHours === "number") {
         inactiveMins = optionsOrHours * 60;
@@ -482,37 +489,75 @@ export class RoomService {
       const lobbyThreshold = new Date(Date.now() - lobbyMins * 60 * 1000).toISOString();
       const inactiveThreshold = new Date(Date.now() - inactiveMins * 60 * 1000).toISOString();
 
-      // 1. Delete ended rooms older than 60 minutes
+      // 1. Delete ended rooms older than 30 minutes
       const { data: endedRooms } = await client
         .from("rooms")
         .delete()
         .eq("status", "game_over")
         .lt("updated_at", endedThreshold)
-        .select("id");
+        .select("id, room_code");
 
-      // 2. Delete abandoned lobby rooms with no updates for 120 minutes (2 hours)
+      // 2. Delete abandoned lobby rooms with no updates for 30 minutes
       const { data: lobbyRooms } = await client
         .from("rooms")
         .delete()
         .eq("status", "lobby")
         .lt("updated_at", lobbyThreshold)
-        .select("id");
+        .select("id, room_code");
 
-      // 3. Delete any stale rooms with no activity older than 180 minutes (3 hours)
+      // 3. Delete any stale rooms with no activity older than 30 minutes
       const { data: staleRooms, error } = await client
         .from("rooms")
         .delete()
         .lt("updated_at", inactiveThreshold)
-        .select("id");
+        .select("id, room_code");
 
       if (error) {
         console.warn("[RoomService] Warning during cleanupStaleRooms:", error.message);
       }
 
+      // 4. Delete any rooms where settings.playerCount <= 0 or empty players (Issue 2)
+      let emptyDeletedCount = 0;
+      const { data: candidateRooms } = await client
+        .from("rooms")
+        .select("id, room_code, settings");
+
+      if (candidateRooms && candidateRooms.length > 0) {
+        const emptyRoomCodes: string[] = [];
+        for (const room of candidateRooms) {
+          const s = (room.settings as any) || {};
+          const count =
+            typeof s.playerCount === "number"
+              ? s.playerCount
+              : Array.isArray(s.players)
+              ? s.players.length
+              : 1;
+          const isPlayersEmpty = Array.isArray(s.players) && s.players.length === 0;
+          if (count <= 0 || isPlayersEmpty) {
+            emptyRoomCodes.push(room.room_code);
+          }
+        }
+        if (emptyRoomCodes.length > 0) {
+          const { data: deletedEmpty } = await client
+            .from("rooms")
+            .delete()
+            .in("room_code", emptyRoomCodes)
+            .select("id, room_code");
+
+          emptyDeletedCount = deletedEmpty?.length || 0;
+
+          for (const code of emptyRoomCodes) {
+            RoomStateStore.deleteRoom(code);
+            RedisService.deleteRoom(code).catch(() => {});
+          }
+        }
+      }
+
       const totalDeleted =
         (endedRooms?.length || 0) +
         (lobbyRooms?.length || 0) +
-        (staleRooms?.length || 0);
+        (staleRooms?.length || 0) +
+        emptyDeletedCount;
 
       return { deletedCount: totalDeleted };
     } catch (err) {
@@ -532,8 +577,8 @@ export class RoomService {
     // Opportunistic cleanup: Purge dead rooms immediately before listing
     await this.cleanupStaleRooms().catch(() => {});
 
-    // Rooms active in the last 180 minutes (3 hours)
-    const recentThreshold = new Date(Date.now() - 180 * 60 * 1000).toISOString();
+    // Rooms active in the last 30 minutes (reduced from 180 minutes)
+    const recentThreshold = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
     const { data, error } = await client
       .from("rooms")
@@ -552,10 +597,13 @@ export class RoomService {
     for (const r of data) {
       const s = (r.settings as any) || {};
       const count = typeof s.playerCount === "number" ? Math.max(0, s.playerCount) : 1;
+      const isPlayersEmpty = Array.isArray(s.players) && s.players.length === 0;
 
       // Filter out empty rooms and purge them immediately from DB
-      if (count <= 0) {
+      if (count <= 0 || isPlayersEmpty) {
         this.deleteRoomByCode(r.room_code).catch(() => {});
+        RoomStateStore.deleteRoom(r.room_code);
+        RedisService.deleteRoom(r.room_code).catch(() => {});
         continue;
       }
 

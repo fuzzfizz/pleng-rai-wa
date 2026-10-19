@@ -162,5 +162,22 @@ describe("Abort Game & Return to Lobby UI Logic", () => {
       expect(nextState.room?.played_song_ids).toEqual([]);
       expect(nextState.room?.current_song_id).toBeNull();
     });
+
+    it("handles single_player_abort reason in executeResetToLobby", async () => {
+      const mockResetFn = vi.fn().mockResolvedValue({ success: true });
+      const result = await executeResetToLobby(mockResetFn, { reason: "single_player_abort" });
+
+      expect(mockResetFn).toHaveBeenCalledWith({ reason: "single_player_abort" });
+      expect(result).toEqual({ success: true });
+    });
+  });
+
+  describe("Issue 3 & 4: In-Game Score Concealment & Single-Player Auto-Abort copy", () => {
+    it("provides accurate Thai notice for single-player auto-abort", () => {
+      const expectedNotice =
+        "ผู้เล่นคนอื่นออกจากห้องหมดแล้ว (เหลือคุณเพียงคนเดียว) ระบบได้ยุติเกมและพาท่านกลับสู่ล็อบบี้";
+      expect(expectedNotice).toContain("เหลือคุณเพียงคนเดียว");
+      expect(expectedNotice).toContain("ระบบได้ยุติเกมและพาท่านกลับสู่ล็อบบี้");
+    });
   });
 });

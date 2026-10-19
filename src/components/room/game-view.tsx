@@ -16,7 +16,6 @@ import {
   Sparkles,
   Zap,
   Radio,
-  Crown,
   Search,
   Send,
   Loader2,
@@ -51,6 +50,7 @@ export interface GameViewProps {
   songLibrary?: Song[];
   onLeaveRoom?: () => void;
   onSkipRound?: () => Promise<boolean>;
+  onBackToLobby?: () => void;
 }
 
 /**
@@ -266,12 +266,13 @@ export function getAbortModalTexts() {
  * Executes resetting room to lobby.
  */
 export async function executeResetToLobby(
-  resetToLobbyFn?: () => Promise<{ success: boolean; error?: string }>
+  resetToLobbyFn?: (options?: { reason?: string }) => Promise<{ success: boolean; error?: string }>,
+  options?: { reason?: string }
 ): Promise<{ success: boolean; error?: string }> {
   if (!resetToLobbyFn) {
     return { success: false, error: "no_reset_handler" };
   }
-  return await resetToLobbyFn();
+  return await resetToLobbyFn(options);
 }
 
 export interface WaitAllPlayerStatusResult {
@@ -321,6 +322,7 @@ export function GameView({
   songLibrary = [],
   onLeaveRoom,
   onSkipRound,
+  onBackToLobby,
 }: GameViewProps): React.JSX.Element {
   const {
     roomCode,
@@ -336,6 +338,7 @@ export function GameView({
     revealedSong,
     roundWinner,
     lastWrongGuess,
+    wrongGuesses = [],
     players,
     myPlayer,
     isHost,
@@ -519,8 +522,74 @@ export function GameView({
   const [isSurrendering, setIsSurrendering] = useState(false);
   const [isAbortModalOpen, setIsAbortModalOpen] = useState(false);
   const [isSubmittingAbort, setIsSubmittingAbort] = useState(false);
+  const [singlePlayerAbortNotice, setSinglePlayerAbortNotice] = useState<string | null>(null);
+  const hadMultiplePlayersRef = useRef<boolean>(false);
   const isSkipping = isSurrendering;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Issue 4 (Option 4A): Single-player auto-abort when remaining players <= 1
+  const activeHumanPlayers = players.filter(
+    (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+  );
+
+  useEffect(() => {
+    if (activeHumanPlayers.length >= 2) {
+      hadMultiplePlayersRef.current = true;
+    }
+  }, [activeHumanPlayers.length]);
+
+  useEffect(() => {
+    const isGameActive =
+      status === "question_active" || status === "buzzed" || status === "revealing";
+
+    if (
+      hadMultiplePlayersRef.current &&
+      isGameActive &&
+      activeHumanPlayers.length <= 1 &&
+      !singlePlayerAbortNotice
+    ) {
+      // 1. Stop audio immediately
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        handleSetIsAudioPlaying(false);
+      } catch {}
+
+      // 2. Stop all local countdown timers
+      setCountdownRemaining(null);
+
+      // 3. Set notice
+      const notice =
+        "ผู้เล่นคนอื่นออกจากห้องหมดแล้ว (เหลือคุณเพียงคนเดียว) ระบบได้ยุติเกมและพาท่านกลับสู่ล็อบบี้";
+      setSinglePlayerAbortNotice(notice);
+
+      // 4. If host, call reset-lobby API
+      if (isHost) {
+        if (resetToLobby) {
+          resetToLobby({ reason: "single_player_abort" }).catch(() => {});
+        } else {
+          fetch(`/api/room/${roomCode}/reset-lobby`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: "single_player_abort" }),
+          }).catch(() => {});
+        }
+      }
+
+      // 5. Trigger onBackToLobby callback if provided
+      onBackToLobby?.();
+    }
+  }, [
+    activeHumanPlayers.length,
+    status,
+    singlePlayerAbortNotice,
+    isHost,
+    resetToLobby,
+    roomCode,
+    onBackToLobby,
+    handleSetIsAudioPlaying,
+  ]);
 
   // Close abort modal on Escape key
   useEffect(() => {
@@ -1014,7 +1083,7 @@ export function GameView({
             </div>
           ) : (
             <div className="flex items-center gap-2 overflow-x-auto max-w-[50%] sm:max-w-md lg:max-w-xl py-1 no-scrollbar">
-              {sortedPlayers.slice(0, 4).map((p, idx) => {
+              {sortedPlayers.slice(0, 4).map((p) => {
                 const isMe = myPlayer && p.id === myPlayer.id;
                 const avatar = getDeterministicAvatar({ id: p.id, avatarUrl: p.avatarUrl });
                 return (
@@ -1028,10 +1097,6 @@ export function GameView({
                   >
                     <span className="text-[13px] lg:text-base">{avatar}</span>
                     <span className="truncate max-w-[70px] sm:max-w-[90px] lg:max-w-[130px] lg:text-sm">{p.displayName}</span>
-                    {idx === 0 && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
-                    <span className="px-1.5 lg:px-2 py-0.2 rounded bg-stone-100 dark:bg-stone-950 text-amber-600 dark:text-amber-400 font-mono text-[11px] lg:text-xs">
-                      {p.score}
-                    </span>
                   </div>
                 );
               })}
@@ -1581,6 +1646,17 @@ export function GameView({
                 onBuzz={handleBuzzPress}
                 disabled={status !== "question_active" || isExcludedFromBuzz || isBuzzing}
                 exclusionReason={myExclusionReason}
+                remainingAttempts={
+                  roomRealtime.remainingAttempts ??
+                  (room?.settings?.maxWrongGuesses && room.settings.maxWrongGuesses > 1
+                    ? Math.max(
+                        0,
+                        room.settings.maxWrongGuesses -
+                          wrongGuesses.filter((g) => g.playerId === myPlayer?.id).length
+                      )
+                    : undefined)
+                }
+                maxWrongGuesses={room?.settings?.maxWrongGuesses}
               />
             )}
           </div>
@@ -1613,16 +1689,13 @@ export function GameView({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-sm w-5 text-stone-400">
-                        #{rank + 1}
-                      </span>
                       <span className="text-xl">{avatar}</span>
                       <span className="font-bold text-sm truncate max-w-[140px]">
                         {p.displayName}
                       </span>
                     </div>
-                    <span className="font-mono font-black text-base text-amber-600 dark:text-amber-400">
-                      {p.score} แต้ม
+                    <span className="text-xs font-semibold text-stone-400">
+                      ผู้เล่น
                     </span>
                   </div>
                 );
@@ -1740,6 +1813,48 @@ export function GameView({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* SINGLE PLAYER AUTO-ABORT NOTICE MODAL (1 player left)*/}
+      {/* ==================================================== */}
+      {singlePlayerAbortNotice && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="single-player-abort-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-7 shadow-2xl text-center overflow-hidden">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-4">
+              <Users className="w-6 h-6" />
+            </div>
+            <h3
+              id="single-player-abort-title"
+              className="text-lg sm:text-xl font-black text-stone-900 dark:text-stone-100 mb-2"
+            >
+              เหลือผู้เล่นคนเดียวในห้อง
+            </h3>
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mb-6 leading-relaxed">
+              {singlePlayerAbortNotice}
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                setSinglePlayerAbortNotice(null);
+                if (isHost && resetToLobby) {
+                  try {
+                    await resetToLobby({ reason: "single_player_abort" });
+                  } catch {}
+                }
+                onBackToLobby?.();
+              }}
+              className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-stone-950 font-bold text-sm shadow-md shadow-amber-500/20 transition active:scale-95 touch-manipulation cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <span>รับทราบและกลับสู่ล็อบบี้</span>
+            </button>
           </div>
         </div>
       )}

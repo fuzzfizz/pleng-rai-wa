@@ -22,6 +22,8 @@ export interface BuzzerButtonProps {
   onBuzz: () => void;
   disabled?: boolean;
   exclusionReason?: "surrendered" | "wrong_guess" | "timed_out" | "submitted_waiting" | null;
+  remainingAttempts?: number;
+  maxWrongGuesses?: number;
 }
 
 /**
@@ -50,6 +52,8 @@ export function BuzzerButton({
   onBuzz,
   disabled = false,
   exclusionReason = null,
+  remainingAttempts,
+  maxWrongGuesses,
 }: BuzzerButtonProps): React.JSX.Element {
   // Safe haptic feedback trigger
   const triggerHaptic = useCallback(() => {
@@ -158,6 +162,11 @@ export function BuzzerButton({
             <span className="text-xs sm:text-sm lg:text-base font-semibold text-stone-900 mt-1 uppercase tracking-wider bg-black/15 px-2.5 py-0.5 lg:px-4 lg:py-1 rounded-full">
               (SPACE)
             </span>
+            {remainingAttempts !== undefined && (maxWrongGuesses === undefined || maxWrongGuesses > 1) && remainingAttempts > 0 && (
+              <span className="mt-1 text-[11px] sm:text-xs font-bold text-stone-950 bg-white/40 dark:bg-black/20 px-2.5 py-0.5 rounded-full shadow-xs">
+                (เหลือสิทธิ์อีก {remainingAttempts} ครั้ง)
+              </span>
+            )}
           </>
         )}
 
@@ -244,9 +253,16 @@ export function BuzzerButton({
       {/* Helper cue label underneath button */}
       <div className="mt-3 text-center">
         {status === "ready" && !disabled && (
-          <p className="text-xs sm:text-sm lg:text-base text-amber-800 dark:text-amber-300/90 font-medium">
-            กดปุ่มด้านบน หรือเคาะ <kbd className="px-1.5 py-0.5 lg:px-2.5 lg:py-1 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-stone-800 dark:text-stone-200 text-xs lg:text-sm font-mono shadow-sm">Spacebar</kbd>
-          </p>
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="text-xs sm:text-sm lg:text-base text-amber-800 dark:text-amber-300/90 font-medium">
+              กดปุ่มด้านบน หรือเคาะ <kbd className="px-1.5 py-0.5 lg:px-2.5 lg:py-1 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-stone-800 dark:text-stone-200 text-xs lg:text-sm font-mono shadow-sm">Spacebar</kbd>
+            </p>
+            {remainingAttempts !== undefined && (maxWrongGuesses === undefined || maxWrongGuesses > 1) && remainingAttempts > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                เหลือสิทธิ์กดอีก {remainingAttempts} ครั้ง
+              </span>
+            )}
+          </div>
         )}
         {status === "locked_by_other" && (
           <p className="text-xs sm:text-sm lg:text-base text-stone-500 dark:text-stone-400 font-medium animate-pulse">

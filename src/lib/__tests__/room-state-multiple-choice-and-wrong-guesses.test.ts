@@ -95,29 +95,115 @@ describe("RoomStateStore - Multiple Choice, Max Wrong Guesses, and Skip", () => 
     expect(state?.playerWrongCounts["p1"]).toBe(5);
   });
 
-  it("strictly excludes player on first wrong guess in buzzer mode regardless of room maxWrongGuesses", () => {
+  it("supports Option 1C multi-attempt in buzzer mode: buzzer releases on wrong answer, excludes only after maxWrongGuesses exhausted", () => {
     const buzzerSettings: RoomSettings = {
       ...defaultSettings,
       gameMode: "buzzer",
-      maxWrongGuesses: 3,
+      maxWrongGuesses: 2,
     };
     RoomStateStore.initRound(roomCode, 1, dummySong, buzzerSettings);
 
-    // Buzz in first
-    const buzzRes = RoomStateStore.buzz(roomCode, "p1", "Player 1");
-    expect(buzzRes.success).toBe(true);
+    // Attempt 1: Player 1 buzzes and answers wrong
+    const buzzRes1 = RoomStateStore.buzz(roomCode, "p1", "Player 1");
+    expect(buzzRes1.success).toBe(true);
 
-    // Submit wrong answer
-    const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "คำตอบผิด", {
+    const res1 = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "คำตอบผิด 1", {
       gameMode: "buzzer",
       roomSettings: buzzerSettings,
       totalPlayers: 2,
     });
 
-    expect(res.isCorrect).toBe(false);
+    expect(res1.isCorrect).toBe(false);
+    expect(res1.canRetry).toBe(true);
+    expect(res1.remainingAttempts).toBe(1);
+
+    const state1 = RoomStateStore.getRoomRoundState(roomCode);
+    expect(state1?.buzzedPlayerId).toBeNull(); // Buzzer unlocked
+    expect(state1?.excludedPlayerIds.includes("p1")).toBe(false); // Not excluded yet
+    expect(state1?.roundStatus).toBe("question_active");
+
+    // Attempt 2: Player 1 buzzes again and answers wrong (reaches maxWrongGuesses = 2)
+    const buzzRes2 = RoomStateStore.buzz(roomCode, "p1", "Player 1");
+    expect(buzzRes2.success).toBe(true);
+
+    const res2 = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "คำตอบผิด 2", {
+      gameMode: "buzzer",
+      roomSettings: buzzerSettings,
+      totalPlayers: 2,
+    });
+
+    expect(res2.isCorrect).toBe(false);
+    expect(res2.canRetry).toBe(false);
+    expect(res2.remainingAttempts).toBe(0);
+
+    const state2 = RoomStateStore.getRoomRoundState(roomCode);
+    expect(state2?.buzzedPlayerId).toBeNull();
+    expect(state2?.excludedPlayerIds.includes("p1")).toBe(true); // Excluded now
+
+    // Attempt 3: Player 1 tries to buzz again -> rejected
+    const buzzRes3 = RoomStateStore.buzz(roomCode, "p1", "Player 1");
+    expect(buzzRes3.success).toBe(false);
+    expect(buzzRes3.reason).toBe("already_guessed_wrong");
+  });
+
+  it("reveals round when all players exhaust their attempts in buzzer mode", () => {
+    const buzzerSettings: RoomSettings = {
+      ...defaultSettings,
+      gameMode: "buzzer",
+      maxWrongGuesses: 1,
+    };
+    RoomStateStore.initRound(roomCode, 1, dummySong, buzzerSettings);
+
+    // Player 1 buzzes and answers wrong -> excluded
+    RoomStateStore.buzz(roomCode, "p1", "Player 1");
+    const res1 = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "ผิด 1", {
+      gameMode: "buzzer",
+      roomSettings: buzzerSettings,
+      totalPlayers: 2,
+    });
+    expect(res1.canRetry).toBe(false);
+    const state1 = RoomStateStore.getRoomRoundState(roomCode);
+    expect(state1?.roundStatus).toBe("question_active"); // Player 2 still available
+
+    // Player 2 buzzes and answers wrong -> all excluded -> reveals
+    RoomStateStore.buzz(roomCode, "p2", "Player 2");
+    const res2 = RoomStateStore.submitAnswer(roomCode, "p2", "Player 2", "ผิด 2", {
+      gameMode: "buzzer",
+      roomSettings: buzzerSettings,
+      totalPlayers: 2,
+    });
+    expect(res2.canRetry).toBe(false);
+    const state2 = RoomStateStore.getRoomRoundState(roomCode);
+    expect(state2?.roundStatus).toBe("revealing");
+    expect(state2?.winnerPlayerId).toBeNull();
+  });
+
+  it("handles timeoutBuzzer with multi-attempts correctly", () => {
+    const buzzerSettings: RoomSettings = {
+      ...defaultSettings,
+      gameMode: "buzzer",
+      maxWrongGuesses: 2,
+    };
+    RoomStateStore.initRound(roomCode, 1, dummySong, buzzerSettings);
+
+    RoomStateStore.buzz(roomCode, "p1", "Player 1");
+    const timeoutRes = RoomStateStore.timeoutBuzzer(roomCode, "p1", {
+      roomSettings: buzzerSettings,
+      totalPlayers: 2,
+    });
+
+    expect(timeoutRes.success).toBe(true);
+    expect(timeoutRes.canRetry).toBe(true);
+    expect(timeoutRes.remainingAttempts).toBe(1);
+
     const state = RoomStateStore.getRoomRoundState(roomCode);
-    expect(state?.excludedPlayerIds.includes("p1")).toBe(true);
-    expect(state?.roundStatus).toBe("question_active"); // Unlocked for next buzzer
+    expect(state?.buzzedPlayerId).toBeNull();
+    expect(state?.excludedPlayerIds.includes("p1")).toBe(false);
+    expect(state?.roundStatus).toBe("question_active");
+
+    // Player 1 can buzz again after timeout
+    const reBuzz = RoomStateStore.buzz(roomCode, "p1", "Player 1");
+    expect(reBuzz.success).toBe(true);
   });
 
   it("skips round and transitions to revealing with winner null when skipRound is called", () => {

@@ -305,6 +305,11 @@ export async function POST(
       }
 
       if (result.reason === "buzzer_timeout") {
+        const canRetry = Boolean(result.canRetry);
+        const remainingAttempts =
+          typeof result.remainingAttempts === "number" ? result.remainingAttempts : 0;
+        const isExcluded = !canRetry;
+
         const timeoutPayload = {
           playerId: cleanPlayerId,
           displayName: cleanDisplayName,
@@ -314,6 +319,10 @@ export async function POST(
           resumeAudio: effectiveGameMode === "buzzer",
           wrongGuesses: result.roundState?.wrongGuesses || [],
           reason: "buzzer_timeout",
+          excluded: isExcluded,
+          isExcluded,
+          canRetry,
+          remainingAttempts,
         };
 
         if (result.roundState && typeof RoomService.updateRoomRoundState === "function") {
@@ -327,13 +336,26 @@ export async function POST(
         // Release buzzer in Redis on timeout
         RedisService.releaseBuzzerLock(cleanCode).catch(() => {});
 
-        RealtimeBroadcastService.broadcast(
-          cleanCode,
-          "wrong_guess",
-          timeoutPayload
-        ).catch((err: unknown) => {
-          console.warn("Failed to broadcast buzzer timeout event:", err);
-        });
+        if (result.roundState?.roundStatus === "revealing") {
+          await RoomService.updateRoomStatus(cleanCode, "revealing").catch(() => {});
+          await RealtimeBroadcastService.broadcast(cleanCode, "round_reveal", {
+            winnerPlayerId: null,
+            winnerDisplayName: null,
+            answerText: "(หมดเวลา)",
+            scoreDelta: 0,
+            scores: result.scores,
+            song: result.roundState.currentSong,
+            skipped: true,
+          });
+        } else {
+          RealtimeBroadcastService.broadcast(
+            cleanCode,
+            "wrong_guess",
+            timeoutPayload
+          ).catch((err: unknown) => {
+            console.warn("Failed to broadcast buzzer timeout event:", err);
+          });
+        }
 
         return NextResponse.json(
           {
@@ -346,6 +368,9 @@ export async function POST(
             resumeAudio: effectiveGameMode === "buzzer",
             wrongGuesses: result.roundState?.wrongGuesses || [],
             reason: "buzzer_timeout",
+            canRetry,
+            remainingAttempts,
+            isExcluded,
           },
           { status: 200 }
         );
@@ -562,6 +587,11 @@ export async function POST(
       }
 
       // Still in active question -> broadcast wrong_guess
+      const canRetry = Boolean(result.canRetry);
+      const remainingAttempts =
+        typeof result.remainingAttempts === "number" ? result.remainingAttempts : 0;
+      const isExcluded = !canRetry;
+
       const wrongPayload = {
         playerId: cleanPlayerId,
         displayName:
@@ -573,9 +603,10 @@ export async function POST(
         scores: result.scores,
         resumeAudio: effectiveGameMode === "buzzer",
         wrongGuesses: result.roundState?.wrongGuesses || [],
-        excluded: result.canRetry ? false : true,
-        canRetry: Boolean(result.canRetry),
-        remainingAttempts: result.remainingAttempts,
+        excluded: isExcluded,
+        isExcluded,
+        canRetry,
+        remainingAttempts,
       };
 
       await RealtimeBroadcastService.broadcast(
@@ -592,8 +623,9 @@ export async function POST(
         scores: result.scores,
         resumeAudio: effectiveGameMode === "buzzer",
         wrongGuesses: result.roundState?.wrongGuesses || [],
-        canRetry: result.canRetry,
-        remainingAttempts: result.remainingAttempts,
+        canRetry,
+        remainingAttempts,
+        isExcluded,
         waitingForOthers: result.waitingForOthers,
       });
     }

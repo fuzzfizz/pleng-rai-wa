@@ -93,18 +93,35 @@ export async function POST(
     RedisService.deleteRoom(cleanCode).catch(() => {});
 
     // 3. Broadcast room_state event with status "lobby" to all players in the room
-    await RealtimeBroadcastService.broadcast(cleanCode, "room_state", {
+    const broadcastPayload: any = {
       status: "lobby",
       round: 0,
       scores: {},
       room: updatedRoom,
-    });
+    };
+    if (body?.reason) {
+      broadcastPayload.reason = body.reason;
+    }
+    if (body?.reason === "single_player_abort") {
+      broadcastPayload.message =
+        "ผู้เล่นคนอื่นออกจากห้องหมดแล้ว (เหลือคุณเพียงคนเดียว) ระบบได้ยุติเกมและพาท่านกลับสู่ล็อบบี้";
+    }
 
-    return NextResponse.json({
+    await RealtimeBroadcastService.broadcast(cleanCode, "room_state", broadcastPayload);
+
+    const responsePayload: any = {
       success: true,
-      message: "รีเซ็ตห้องกลับสู่สถานะล็อบบี้สำเร็จ",
+      message:
+        body?.reason === "single_player_abort"
+          ? "ยุติเกมเนื่องจากเหลือผู้เล่นคนเดียว และกลับสู่ล็อบบี้สำเร็จ"
+          : "รีเซ็ตห้องกลับสู่สถานะล็อบบี้สำเร็จ",
       room: updatedRoom,
-    });
+    };
+    if (body?.reason) {
+      responsePayload.reason = body.reason;
+    }
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error("Reset room to lobby error:", error);
     return NextResponse.json(

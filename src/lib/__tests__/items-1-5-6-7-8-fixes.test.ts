@@ -278,27 +278,44 @@ describe("Items 1, 5, 6, 7, and 8 Implementations & Fixes", () => {
       expect(state?.playerWrongCounts["p1"]).toBe(4);
     });
 
-    it("strictly excludes player on first wrong guess in buzzer mode", () => {
+    it("supports Option 1C multi-attempt in buzzer mode (excludes only after maxWrongGuesses exhausted)", () => {
       const buzzerSettings: RoomSettings = {
         ...multiWrongSettings,
         gameMode: "buzzer",
-        maxWrongGuesses: 3,
+        maxWrongGuesses: 2,
       };
       RoomStateStore.initRound(roomCode, 1, dummySong, buzzerSettings);
 
+      // Buzz 1: wrong guess (1 of 2) -> canRetry is true, not excluded
       RoomStateStore.buzz(roomCode, "p1", "Player 1");
-      const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "ผิดในโหมดกดกริ่ง", {
+      const res1 = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "ผิดครั้งที่ 1", {
         gameMode: "buzzer",
         roomSettings: buzzerSettings,
         totalPlayers: 2,
       });
 
-      expect(res.isCorrect).toBe(false);
-      expect(res.canRetry).toBe(false);
-      expect(res.remainingAttempts).toBe(0);
+      expect(res1.isCorrect).toBe(false);
+      expect(res1.canRetry).toBe(true);
+      expect(res1.remainingAttempts).toBe(1);
 
-      const state = RoomStateStore.getRoomRoundState(roomCode);
-      expect(state?.excludedPlayerIds.includes("p1")).toBe(true);
+      const state1 = RoomStateStore.getRoomRoundState(roomCode);
+      expect(state1?.excludedPlayerIds.includes("p1")).toBe(false);
+      expect(state1?.buzzedPlayerId).toBeNull(); // buzzer released
+
+      // Buzz 2: wrong guess (2 of 2) -> canRetry is false, excluded
+      RoomStateStore.buzz(roomCode, "p1", "Player 1");
+      const res2 = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "ผิดครั้งที่ 2", {
+        gameMode: "buzzer",
+        roomSettings: buzzerSettings,
+        totalPlayers: 2,
+      });
+
+      expect(res2.isCorrect).toBe(false);
+      expect(res2.canRetry).toBe(false);
+      expect(res2.remainingAttempts).toBe(0);
+
+      const state2 = RoomStateStore.getRoomRoundState(roomCode);
+      expect(state2?.excludedPlayerIds.includes("p1")).toBe(true);
     });
 
     it("realtime reducer keeps isExcludedFromBuzz false when wrong_guess event has excluded: false", () => {

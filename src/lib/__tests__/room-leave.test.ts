@@ -29,4 +29,46 @@ describe("Room Leave & Player Count Logic", () => {
     const isRoomEmpty = count <= 0;
     expect(isRoomEmpty).toBe(true);
   });
+
+  it("should identify room as empty when players array is empty", () => {
+    const roomSettingsWithEmptyPlayers = { playerCount: 1, players: [], isPrivate: false };
+    const isPlayersEmpty = Array.isArray(roomSettingsWithEmptyPlayers.players) && roomSettingsWithEmptyPlayers.players.length === 0;
+    expect(isPlayersEmpty).toBe(true);
+  });
+
+  it("should detect when 0 active human players remain (only TV left)", () => {
+    const players = [
+      { id: "tv-1", displayName: "TV Display (TV)", avatarUrl: "📺" },
+    ];
+    const activeHumans = players.filter(
+      (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+    );
+    expect(activeHumans.length).toBe(0);
+  });
+
+  it("should trigger single-player abort condition when active humans drop to <= 1 from >= 2", () => {
+    let hadMultiplePlayers = false;
+    let currentPlayers = [
+      { id: "p1", displayName: "Player 1", avatarUrl: "🎧" },
+      { id: "p2", displayName: "Player 2", avatarUrl: "🎤" },
+    ];
+
+    let activeHumans = currentPlayers.filter(
+      (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+    );
+    if (activeHumans.length >= 2) {
+      hadMultiplePlayers = true;
+    }
+    expect(hadMultiplePlayers).toBe(true);
+
+    // Player 2 leaves
+    currentPlayers = [{ id: "p1", displayName: "Player 1", avatarUrl: "🎧" }];
+    activeHumans = currentPlayers.filter(
+      (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
+    );
+
+    const isGameActive = true;
+    const shouldAbort = hadMultiplePlayers && isGameActive && activeHumans.length <= 1;
+    expect(shouldAbort).toBe(true);
+  });
 });

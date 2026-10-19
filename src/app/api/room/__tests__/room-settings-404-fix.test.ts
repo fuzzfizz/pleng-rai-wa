@@ -26,9 +26,13 @@ describe("Room Settings 404 Prevention & Self-Healing Fix", () => {
       // Mock Supabase client to record delete calls and thresholds
       const mockClient = {
         from: (table: string) => {
+          let isDelete = false;
           const callRecord = { table, filters: [] as any[] };
           const queryBuilder: any = {
-            delete: () => queryBuilder,
+            delete: () => {
+              isDelete = true;
+              return queryBuilder;
+            },
             eq: (col: string, val: any) => {
               callRecord.filters.push({ type: "eq", col, val });
               return queryBuilder;
@@ -37,8 +41,14 @@ describe("Room Settings 404 Prevention & Self-Healing Fix", () => {
               callRecord.filters.push({ type: "lt", col, val });
               return queryBuilder;
             },
+            in: (col: string, val: any) => {
+              callRecord.filters.push({ type: "in", col, val });
+              return queryBuilder;
+            },
             select: () => {
-              deleteCalls.push(callRecord);
+              if (isDelete) {
+                deleteCalls.push(callRecord);
+              }
               return Promise.resolve({ data: [] });
             },
           };
@@ -84,9 +94,9 @@ describe("Room Settings 404 Prevention & Self-Healing Fix", () => {
       expect(inactiveQuery).toBeDefined();
       const inactiveLt = inactiveQuery!.filters.find((f) => f.type === "lt" && f.col === "updated_at");
       const inactiveTime = new Date(inactiveLt.val).getTime();
-      // Should be ~180 mins ago (3 hours)
-      expect(inactiveTime).toBeLessThanOrEqual(beforeCall - 179 * 60 * 1000);
-      expect(inactiveTime).toBeGreaterThanOrEqual(afterCall - 181 * 60 * 1000);
+      // Should be ~30 mins ago (reduced from 180 mins / 3 hours)
+      expect(inactiveTime).toBeLessThanOrEqual(beforeCall - 29 * 60 * 1000);
+      expect(inactiveTime).toBeGreaterThanOrEqual(afterCall - 31 * 60 * 1000);
     });
 
     it("does NOT delete a lobby room that is 10 or 30 minutes old", async () => {
@@ -96,11 +106,15 @@ describe("Room Settings 404 Prevention & Self-Healing Fix", () => {
       let lobbyThresholdUsed: string | null = null;
       const mockClient = {
         from: (table: string) => {
+          let isLobbyQuery = false;
           const queryBuilder: any = {
             delete: () => queryBuilder,
-            eq: (col: string, val: any) => queryBuilder,
+            eq: (col: string, val: any) => {
+              if (col === "status" && val === "lobby") isLobbyQuery = true;
+              return queryBuilder;
+            },
             lt: (col: string, val: any) => {
-              if (col === "updated_at") lobbyThresholdUsed = val;
+              if (isLobbyQuery && col === "updated_at") lobbyThresholdUsed = val;
               return queryBuilder;
             },
             select: () => Promise.resolve({ data: [] }),
