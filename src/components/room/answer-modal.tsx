@@ -325,8 +325,7 @@ export function AnswerModal({
                       {letter}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-sm truncate text-stone-900 dark:text-white">{choice.title}</div>
-                      <div className="text-xs text-stone-500 dark:text-stone-400 truncate">{choice.artist}</div>
+                      <div className="font-bold text-sm sm:text-base truncate text-stone-900 dark:text-white">{choice.title}</div>
                     </div>
                   </button>
                 );

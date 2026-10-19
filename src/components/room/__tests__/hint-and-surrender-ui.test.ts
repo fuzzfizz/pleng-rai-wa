@@ -188,4 +188,59 @@ describe("Hint and Surrender UI & State Logic", () => {
       expect(nextRoundState.revealedHints).toEqual({ level: 0 });
     });
   });
+
+  describe("Surrender & Timed Out Feedback Display", () => {
+    function resolveExclusionFeedback(reason?: "surrendered" | "timed_out" | "wrong_guess" | null) {
+      if (reason === "surrendered") {
+        return {
+          title: "คุณยอมแพ้ในข้อนี้แล้ว",
+          subtitle: "(รอเล่นข้อถัดไป)",
+          icon: "Flag",
+          tone: "stone",
+        };
+      }
+      if (reason === "timed_out") {
+        return {
+          title: "คุณหมดเวลาตอบในข้อนี้แล้ว",
+          subtitle: "(รอเล่นข้อถัดไป)",
+          icon: "Clock",
+          tone: "amber",
+        };
+      }
+      return {
+        title: "คุณตอบผิดในข้อนี้แล้ว",
+        subtitle: "รอข้อถัดไป",
+        icon: "XCircle",
+        tone: "rose",
+      };
+    }
+
+    it("resolves flag icon and neutral stone tone when surrendered", () => {
+      const feedback = resolveExclusionFeedback("surrendered");
+      expect(feedback.title).toBe("คุณยอมแพ้ในข้อนี้แล้ว");
+      expect(feedback.subtitle).toBe("(รอเล่นข้อถัดไป)");
+      expect(feedback.icon).toBe("Flag");
+      expect(feedback.tone).toBe("stone");
+    });
+
+    it("resolves clock icon and amber tone when timed_out", () => {
+      const feedback = resolveExclusionFeedback("timed_out");
+      expect(feedback.title).toBe("คุณหมดเวลาตอบในข้อนี้แล้ว");
+      expect(feedback.subtitle).toBe("(รอเล่นข้อถัดไป)");
+      expect(feedback.icon).toBe("Clock");
+      expect(feedback.tone).toBe("amber");
+    });
+
+    it("resolves XCircle icon and rose tone when wrong_guess or default", () => {
+      const feedback1 = resolveExclusionFeedback("wrong_guess");
+      expect(feedback1.title).toBe("คุณตอบผิดในข้อนี้แล้ว");
+      expect(feedback1.icon).toBe("XCircle");
+      expect(feedback1.tone).toBe("rose");
+
+      const feedback2 = resolveExclusionFeedback(null);
+      expect(feedback2.title).toBe("คุณตอบผิดในข้อนี้แล้ว");
+      expect(feedback2.icon).toBe("XCircle");
+      expect(feedback2.tone).toBe("rose");
+    });
+  });
 });

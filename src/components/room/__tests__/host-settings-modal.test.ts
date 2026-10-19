@@ -275,6 +275,34 @@ describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
     });
     expect(payload.buzzerPlayRegion).toBe("entire_song");
   });
+
+  it("normalizes maxWrongGuesses to 1 when buzzer mode is selected and maxWrongGuesses is 0 (Issue 1)", () => {
+    const payload = prepareSettingsPayload({
+      gameMode: "buzzer",
+      maxWrongGuesses: 0,
+    });
+    expect(payload.gameMode).toBe("buzzer");
+    expect(payload.maxWrongGuesses).toBe(1);
+  });
+
+  it("normalizes roundTimeoutSec to 15 for multiple-choice when timeout is 0 or undefined (Issue 2)", () => {
+    const payload1 = prepareSettingsPayload({
+      answerInputMode: "multiple-choice",
+      roundTimeoutSec: 0,
+    });
+    expect(payload1.roundTimeoutSec).toBe(15);
+
+    const payload2 = prepareSettingsPayload({
+      answerInputMode: "multiple-choice",
+    });
+    expect(payload2.roundTimeoutSec).toBe(15);
+
+    const payload3 = prepareSettingsPayload({
+      answerInputMode: "multiple-choice",
+      roundTimeoutSec: 30,
+    });
+    expect(payload3.roundTimeoutSec).toBe(30);
+  });
 });
 
 

@@ -7,7 +7,7 @@
 // ==========================================
 
 import React, { useEffect, useCallback } from "react";
-import { Bell, Sparkles, Lock, XCircle, Loader2 } from "lucide-react";
+import { Bell, Sparkles, Lock, XCircle, Loader2, Flag, Clock } from "lucide-react";
 
 export type BuzzerStatus =
   | "idle"
@@ -21,6 +21,7 @@ export interface BuzzerButtonProps {
   buzzedPlayerName?: string;
   onBuzz: () => void;
   disabled?: boolean;
+  exclusionReason?: "surrendered" | "wrong_guess" | "timed_out" | "submitted_waiting" | null;
 }
 
 /**
@@ -48,6 +49,7 @@ export function BuzzerButton({
   buzzedPlayerName,
   onBuzz,
   disabled = false,
+  exclusionReason = null,
 }: BuzzerButtonProps): React.JSX.Element {
   // Safe haptic feedback trigger
   const triggerHaptic = useCallback(() => {
@@ -122,7 +124,11 @@ export function BuzzerButton({
             : status === "locked_by_other"
             ? `${buzzedPlayerName || "มีผู้เล่นอื่น"} กำลังตอบ`
             : status === "excluded"
-            ? "คุณตอบผิดในข้อนี้แล้ว"
+            ? exclusionReason === "surrendered"
+              ? "คุณยอมแพ้ในข้อนี้แล้ว"
+              : exclusionReason === "timed_out"
+              ? "คุณหมดเวลาตอบในข้อนี้แล้ว"
+              : "คุณตอบผิดในข้อนี้แล้ว"
             : "รอเริ่มรอบ"
         }
         className={`relative z-10 w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-full flex flex-col items-center justify-center p-4 text-center touch-manipulation [touch-action:manipulation] active:scale-95 transition-transform duration-75 border-4 shadow-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/50 ${
@@ -133,7 +139,11 @@ export function BuzzerButton({
             : status === "locked_by_other"
             ? "bg-stone-200/90 dark:bg-stone-900/90 border-stone-300 dark:border-stone-700 text-stone-500 dark:text-stone-400 shadow-none cursor-not-allowed opacity-80"
             : status === "excluded"
-            ? "bg-rose-100 dark:bg-rose-950/60 border-rose-300 dark:border-rose-500/50 text-rose-800 dark:text-rose-300 shadow-none cursor-not-allowed"
+            ? exclusionReason === "surrendered"
+              ? "bg-stone-200/90 dark:bg-stone-900/90 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 shadow-none cursor-not-allowed"
+              : exclusionReason === "timed_out"
+              ? "bg-amber-100/90 dark:bg-amber-950/60 border-amber-300 dark:border-amber-500/50 text-amber-800 dark:text-amber-300 shadow-none cursor-not-allowed"
+              : "bg-rose-100 dark:bg-rose-950/60 border-rose-300 dark:border-rose-500/50 text-rose-800 dark:text-rose-300 shadow-none cursor-not-allowed"
             : "bg-stone-100 dark:bg-stone-900/60 border-stone-200 dark:border-stone-800 text-stone-400 dark:text-stone-500 shadow-none cursor-not-allowed"
         }`}
       >
@@ -179,15 +189,43 @@ export function BuzzerButton({
 
         {status === "excluded" && (
           <>
-            <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-rose-200 dark:bg-rose-950/80 rounded-full mb-2 lg:mb-3 border border-rose-300 dark:border-rose-500/30">
-              <XCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-20 xl:h-20 text-rose-600 dark:text-rose-400" />
-            </div>
-            <span className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-bold text-rose-800 dark:text-rose-300 px-2 leading-tight">
-              คุณตอบผิดในข้อนี้แล้ว
-            </span>
-            <span className="text-[11px] sm:text-xs lg:text-sm text-rose-600 dark:text-rose-400/70 mt-1">
-              รอข้อถัดไป
-            </span>
+            {exclusionReason === "surrendered" ? (
+              <>
+                <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-stone-300 dark:bg-stone-800 rounded-full mb-2 lg:mb-3 border border-stone-400 dark:border-stone-600/30">
+                  <Flag className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-20 xl:h-20 text-stone-500 dark:text-stone-400" />
+                </div>
+                <span className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-bold text-stone-700 dark:text-stone-300 px-2 leading-tight">
+                  คุณยอมแพ้ในข้อนี้แล้ว
+                </span>
+                <span className="text-[11px] sm:text-xs lg:text-sm text-stone-500 dark:text-stone-400 mt-1">
+                  (รอเล่นข้อถัดไป)
+                </span>
+              </>
+            ) : exclusionReason === "timed_out" ? (
+              <>
+                <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-amber-200 dark:bg-amber-950/80 rounded-full mb-2 lg:mb-3 border border-amber-300 dark:border-amber-500/30">
+                  <Clock className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-20 xl:h-20 text-amber-500 dark:text-amber-400" />
+                </div>
+                <span className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-bold text-amber-800 dark:text-amber-300 px-2 leading-tight">
+                  คุณหมดเวลาตอบในข้อนี้แล้ว
+                </span>
+                <span className="text-[11px] sm:text-xs lg:text-sm text-amber-600 dark:text-amber-400/80 mt-1">
+                  (รอเล่นข้อถัดไป)
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="p-3 sm:p-3.5 md:p-4 lg:p-5 xl:p-6 bg-rose-200 dark:bg-rose-950/80 rounded-full mb-2 lg:mb-3 border border-rose-300 dark:border-rose-500/30">
+                  <XCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 xl:w-20 xl:h-20 text-rose-600 dark:text-rose-400" />
+                </div>
+                <span className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-bold text-rose-800 dark:text-rose-300 px-2 leading-tight">
+                  คุณตอบผิดในข้อนี้แล้ว
+                </span>
+                <span className="text-[11px] sm:text-xs lg:text-sm text-rose-600 dark:text-rose-400/70 mt-1">
+                  รอข้อถัดไป
+                </span>
+              </>
+            )}
           </>
         )}
 
@@ -216,8 +254,20 @@ export function BuzzerButton({
           </p>
         )}
         {status === "excluded" && (
-          <p className="text-xs sm:text-sm lg:text-base text-rose-600 dark:text-rose-400/80 font-medium">
-            สิทธิ์ตอบข้อนี้หมดลงแล้ว ให้กำลังใจเพื่อนๆ อยู่ตรงนี้!
+          <p
+            className={`text-xs sm:text-sm lg:text-base font-medium ${
+              exclusionReason === "surrendered"
+                ? "text-stone-500 dark:text-stone-400"
+                : exclusionReason === "timed_out"
+                ? "text-amber-600 dark:text-amber-400/80"
+                : "text-rose-600 dark:text-rose-400/80"
+            }`}
+          >
+            {exclusionReason === "surrendered"
+              ? "คุณยอมแพ้ในข้อนี้แล้ว พักผ่อนและรอเริ่มข้อถัดไป!"
+              : exclusionReason === "timed_out"
+              ? "หมดเวลาตอบในข้อนี้แล้ว รอเริ่มข้อถัดไป!"
+              : "สิทธิ์ตอบข้อนี้หมดลงแล้ว ให้กำลังใจเพื่อนๆ อยู่ตรงนี้!"}
           </p>
         )}
       </div>

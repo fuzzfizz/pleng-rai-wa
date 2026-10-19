@@ -301,27 +301,41 @@ export async function POST(
     // Decoy choices generation for multiple-choice mode
     let choices: ChoiceOption[] | undefined = undefined;
     if (settings.answerInputMode === "multiple-choice") {
-      let decoys: Song[] = [];
+      let sameArtistDecoys: Song[] = [];
       try {
-        decoys = await SongService.getRandomSongs(3, {
-          genreId: filterGenreId,
-          genreIds: filterGenreIds,
-          era: filterEra,
-          artist: filterArtist,
-          yearStart: filterYearStart,
-          yearEnd: filterYearEnd,
-          playlistId: filterPlaylistId,
+        sameArtistDecoys = await SongService.getRandomSongs(3, {
+          artist: song.artist,
           excludeIds: [song.id, ...playedSongIds],
         });
       } catch (err) {
-        console.warn("Failed to fetch filtered decoys, falling back to general pool", err);
+        console.warn("Failed to fetch same-artist decoys", err);
+      }
+
+      let decoys = [...sameArtistDecoys];
+
+      if (decoys.length < 3) {
+        let additionalDecoys: Song[] = [];
+        const needed = 3 - decoys.length;
+        const excludeIds = [song.id, ...playedSongIds, ...decoys.map((d) => d.id)];
+        try {
+          additionalDecoys = await SongService.getRandomSongs(needed, {
+            genreId: filterGenreId,
+            genreIds: filterGenreIds,
+            era: filterEra,
+            playlistId: filterPlaylistId,
+            excludeIds,
+          });
+        } catch (err) {
+          console.warn("Failed to fetch additional decoys", err);
+        }
+        decoys = [...decoys, ...additionalDecoys];
       }
 
       if (decoys.length < 3) {
-        const needed = 3 - decoys.length;
+        const neededGeneral = 3 - decoys.length;
         const existingIds = [song.id, ...playedSongIds, ...decoys.map((d) => d.id)];
         try {
-          const fallbackDecoys = await SongService.getRandomSongs(needed, {
+          const fallbackDecoys = await SongService.getRandomSongs(neededGeneral, {
             excludeIds: existingIds,
           });
           decoys = [...decoys, ...fallbackDecoys];

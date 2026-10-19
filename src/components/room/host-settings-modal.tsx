@@ -138,6 +138,14 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
     }
   }
 
+  if (result.gameMode === "buzzer" && result.maxWrongGuesses === 0) {
+    result.maxWrongGuesses = 1;
+  }
+
+  if (result.answerInputMode === "multiple-choice" && (!result.roundTimeoutSec || result.roundTimeoutSec <= 0)) {
+    result.roundTimeoutSec = 15;
+  }
+
   if (result.playlistId !== undefined) {
     if (result.playlistId === null) {
       result.playlistId = null;
@@ -229,6 +237,14 @@ export function HostSettingsModal({
       setDraft({
         ...settings,
         buzzerPlayRegion: settings.gameMode === "buzzer" ? "entire_song" : settings.buzzerPlayRegion,
+        roundTimeoutSec:
+          settings.answerInputMode === "multiple-choice" && (!settings.roundTimeoutSec || settings.roundTimeoutSec <= 0)
+            ? 15
+            : settings.roundTimeoutSec,
+        maxWrongGuesses:
+          (settings.gameMode === "buzzer" || settings.answerResolutionMode === "wait_all") && settings.maxWrongGuesses === 0
+            ? 1
+            : settings.maxWrongGuesses,
       });
       setIsSongSourceModalOpen(false);
       setErrorMessage(null);
@@ -259,12 +275,27 @@ export function HostSettingsModal({
     };
   }, [isOpen]);
 
-  // Normalize wait_all maxWrongGuesses
+  // Normalize wait_all & buzzer maxWrongGuesses and multiple-choice timeout
   useEffect(() => {
-    if (draft.answerResolutionMode === "wait_all" && draft.maxWrongGuesses === 0) {
+    if (
+      (draft.answerResolutionMode === "wait_all" || draft.gameMode === "buzzer") &&
+      draft.maxWrongGuesses === 0
+    ) {
       setDraft((prev) => ({ ...prev, maxWrongGuesses: 1 }));
     }
-  }, [draft.answerResolutionMode, draft.maxWrongGuesses]);
+    if (
+      draft.answerInputMode === "multiple-choice" &&
+      (!draft.roundTimeoutSec || draft.roundTimeoutSec <= 0)
+    ) {
+      setDraft((prev) => ({ ...prev, roundTimeoutSec: 15 }));
+    }
+  }, [
+    draft.answerResolutionMode,
+    draft.gameMode,
+    draft.maxWrongGuesses,
+    draft.answerInputMode,
+    draft.roundTimeoutSec,
+  ]);
 
   // Load playlists when modal opens
   useEffect(() => {
@@ -992,14 +1023,25 @@ export function HostSettingsModal({
             </div>
           </div>
 
-          {/* 5. Buzzer Timeout (Buzzer mode only) or Unlimited Time Banner */}
-          {draft.gameMode === "buzzer" ? (
+          {/* 5. Buzzer Timeout (Buzzer mode or Multiple-Choice) or Unlimited Time Banner */}
+          {draft.gameMode === "buzzer" || draft.answerInputMode === "multiple-choice" ? (
             <div>
               <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
-                ⏱️ เวลาตอบหลังกดกริ่ง (Buzzer Timeout)
+                {draft.gameMode === "buzzer"
+                  ? "⏱️ เวลาตอบหลังกดกริ่ง (Buzzer Timeout)"
+                  : "⏱️ เวลาตอบคำถาม (Countdown Timeout)"}
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {ROUND_TIMEOUT_OPTIONS.map((opt) => (
+              <div
+                className={
+                  draft.answerInputMode === "multiple-choice"
+                    ? "grid grid-cols-3 gap-2"
+                    : "grid grid-cols-2 sm:grid-cols-4 gap-2"
+                }
+              >
+                {(draft.answerInputMode === "multiple-choice"
+                  ? ROUND_TIMEOUT_OPTIONS.filter((opt) => opt.value !== 0)
+                  : ROUND_TIMEOUT_OPTIONS
+                ).map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
@@ -1154,26 +1196,26 @@ export function HostSettingsModal({
           {/* 7. Allowed Wrong Guesses */}
           <div>
             <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
-              ❌ จำนวนครั้งที่ตอบผิดได้ต่อข้อ (Allowed Wrong Guesses)
+              🎯 สิทธิ์การตอบต่อข้อ (จำนวนครั้งที่ตอบได้)
             </label>
             <div
               className={
-                draft.answerResolutionMode === "wait_all"
+                draft.gameMode === "buzzer" || draft.answerResolutionMode === "wait_all"
                   ? "grid grid-cols-3 gap-2"
                   : "grid grid-cols-2 sm:grid-cols-4 gap-2"
               }
             >
-              {(draft.answerResolutionMode === "wait_all"
+              {(draft.gameMode === "buzzer" || draft.answerResolutionMode === "wait_all"
                 ? [
-                    { value: 1, label: "1 ครั้ง (ค่าเริ่มต้น)" },
-                    { value: 2, label: "2 ครั้ง" },
-                    { value: 3, label: "3 ครั้ง" },
+                    { value: 1, label: "ตอบได้ 1 ครั้ง (ห้ามผิด)" },
+                    { value: 2, label: "ตอบได้ 2 ครั้ง (ผิดได้ 1 ครั้ง)" },
+                    { value: 3, label: "ตอบได้ 3 ครั้ง (ผิดได้ 2 ครั้ง)" },
                   ]
                 : [
-                    { value: 1, label: "1 ครั้ง (ค่าเริ่มต้น)" },
-                    { value: 2, label: "2 ครั้ง" },
-                    { value: 3, label: "3 ครั้ง" },
-                    { value: 0, label: "ไม่จำกัด" },
+                    { value: 1, label: "ตอบได้ 1 ครั้ง (ห้ามผิด)" },
+                    { value: 2, label: "ตอบได้ 2 ครั้ง (ผิดได้ 1 ครั้ง)" },
+                    { value: 3, label: "ตอบได้ 3 ครั้ง (ผิดได้ 2 ครั้ง)" },
+                    { value: 0, label: "ไม่จำกัดครั้ง" },
                   ]
               ).map((opt) => (
                 <button

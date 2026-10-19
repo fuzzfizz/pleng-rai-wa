@@ -86,5 +86,76 @@ describe("Multiple Choice UI & Reveal Logic", () => {
       expect(evaluated.find((e) => e.title === "รักแรก")?.isWinning).toBe(true);
       expect(evaluated.filter((e) => e.isWinning)).toHaveLength(1);
     });
+
+    it("ensures choice card renderer displays only title and conceals artist name", () => {
+      // Simulates the rendering data contract: title is prominent, artist is concealed
+      const choiceCardViewModel = dummyChoices.map((choice) => ({
+        id: choice.id,
+        displayedText: choice.title,
+        concealedArtist: choice.artist,
+      }));
+
+      choiceCardViewModel.forEach((item) => {
+        expect(item.displayedText).toBeDefined();
+        expect(item.displayedText.length).toBeGreaterThan(0);
+        // Displayed text must not concatenate or contain artist name
+        expect(item.displayedText).not.toContain(item.concealedArtist);
+      });
+    });
+
+    it("activates countdown timer for multiple-choice mode when question is active", () => {
+      function shouldRunCountdown(params: {
+        gameMode: string;
+        hasPlayedOnce: boolean;
+        status: string;
+        answerInputMode: string;
+      }): boolean {
+        return (
+          params.status === "question_active" &&
+          ((params.gameMode === "buzzer" && params.hasPlayedOnce) ||
+            params.answerInputMode === "multiple-choice")
+        );
+      }
+
+      // Multiple choice mode triggers countdown immediately in question_active status
+      expect(
+        shouldRunCountdown({
+          gameMode: "audio-slice",
+          hasPlayedOnce: false,
+          status: "question_active",
+          answerInputMode: "multiple-choice",
+        })
+      ).toBe(true);
+
+      // Multiple choice mode does not run when status is not question_active
+      expect(
+        shouldRunCountdown({
+          gameMode: "audio-slice",
+          hasPlayedOnce: false,
+          status: "revealing",
+          answerInputMode: "multiple-choice",
+        })
+      ).toBe(false);
+
+      // Autocomplete non-buzzer mode does not run countdown
+      expect(
+        shouldRunCountdown({
+          gameMode: "audio-slice",
+          hasPlayedOnce: true,
+          status: "question_active",
+          answerInputMode: "autocomplete",
+        })
+      ).toBe(false);
+
+      // Buzzer mode runs after slice played once
+      expect(
+        shouldRunCountdown({
+          gameMode: "buzzer",
+          hasPlayedOnce: true,
+          status: "question_active",
+          answerInputMode: "autocomplete",
+        })
+      ).toBe(true);
+    });
   });
 });

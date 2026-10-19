@@ -410,6 +410,8 @@ export function GameView({
     roomRealtime.room?.settings?.answerTimeLimit ||
     15;
 
+  const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
+
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
   const [sliceCurrentTime, setSliceCurrentTime] = useState<number>(0);
@@ -592,10 +594,13 @@ export function GameView({
 
   const handleSkipQuestion = handleSurrender;
 
-  // Interval countdown after slice plays for the first time (Buzzer mode only)
+  // Interval countdown: Buzzer mode (after slice plays once) OR Multiple-Choice input mode
   useEffect(() => {
-    // Only buzzer mode has answer countdown timer; non-buzzer modes are unlimited.
-    if (gameMode !== "buzzer" || !hasPlayedOnce || status !== "question_active") {
+    const shouldRunCountdown =
+      status === "question_active" &&
+      ((gameMode === "buzzer" && hasPlayedOnce) || answerInputMode === "multiple-choice");
+
+    if (!shouldRunCountdown) {
       setCountdownRemaining(null);
       return;
     }
@@ -622,7 +627,7 @@ export function GameView({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameMode, hasPlayedOnce, status, answerTimeLimit]);
+  }, [gameMode, hasPlayedOnce, status, answerInputMode, answerTimeLimit]);
 
   // Watchdog: If countdown hit 0 but status is still question_active after 2.5s, trigger state refetch & host safety finish
   useEffect(() => {
@@ -810,8 +815,6 @@ export function GameView({
     },
     [submitAnswer, isExcludedFromBuzz]
   );
-
-  const answerInputMode = roomRealtime.room?.settings?.answerInputMode || "autocomplete";
 
   // Direct answer state for AI Lyrics mode
   const [directAnswer, setDirectAnswer] = useState("");
@@ -1193,8 +1196,11 @@ export function GameView({
               )}
             </div>
 
-            {/* 15s Answer Countdown Timer Bar (Buzzer mode only, starts after slice finishes) */}
-            {gameMode === "buzzer" && countdownRemaining !== null && status === "question_active" && !isExcludedFromBuzz && (
+            {/* Answer Countdown Timer Bar (Buzzer mode or Multiple-Choice mode) */}
+            {(gameMode === "buzzer" || answerInputMode === "multiple-choice") &&
+              countdownRemaining !== null &&
+              status === "question_active" &&
+              !isExcludedFromBuzz && (
               <div className="w-full max-w-sm sm:max-w-md mx-auto my-1 px-4 py-2 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col gap-1.5 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between text-xs font-bold">
                   <span className="flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
@@ -1383,7 +1389,7 @@ export function GameView({
                         })}
                       </div>
                     </div>
-                  ) : (myExclusionReason === "surrendered" || (!myExclusionReason && lastWrongGuess?.playerId !== myPlayer?.id)) ? (
+                  ) : myExclusionReason === "surrendered" || (!myExclusionReason && lastWrongGuess?.playerId !== myPlayer?.id) ? (
                     <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-stone-500/15 border border-stone-400/40 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
                       <span>🏳️ คุณยอมแพ้ในข้อนี้แล้ว (รอข้อถัดไป)</span>
                     </div>
@@ -1434,7 +1440,6 @@ export function GameView({
                           </span>
                           <div className="min-w-0 flex-1">
                             <div className="font-bold text-sm sm:text-base truncate">{choice.title}</div>
-                            <div className="text-xs text-stone-500 dark:text-stone-400 truncate">{choice.artist}</div>
                           </div>
                         </button>
                       );
@@ -1575,6 +1580,7 @@ export function GameView({
                 buzzedPlayerName={buzzedPlayer?.displayName}
                 onBuzz={handleBuzzPress}
                 disabled={status !== "question_active" || isExcludedFromBuzz || isBuzzing}
+                exclusionReason={myExclusionReason}
               />
             )}
           </div>

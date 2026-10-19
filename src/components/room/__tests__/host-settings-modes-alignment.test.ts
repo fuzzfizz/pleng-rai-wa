@@ -80,6 +80,20 @@ describe("Host Settings & Lobby Modes Alignment", () => {
       expect(summary).toContain("20 วินาที");
       expect(summary).not.toContain("ไม่จำกัดเวลา");
     });
+
+    it("formats multiple-choice mode with explicit countdown round timeout seconds", () => {
+      const summary = formatSettingsSummary({
+        ...baseSettings,
+        gameMode: "audio-slice",
+        answerInputMode: "multiple-choice",
+        roundTimeoutSec: 15,
+      });
+
+      expect(summary).toContain("โหมด: ตัดเสียงเสี้ยววินาที");
+      expect(summary).toContain("ตัวเลือก (ปรนัย)");
+      expect(summary).toContain("15 วินาที");
+      expect(summary).not.toContain("ไม่จำกัดเวลา");
+    });
   });
 
   describe("prepareSettingsPayload - Resolution & Timing normalization", () => {
@@ -110,6 +124,27 @@ describe("Host Settings & Lobby Modes Alignment", () => {
         roundTimeoutSec: 30,
       });
       expect(payload.roundTimeoutSec).toBe(30);
+    });
+
+    it("enforces maxWrongGuesses to 1 when buzzer mode is set with 0", () => {
+      const payload = prepareSettingsPayload({
+        gameMode: "buzzer",
+        maxWrongGuesses: 0,
+      });
+      expect(payload.maxWrongGuesses).toBe(1);
+    });
+
+    it("enforces roundTimeoutSec to 15 when multiple-choice mode is set with 0 or undefined", () => {
+      const payload1 = prepareSettingsPayload({
+        answerInputMode: "multiple-choice",
+        roundTimeoutSec: 0,
+      });
+      expect(payload1.roundTimeoutSec).toBe(15);
+
+      const payload2 = prepareSettingsPayload({
+        answerInputMode: "multiple-choice",
+      });
+      expect(payload2.roundTimeoutSec).toBe(15);
     });
   });
 });

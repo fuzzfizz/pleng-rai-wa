@@ -80,14 +80,44 @@ describe("Items 1, 5, 6, 7, and 8 Implementations & Fixes", () => {
       expect(payload3.maxWrongGuesses).toBe(3);
     });
 
-    it("allows maxWrongGuesses to be 0 (unlimited) in race mode", () => {
+    it("allows maxWrongGuesses to be 0 (unlimited) in race mode when gameMode is not buzzer", () => {
       const payload = prepareSettingsPayload({
+        gameMode: "audio-slice",
         answerResolutionMode: "race",
         maxWrongGuesses: 0,
       });
 
       expect(payload.answerResolutionMode).toBe("race");
       expect(payload.maxWrongGuesses).toBe(0);
+    });
+
+    it("normalizes maxWrongGuesses to 1 when gameMode is buzzer and maxWrongGuesses is 0", () => {
+      const payload = prepareSettingsPayload({
+        gameMode: "buzzer",
+        maxWrongGuesses: 0,
+      });
+
+      expect(payload.gameMode).toBe("buzzer");
+      expect(payload.maxWrongGuesses).toBe(1);
+    });
+
+    it("enforces mandatory countdown timer for multiple-choice mode (defaults to 15 when 0 or undefined)", () => {
+      const p1 = prepareSettingsPayload({
+        answerInputMode: "multiple-choice",
+        roundTimeoutSec: 0,
+      });
+      expect(p1.roundTimeoutSec).toBe(15);
+
+      const p2 = prepareSettingsPayload({
+        answerInputMode: "multiple-choice",
+      });
+      expect(p2.roundTimeoutSec).toBe(15);
+
+      const p3 = prepareSettingsPayload({
+        answerInputMode: "multiple-choice",
+        roundTimeoutSec: 10,
+      });
+      expect(p3.roundTimeoutSec).toBe(10);
     });
   });
 

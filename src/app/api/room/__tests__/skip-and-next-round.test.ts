@@ -148,6 +148,74 @@ describe("Skip Route & Decoy Generation Logic", () => {
       );
     });
 
+    it("prioritizes same-artist decoys before falling back to additional decoys", async () => {
+      (RoomService.getRoomByCode as any).mockResolvedValue({
+        room_code: roomCode,
+        host_player_id: "host-1",
+        settings: {
+          gameMode: "audio-slice",
+          answerInputMode: "multiple-choice",
+          sliceDurationSec: 2.0,
+          totalRounds: 5,
+        },
+        played_song_ids: [],
+      });
+
+      const sameArtistDecoy: Song = {
+        id: "song-same-artist",
+        title: "เพลงศิลปินเดียวกัน",
+        artist: dummySong.artist,
+        audioUrl: "",
+        aliases: [],
+      };
+
+      const fallbackDecoys: Song[] = [
+        { id: "fallback-1", title: "เพลงอื่น 1", artist: "ศิลปินอื่น 1", audioUrl: "", aliases: [] },
+        { id: "fallback-2", title: "เพลงอื่น 2", artist: "ศิลปินอื่น 2", audioUrl: "", aliases: [] },
+      ];
+
+      // 1st call: target song
+      // 2nd call: same artist decoys (returns 1 song)
+      // 3rd call: additional decoys (returns 2 songs to fill 3)
+      (SongService.getRandomSongs as any)
+        .mockResolvedValueOnce([dummySong])
+        .mockResolvedValueOnce([sameArtistDecoy])
+        .mockResolvedValueOnce(fallbackDecoys);
+
+      const req = new NextRequest(`http://localhost:3000/api/room/${roomCode}/next-round`, {
+        method: "POST",
+        body: JSON.stringify({ sessionToken: "host-1" }),
+      });
+
+      const response = await nextRoundHandler(req, {
+        params: Promise.resolve({ code: roomCode }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.choices).toHaveLength(4);
+
+      // Verify SongService was called with artist filter first
+      expect(SongService.getRandomSongs).toHaveBeenNthCalledWith(
+        2,
+        3,
+        expect.objectContaining({
+          artist: dummySong.artist,
+          excludeIds: [dummySong.id],
+        })
+      );
+
+      // Verify 3rd call requested the remaining count (2)
+      expect(SongService.getRandomSongs).toHaveBeenNthCalledWith(
+        3,
+        2,
+        expect.objectContaining({
+          excludeIds: [dummySong.id, sameArtistDecoy.id],
+        })
+      );
+    });
+
     it("starts strictly at round 1 when starting from lobby even if previous played_song_ids exist", async () => {
       (RoomService.getRoomByCode as any).mockResolvedValue({
         room_code: roomCode,
