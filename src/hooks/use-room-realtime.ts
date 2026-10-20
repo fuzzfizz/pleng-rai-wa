@@ -98,7 +98,8 @@ export type RoomRealtimeAction =
   | { type: "set_error"; error: string | null }
   | { type: "set_audio_playing"; isPlaying: boolean }
   | { type: "set_ready"; isReady: boolean }
-  | { type: "set_player_lobby_ready"; playerId: string; isLobbyReady: boolean };
+  | { type: "set_player_lobby_ready"; playerId: string; isLobbyReady: boolean }
+  | { type: "set_remote_player_ready"; playerId: string; isReady: boolean };
 
 export interface ReducerOptions {
   playSounds?: boolean;
@@ -257,6 +258,17 @@ export function reduceRoomRealtimeEvent(
       for (const p of presenceList) {
         map.set(p.id, p);
       }
+      // Soft-retain existing players who were recently active to guard against transient presence diff drops
+      const now = Date.now();
+      const GRACE_PERIOD_MS = 10000;
+      for (const existing of nextState.players) {
+        if (!map.has(existing.id)) {
+          const lastSeenMs = existing.lastSeenAt ? new Date(existing.lastSeenAt).getTime() : 0;
+          if (now - lastSeenMs < GRACE_PERIOD_MS) {
+            map.set(existing.id, existing);
+          }
+        }
+      }
       if (nextState.myPlayer) {
         if (!map.has(nextState.myPlayer.id)) {
           map.set(nextState.myPlayer.id, nextState.myPlayer);
@@ -313,10 +325,37 @@ export function reduceRoomRealtimeEvent(
       break;
     }
 
+    case "set_remote_player_ready": {
+      if (nextState.myPlayer && nextState.myPlayer.id === action.playerId) {
+        nextState.myPlayer = {
+          ...nextState.myPlayer,
+          isReady: action.isReady,
+        };
+      }
+      nextState.players = nextState.players.map((p) =>
+        p.id === action.playerId ? { ...p, isReady: action.isReady } : p
+      );
+      break;
+    }
+
     case "broadcast": {
       const { event, payload } = action;
 
       switch (event) {
+        case "player_ready": {
+          const targetPlayerId = payload?.playerId;
+          const isReady = Boolean(payload?.isReady);
+          if (targetPlayerId) {
+            if (nextState.myPlayer && nextState.myPlayer.id === targetPlayerId) {
+              nextState.myPlayer = { ...nextState.myPlayer, isReady };
+            }
+            nextState.players = nextState.players.map((p) =>
+              p.id === targetPlayerId ? { ...p, isReady } : p
+            );
+          }
+          break;
+        }
+
         case "round_start": {
           if (shouldPlay) {
             try {
@@ -1015,21 +1054,14 @@ export function useRoomRealtime(
         const players = parsePresencePlayers(presenceState);
         dispatch({ type: "presence_sync", players });
       })
-      .on("presence", { event: "join" }, () => {
-        const presenceState = channel.presenceState();
-        const players = parsePresencePlayers(presenceState);
-        dispatch({ type: "presence_sync", players });
-      })
       .on("presence", { event: "leave" }, () => {
+        // When all human players have left, dissolve empty room (Issue 2)
         const presenceState = channel.presenceState();
         const players = parsePresencePlayers(presenceState);
-        dispatch({ type: "presence_sync", players });
-
-        // When all human players have left, dissolve empty room (Issue 2)
         const remainingHumanPlayers = players.filter(
           (p) => p.avatarUrl !== "📺" && !p.displayName?.includes("(TV)")
         );
-        if (remainingHumanPlayers.length === 0) {
+        if (remainingHumanPlayers.length === 0 && !myPlayerRef.current) {
           fetch(`/api/room/${cleanCode}/leave`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1069,6 +1101,9 @@ export function useRoomRealtime(
       })
       .on("broadcast", { event: "host_changed" }, ({ payload }) => {
         handleBroadcast("host_changed", payload);
+      })
+      .on("broadcast", { event: "player_ready" }, ({ payload }) => {
+        handleBroadcast("player_ready", payload);
       });
 
     channel.subscribe(async (status) => {
@@ -1259,25 +1294,40 @@ export function useRoomRealtime(
   const setReady = useCallback(
     async (isReady: boolean): Promise<void> => {
       dispatch({ type: "set_ready", isReady });
-      if (channelRef.current && state.myPlayer) {
-        try {
-          await channelRef.current.track({
-            id: state.myPlayer.id,
-            displayName: state.myPlayer.displayName,
-            isHost: state.myPlayer.isHost,
-            isReady,
-            isLobbyReady: state.myPlayer.isLobbyReady ?? false,
-            score: state.myPlayer.score,
-            sessionToken: state.myPlayer.sessionToken,
-            lastSeenAt: new Date().toISOString(),
-            avatarUrl: state.myPlayer.avatarUrl,
-          });
-        } catch (err) {
-          console.warn("[useRoomRealtime] Failed to update presence ready state:", err);
+      if (state.myPlayer) {
+        RealtimeBroadcastService.broadcast(cleanCode, "player_ready", {
+          playerId: state.myPlayer.id,
+          isReady,
+        }).catch(() => {});
+
+        if (channelRef.current) {
+          try {
+            channelRef.current.send({
+              type: "broadcast",
+              event: "player_ready",
+              payload: { playerId: state.myPlayer.id, isReady },
+            });
+          } catch {}
+
+          try {
+            await channelRef.current.track({
+              id: state.myPlayer.id,
+              displayName: state.myPlayer.displayName,
+              isHost: state.myPlayer.isHost,
+              isReady,
+              isLobbyReady: state.myPlayer.isLobbyReady ?? false,
+              score: state.myPlayer.score,
+              sessionToken: state.myPlayer.sessionToken,
+              lastSeenAt: new Date().toISOString(),
+              avatarUrl: state.myPlayer.avatarUrl,
+            });
+          } catch (err) {
+            console.warn("[useRoomRealtime] Failed to update presence ready state:", err);
+          }
         }
       }
     },
-    [state.myPlayer]
+    [cleanCode, state.myPlayer]
   );
 
   // Action: setLobbyReady

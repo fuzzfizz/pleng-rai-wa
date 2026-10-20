@@ -5,7 +5,7 @@
 // Room lobby screen for host & players: roster, ready check, TV mode & game start
 // ==========================================
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Player, RoomSettings } from "@/types";
@@ -117,6 +117,7 @@ export function LobbyView({
   const [isCopiedCode, setIsCopiedCode] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isTogglingReady, setIsTogglingReady] = useState(false);
+  const lastReadyToggleTimeRef = useRef<number>(0);
 
   const cleanCode = (roomCode || "").trim().toUpperCase();
 
@@ -164,6 +165,9 @@ export function LobbyView({
 
   const handleToggleReadyClick = async () => {
     if (isTogglingReady) return;
+    const now = Date.now();
+    if (now - lastReadyToggleTimeRef.current < 500) return;
+    lastReadyToggleTimeRef.current = now;
     try {
       setIsTogglingReady(true);
       try {

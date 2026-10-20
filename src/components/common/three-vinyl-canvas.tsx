@@ -1351,12 +1351,13 @@ export function ThreeVinylCanvas({
     let currentSpinSpeed = isPlayingRef.current ? 0.046 : 0.006;
     let currentArmAngle = isPlayingRef.current ? 0.38 : 0.0;
     let currentArmLift = isPlayingRef.current ? -0.012 : 0.045;
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
 
-      const elapsedTime = clock.getElapsedTime();
+      timer.update();
+      const elapsedTime = timer.getElapsed();
 
       // Smooth lerp mouse tracking
       mouseX += (targetMouseX - mouseX) * 0.06;
@@ -1445,6 +1446,7 @@ export function ThreeVinylCanvas({
     // ----------------------------------------------------
     return () => {
       cancelAnimationFrame(animationFrameId);
+      timer.dispose();
       resizeObserver.disconnect();
 
       container.removeEventListener("mousemove", onPointerMove);

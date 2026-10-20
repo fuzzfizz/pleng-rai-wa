@@ -1,6 +1,6 @@
 // ==========================================
 // เพลงไรวะ (Pleng-Rai-Wa) - Client Song Library Cache
-// Loads songs from /api/songs with memory & sessionStorage caching
+// Loads songs from /api/songs with in-memory caching
 // ==========================================
 
 import type { Song } from "@/types";
@@ -17,17 +17,10 @@ export async function loadPublicSongLibrary(): Promise<Song[]> {
     return inMemorySongsCache;
   }
 
-  // 2. Check browser sessionStorage
+  // 2. Safe cleanup of legacy sessionStorage cache
   if (typeof window !== "undefined") {
     try {
-      const stored = window.sessionStorage.getItem(CACHE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 3) {
-          inMemorySongsCache = parsed;
-          return parsed;
-        }
-      }
+      window.sessionStorage.removeItem(CACHE_KEY);
     } catch {}
   }
 
@@ -43,11 +36,6 @@ export async function loadPublicSongLibrary(): Promise<Song[]> {
         const data = await res.json();
         if (data.success && Array.isArray(data.songs) && data.songs.length > 0) {
           inMemorySongsCache = data.songs;
-          if (typeof window !== "undefined") {
-            try {
-              window.sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.songs));
-            } catch {}
-          }
           return data.songs;
         }
       }
@@ -67,4 +55,12 @@ export async function loadPublicSongLibrary(): Promise<Song[]> {
 
 export function getCachedSongLibrary(): Song[] | null {
   return inMemorySongsCache;
+}
+
+/**
+ * Reset internal cache for unit testing
+ */
+export function _resetSongLibraryCacheForTesting(): void {
+  inMemorySongsCache = null;
+  pendingFetchPromise = null;
 }
