@@ -4,7 +4,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
-  GetObjectCommandOutput,
+  type GetObjectCommandOutput,
 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 

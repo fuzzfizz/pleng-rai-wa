@@ -121,7 +121,16 @@ export function mapSongToRow(song: Partial<Song> & Record<string, unknown>): Son
   if (song.lyricsFull !== undefined) insertData.lyrics_full = song.lyricsFull;
   else if (song.lyrics_full !== undefined) insertData.lyrics_full = song.lyrics_full as string;
 
-  if (song.metadata !== undefined) insertData.metadata = song.metadata as SongInsert["metadata"];
+  if (song.metadata !== undefined) {
+    insertData.metadata = { ...((song.metadata as Record<string, unknown>) || {}) } as SongInsert["metadata"];
+  }
+
+  if (insertData.lyrics_full) {
+    insertData.metadata = {
+      ...((insertData.metadata as Record<string, unknown>) || {}),
+      lyricsFull: insertData.lyrics_full,
+    } as SongInsert["metadata"];
+  }
 
   return insertData;
 }
@@ -270,7 +279,17 @@ export async function updateSong(id: string, song: Partial<Song>): Promise<Song>
   if (song.lyricsChorus !== undefined) updateData.lyrics_chorus = song.lyricsChorus;
   if (song.lyricsFull !== undefined) updateData.lyrics_full = song.lyricsFull;
   else if ((song as any).lyrics_full !== undefined) updateData.lyrics_full = (song as any).lyrics_full as string;
-  if (song.metadata !== undefined) updateData.metadata = song.metadata as SongInsert["metadata"];
+
+  if (song.metadata !== undefined) {
+    updateData.metadata = { ...((song.metadata as Record<string, unknown>) || {}) } as SongInsert["metadata"];
+  }
+
+  if (updateData.lyrics_full) {
+    updateData.metadata = {
+      ...((updateData.metadata as Record<string, unknown>) || {}),
+      lyricsFull: updateData.lyrics_full,
+    } as SongInsert["metadata"];
+  }
 
   const { data, error } = await client
     .from("songs")
