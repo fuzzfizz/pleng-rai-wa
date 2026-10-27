@@ -17,8 +17,6 @@ import {
   CheckCircle2,
   XCircle,
   ArrowRight,
-  Flame,
-  Award,
   Square,
   Loader2,
   Disc3,
@@ -91,8 +89,6 @@ function SoloPlayContent() {
   );
 
   // Gameplay State
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
   const [hintLevel, setHintLevel] = useState<number>(0);
   const [isRevealed, setIsRevealed] = useState(false);
   const [userGuess, setUserGuess] = useState("");
@@ -229,8 +225,6 @@ function SoloPlayContent() {
             setSongsPool(result.songs);
             setActivePlaylist(result.playlist);
             setCurrentSongIndex(0);
-            setScore(0);
-            setStreak(0);
             if (!isPlaylistPlayable(result.songs.length)) {
               setPlaylistNotice(
                 `เพลย์ลิสต์นี้มี ${result.songs.length} เพลง (ต่ำกว่า 5 เพลง)`
@@ -419,8 +413,6 @@ function SoloPlayContent() {
       );
     } finally {
       setCurrentSongIndex(0);
-      setScore(0);
-      setStreak(0);
       setIsLoadingSongs(false);
     }
   };
@@ -603,16 +595,12 @@ function SoloPlayContent() {
     setIsAITalking(false);
   };
 
-  // Fetch translated lyrics whenever song, lyrics type or gameMode changes to translated-lyrics
+  // Fetch translated lyrics (always full song so player reads and finds chorus themselves)
   useEffect(() => {
     if (gameMode !== "translated-lyrics") return;
 
     const sourceText =
-      lyricsType === "full"
-        ? currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || ""
-        : lyricsType === "chorus"
-        ? currentSong.lyricsChorus || currentSong.lyricsFull || currentSong.lyricsIntro || ""
-        : currentSong.lyricsIntro || currentSong.lyricsChorus || currentSong.lyricsFull || "";
+      currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || "";
 
     if (!sourceText) {
       setTranslatedLyrics("ไม่พบเนื้อเพลงของเพลงนี้");
@@ -646,20 +634,7 @@ function SoloPlayContent() {
     return () => {
       isMounted = false;
     };
-  }, [gameMode, currentSong.id, lyricsType, currentSong.lyricsFull, currentSong.lyricsChorus, currentSong.lyricsIntro]);
-
-  // Play Translated Lyrics in English TTS
-  const handleSpeakTranslatedLyrics = () => {
-    if (!translatedLyrics) return;
-    playClickSound();
-    setIsAITalking(true);
-    ttsReader.speakLyrics(translatedLyrics, {
-      lang: "en-US",
-      gender: voiceGender,
-      onEnd: () => setIsAITalking(false),
-      onError: () => setIsAITalking(false),
-    });
-  };
+  }, [gameMode, currentSong.id, currentSong.lyricsFull, currentSong.lyricsChorus, currentSong.lyricsIntro]);
 
   // Autocomplete search
   const handleInputChange = (text: string) => {
@@ -685,17 +660,13 @@ function SoloPlayContent() {
     if (result.isCorrect) {
       playCorrectSound();
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-      const points = hintLevel === 0 ? 10 : hintLevel === 1 ? 7 : hintLevel === 2 ? 5 : 3;
-      setScore((s) => s + points);
-      setStreak((st) => st + 1);
       setFeedback({
         isCorrect: true,
-        message: `ถูกต้อง! (+${points} คะแนน) เพลง "${currentSong.title}" โดย ${currentSong.artist} (ตรงกับ: ${result.matchedAs})`,
+        message: `ถูกต้อง! เพลง "${currentSong.title}" โดย ${currentSong.artist} (ตรงกับ: ${result.matchedAs})`,
       });
       setIsRevealed(true);
     } else {
       playWrongSound();
-      setStreak(0);
       setFeedback({
         isCorrect: false,
         message: `ยังไม่ถูกนะ ลองฟังอีกรอบ หรือเดาใหม่!`,
@@ -744,28 +715,16 @@ function SoloPlayContent() {
           </Link>
           <div>
             <h1 className="text-sm sm:text-base lg:text-lg font-bold font-serif text-stone-900 dark:text-white flex items-center gap-2">
-              <span>โหมดซ้อมมือเดี่ยว</span>
+              <span>โหมดเล่นคนเดียว</span>
               <span className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
-                Solo Testbed
+                Solo Play
               </span>
             </h1>
           </div>
         </div>
 
-        {/* Score & Controls */}
+        {/* Controls */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-white dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold">
-            <Award className="w-4 h-4 text-amber-500" />
-            <span className="text-stone-900 dark:text-white">{score} คะแนน</span>
-          </div>
-
-          {streak > 1 && (
-            <div className="hidden sm:flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 px-2.5 py-1.5 rounded-xl text-xs font-bold animate-bounce">
-              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-              <span>{streak} คอมโบ!</span>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={toggleMute}
@@ -792,7 +751,7 @@ function SoloPlayContent() {
             </div>
             <div className="min-w-0">
               <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                แหล่งเพลงสำหรับซ้อมมือ
+                แหล่งเพลงสำหรับเล่นคนเดียว
               </div>
               <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white truncate">
                 {getSongFilterLabel(selectedFilter, activePlaylist?.title)}
@@ -1129,112 +1088,28 @@ function SoloPlayContent() {
                   🌐 โหมดแปลไทยเป็นอังกฤษ (Google Translate Karaoke)
                 </h3>
                 <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400 max-w-lg mx-auto">
-                  เนื้อเพลงไทยถูกแปลเป็นอังกฤษแบบตรงตัวคำต่อคำ (Literal Translation) ปนความกวนโอ๊ย อ่านเนื้อหรือกดฟังเสียงภาษาอังกฤษแบบสำเนียงโรบ็อตแล้วทายชื่อเพลง!
+                  เนื้อเพลงไทยทั้งเพลงถูกแปลเป็นอังกฤษแบบตรงตัวคำต่อคำ (Literal Translation) อ่านเนื้อเพลงแล้วหาท่อนฮุกด้วยตัวเองเพื่อทายชื่อเพลง! (โหมดนี้เน้นการอ่านข้อความ ไม่ใช้เสียงสังเคราะห์)
                 </p>
-              </div>
-
-              {/* Lyrics Type Switch: Chorus vs Full Song */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLyricsType("chorus")}
-                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "chorus" || !lyricsType
-                      ? "bg-amber-500 text-stone-950 shadow-sm"
-                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                  }`}
-                >
-                  🎵 ท่อนฮุก (Chorus)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLyricsType("full")}
-                  className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "full"
-                      ? "bg-amber-500 text-stone-950 shadow-sm"
-                      : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                  }`}
-                >
-                  📜 ทั้งเพลง (Full Song)
-                </button>
               </div>
 
               {/* Translated Lyrics Card */}
               <div className="w-full max-w-xl p-5 sm:p-7 rounded-3xl bg-stone-50 dark:bg-stone-950/90 border border-amber-500/30 text-center shadow-md">
                 <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-3">
                   <Languages className="w-4 h-4" />
-                  <span>Google Translate Literal Lyrics</span>
+                  <span>Google Translate Literal Lyrics (ทั้งเพลง)</span>
                 </div>
                 {isLoadingTranslation ? (
                   <div className="flex items-center justify-center py-6 gap-2 text-stone-400 text-sm">
                     <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
-                    <span>กำลังแปลเนื้อเพลงภาษาไทย...</span>
+                    <span>กำลังแปลเนื้อเพลงภาษาไทยทั้งเพลง...</span>
                   </div>
                 ) : (
-                  <div className="max-h-[200px] sm:max-h-[260px] overflow-y-auto custom-scrollbar">
-                    <blockquote className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-serif text-stone-900 dark:text-white leading-relaxed italic whitespace-pre-line break-words">
-                      &quot;{translatedLyrics || "ไม่มีเนื้อเพลงสำหรับท่อนนี้"}&quot;
+                  <div className="max-h-[220px] sm:max-h-[280px] overflow-y-auto custom-scrollbar">
+                    <blockquote className="text-lg sm:text-xl lg:text-2xl font-extrabold font-serif text-stone-900 dark:text-white leading-relaxed italic whitespace-pre-line break-words">
+                      &quot;{translatedLyrics || "ไม่มีเนื้อเพลงสำหรับเพลงนี้"}&quot;
                     </blockquote>
                   </div>
                 )}
-              </div>
-
-              {/* Voice Gender Switcher */}
-              <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
-                <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
-                  โทนเสียง AI
-                </span>
-                <div className="grid grid-cols-2 gap-2 w-full">
-                  <button
-                    type="button"
-                    onClick={() => setVoiceGender("male")}
-                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                      voiceGender === "male"
-                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
-                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                    }`}
-                  >
-                    👨 เสียงชาย (Male)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVoiceGender("female")}
-                    className={`min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                      voiceGender === "female" || !voiceGender
-                        ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
-                        : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                    }`}
-                  >
-                    👩 เสียงหญิง (Female)
-                  </button>
-                </div>
-              </div>
-
-              {/* Speak English Button */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={isAITalking ? handleStopSpeaking : handleSpeakTranslatedLyrics}
-                  disabled={isLoadingTranslation || !translatedLyrics}
-                  aria-label={isAITalking ? "หยุดพูด" : "ฟังเสียงอ่านอังกฤษ"}
-                  className={`w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
-                    isAITalking
-                      ? "bg-amber-500 text-stone-950 shadow-2xl shadow-amber-500/50 scale-105 animate-pulse"
-                      : "bg-amber-500 hover:bg-amber-400 hover:scale-105 text-stone-950 shadow-lg shadow-amber-500/25 disabled:opacity-50"
-                  }`}
-                >
-                  {isAITalking ? (
-                    <>
-                      <Square className="w-8 h-8 lg:w-10 lg:h-10 fill-stone-950 text-stone-950" />
-                      <span className="text-[11px] lg:text-xs font-bold">หยุดพูด</span>
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-8 h-8 lg:w-10 lg:h-10 text-stone-950" />
-                      <span className="text-[11px] lg:text-xs font-bold">ฟังเสียง US</span>
-                    </>
-                  )}
-                </button>
               </div>
             </div>
           )}
@@ -1391,12 +1266,6 @@ function SoloPlayContent() {
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400">
-                  ได้คะแนน:{" "}
-                  <span className="text-amber-500 font-extrabold font-mono">
-                    +{hintLevel === 0 ? 10 : hintLevel === 1 ? 7 : hintLevel === 2 ? 5 : 3}
-                  </span>
-                </span>
                 {hintLevel < 3 && (
                   <button
                     type="button"
@@ -1525,7 +1394,7 @@ export default function SoloPlayPage() {
         <div className="min-h-screen bg-[var(--background)] text-stone-900 dark:text-stone-100 flex items-center justify-center font-sans">
           <div className="flex items-center gap-3 text-amber-500">
             <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm font-medium">กำลังโหลดโหมดซ้อมเดี่ยว...</span>
+            <span className="text-sm font-medium">กำลังโหลดโหมดเล่นคนเดียว...</span>
           </div>
         </div>
       }

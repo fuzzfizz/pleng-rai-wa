@@ -303,7 +303,7 @@ export default function HomePage() {
                   className="mt-1 w-full py-2.5 lg:py-3 text-xs lg:text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50"
                 >
                   <Play className="w-3.5 h-3.5" />
-                  <span>เล่นคนเดียวซ้อมมือก่อน</span>
+                  <span>เล่นคนเดียว</span>
                 </Link>
               </div>
             </div>

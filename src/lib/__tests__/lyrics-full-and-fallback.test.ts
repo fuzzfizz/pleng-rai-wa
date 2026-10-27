@@ -239,7 +239,9 @@ describe("Task 2: Lyrics Full & Next-Round Fallback Logic", () => {
   describe("Next-Round Fallback Logic for ai-lyrics and translated-lyrics", () => {
     function prepareRawLyrics(song: Song, settings: RoomSettings): string {
       let rawThai = "";
-      if (settings.lyricsType === "full") {
+      if (settings.gameMode === "translated-lyrics") {
+        rawThai = song.lyricsFull || song.lyricsChorus || song.lyricsIntro || "";
+      } else if (settings.lyricsType === "full") {
         rawThai = song.lyricsFull || song.lyricsChorus || song.lyricsIntro || "";
       } else if (settings.lyricsType === "intro") {
         rawThai = song.lyricsIntro || song.lyricsChorus || song.lyricsFull || "";
@@ -249,6 +251,33 @@ describe("Task 2: Lyrics Full & Next-Round Fallback Logic", () => {
       }
       return rawThai;
     }
+
+    it("always uses lyricsFull for translated-lyrics mode even if lyricsType is set to chorus", () => {
+      const song: Song = {
+        id: "song-trans-1",
+        title: "วัดใจ",
+        artist: "Silly Fools",
+        aliases: [],
+        audioUrl: "https://example.com/audio.mp3",
+        lyricsChorus: "มีแค่ใจดวงเดียวดวงนี้",
+        lyricsFull: "เนื้อเพลงเต็มทั้งเพลงแบบยาวๆ",
+      };
+
+      const settings: RoomSettings = {
+        gameMode: "translated-lyrics",
+        lyricsType: "chorus",
+        answerInputMode: "autocomplete",
+        answerResolutionMode: "race",
+        maxPlayers: 8,
+        totalRounds: 10,
+        roundTimeoutSec: 30,
+        sliceDurationSec: 2.0,
+        targetScore: 0,
+      };
+
+      const lyrics = prepareRawLyrics(song, settings);
+      expect(lyrics).toBe("เนื้อเพลงเต็มทั้งเพลงแบบยาวๆ");
+    });
 
     it("uses lyricsFull when lyricsType === 'full'", () => {
       const song: Song = {

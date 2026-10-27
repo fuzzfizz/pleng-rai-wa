@@ -65,7 +65,7 @@ describe("Host Settings & Lobby Modes Alignment", () => {
       });
 
       expect(summary).toContain("โหมด: แปลไทย-อังกฤษ");
-      expect(summary).toContain("ท่อนเปิด");
+      expect(summary).toContain("ทั้งเพลง");
       expect(summary).toContain("ไม่จำกัดเวลา (รอตอบครบทุกคน)");
     });
 

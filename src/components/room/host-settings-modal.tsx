@@ -77,13 +77,16 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
     result.gameMode = "audio-slice";
   }
 
-  if (result.gameMode === "ai-lyrics" || result.gameMode === "translated-lyrics") {
+  if (result.gameMode === "ai-lyrics") {
     if (!result.lyricsType || !["chorus", "full", "intro"].includes(result.lyricsType)) {
       result.lyricsType = "chorus";
     }
     if (!result.voiceGender || !["female", "male"].includes(result.voiceGender)) {
       result.voiceGender = "female";
     }
+  } else if (result.gameMode === "translated-lyrics") {
+    result.lyricsType = "full";
+    delete result.voiceGender;
   }
 
   if (result.sliceDurationSec !== undefined) {
@@ -657,8 +660,7 @@ export function HostSettingsModal({
                   setDraft((prev) => ({
                     ...prev,
                     gameMode: "translated-lyrics",
-                    lyricsType: prev.lyricsType || "chorus",
-                    voiceGender: prev.voiceGender === "male" ? "male" : "female",
+                    lyricsType: "full",
                   }))
                 }
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
@@ -781,8 +783,8 @@ export function HostSettingsModal({
             </div>
           )}
 
-          {/* 3. Lyrics Type & Voice Gender (Shown for AI Lyrics & Translated Lyrics) */}
-          {(draft.gameMode === "ai-lyrics" || draft.gameMode === "translated-lyrics") && (
+          {/* 3. Lyrics Type & Voice Gender (Shown only for AI Lyrics) */}
+          {draft.gameMode === "ai-lyrics" && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
@@ -846,6 +848,18 @@ export function HostSettingsModal({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Translated Lyrics Info Banner (No voice selection, locked to full song) */}
+          {draft.gameMode === "translated-lyrics" && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                <span>📖 รูปแบบเนื้อเพลง: ทั้งเพลง (Full Song)</span>
+              </div>
+              <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+                โหมดนี้ใช้เนื้อเพลงเต็มทั้งเพลง เพื่อให้ผู้เล่นอ่านและหาท่อนฮุกด้วยตัวเอง (เน้นการอ่านข้อความภาษาอังกฤษ ไม่ใช้เสียงสังเคราะห์)
+              </p>
             </div>
           )}
 

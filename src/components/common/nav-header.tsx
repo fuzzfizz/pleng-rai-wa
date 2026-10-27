@@ -38,7 +38,7 @@ export interface NavLinkItem {
 
 export const NAV_LINKS: NavLinkItem[] = [
   { label: "หน้าแรก", href: "/" },
-  { label: "ซ้อมเดี่ยว", href: "/play/solo" },
+  { label: "เล่นคนเดียว", href: "/play/solo" },
   { label: "เพลย์ลิสต์", href: "/playlists", icon: ListMusic },
 ];
 

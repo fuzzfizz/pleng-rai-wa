@@ -282,7 +282,10 @@ export async function POST(
     const sliceUrl = `/api/audio/slice?id=${encodeURIComponent(song.id)}&start=${startSec}&duration=${durationSec}`;
 
     let rawThai = "";
-    if (settings.lyricsType === "full") {
+    if (settings.gameMode === "translated-lyrics") {
+      // Translated lyrics mode: always use full song lyrics so players read and find the hook themselves!
+      rawThai = song.lyricsFull || song.lyricsChorus || song.lyricsIntro || "";
+    } else if (settings.lyricsType === "full") {
       rawThai = song.lyricsFull || song.lyricsChorus || song.lyricsIntro || "";
     } else if (settings.lyricsType === "intro") {
       rawThai = song.lyricsIntro || song.lyricsChorus || song.lyricsFull || "";

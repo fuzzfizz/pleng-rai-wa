@@ -228,10 +228,10 @@ export function PlaylistCard({
                 ? "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-md shadow-amber-500/20 active:scale-[0.98] cursor-pointer"
                 : "bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 opacity-60 cursor-not-allowed border border-stone-200 dark:border-stone-700/50"
             }`}
-            title={isPlayable ? "ซ้อมเดี่ยวด้วยเพลย์ลิสต์นี้" : "เพลย์ลิสต์ต้องมีอย่างน้อย 5 เพลง"}
+            title={isPlayable ? "เล่นคนเดียวด้วยเพลย์ลิสต์นี้" : "เพลย์ลิสต์ต้องมีอย่างน้อย 5 เพลง"}
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>ซ้อมเดี่ยว</span>
+            <span>เล่นคนเดียว</span>
           </button>
 
           {/* Host Room */}

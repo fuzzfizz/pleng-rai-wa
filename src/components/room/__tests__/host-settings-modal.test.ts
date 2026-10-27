@@ -210,7 +210,7 @@ describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("normalizes lyricsType to chorus by default and supports full song", () => {
+  it("normalizes lyricsType to chorus for ai-lyrics and locks to full for translated-lyrics", () => {
     const p1 = prepareSettingsPayload({
       gameMode: "ai-lyrics",
     });
@@ -218,7 +218,7 @@ describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
 
     const p2 = prepareSettingsPayload({
       gameMode: "translated-lyrics",
-      lyricsType: "full",
+      lyricsType: "chorus" as any,
     });
     expect(p2.lyricsType).toBe("full");
 
@@ -229,7 +229,7 @@ describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
     expect(p3.lyricsType).toBe("chorus");
   });
 
-  it("normalizes voiceGender to female by default, supports male, and rejects random", () => {
+  it("normalizes voiceGender for ai-lyrics and strips voiceGender for translated-lyrics", () => {
     const p1 = prepareSettingsPayload({
       gameMode: "ai-lyrics",
     });
@@ -239,7 +239,7 @@ describe("Issue 4: HostSettingsModal Save & Close Behavior", () => {
       gameMode: "translated-lyrics",
       voiceGender: "male",
     });
-    expect(p2.voiceGender).toBe("male");
+    expect(p2.voiceGender).toBeUndefined();
 
     const p3 = prepareSettingsPayload({
       gameMode: "ai-lyrics",

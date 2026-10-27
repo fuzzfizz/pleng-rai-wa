@@ -159,16 +159,23 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
 
   // Audio / TTS playback for big TV speakers with unmount cleanup
   useEffect(() => {
-    if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
+    if (gameMode === "ai-lyrics") {
       if (status === "question_active" && activeQuestion?.lyrics && !isMuted && !isMasterMuted() && getMasterVolume() > 0) {
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
-          lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
+          lang: "th-TH",
           volume: getMasterVolume(),
         });
       } else {
         ttsReader.stopSpeaking();
       }
+      return () => {
+        ttsReader.stopSpeaking();
+      };
+    }
+
+    if (gameMode === "translated-lyrics") {
+      ttsReader.stopSpeaking();
       return () => {
         ttsReader.stopSpeaking();
       };
@@ -203,7 +210,7 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
         audioRef.current.muted = vol === 0 || isMuted || isMasterMuted();
       }
     });
-    if ((gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && (isMuted || isMasterMuted() || getMasterVolume() === 0)) {
+    if (gameMode === "ai-lyrics" && (isMuted || isMasterMuted() || getMasterVolume() === 0)) {
       ttsReader.stopSpeaking();
     }
     return unsub;

@@ -744,17 +744,23 @@ export function GameView({
   const prevSliceKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Mode: AI Lyrics or Translated Lyrics
-    if (gameMode === "ai-lyrics" || gameMode === "translated-lyrics") {
+    // Mode: AI Lyrics (speaks Thai via TTS)
+    if (gameMode === "ai-lyrics") {
       if (status === "question_active" && activeQuestion?.lyrics && !isMasterMuted() && getMasterVolume() > 0) {
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
-          lang: gameMode === "translated-lyrics" ? "en-US" : "th-TH",
+          lang: "th-TH",
           volume: getMasterVolume(),
         });
       } else {
         ttsReader.stopSpeaking();
       }
+      return;
+    }
+
+    // Mode: Translated Lyrics is reading-only (no TTS voice audio)
+    if (gameMode === "translated-lyrics") {
+      ttsReader.stopSpeaking();
       return;
     }
 
