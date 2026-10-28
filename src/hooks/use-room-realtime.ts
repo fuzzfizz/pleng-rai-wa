@@ -247,6 +247,16 @@ export function reduceRoomRealtimeEvent(
       if (r.playerHintLevels || r.roundState?.playerHintLevels) {
         nextState.playerHintLevels = r.playerHintLevels || r.roundState?.playerHintLevels;
       }
+      const rs = r.roundState;
+      if (rs && (r.status === "question_active" || r.status === "buzzed" || r.status === "revealing")) {
+        nextState.activeQuestion = {
+          sliceUrl: rs.sliceUrl,
+          durationSec: rs.sliceDurationSec,
+          lyrics: rs.lyrics,
+          startedAt: rs.startedAt || new Date().toISOString(),
+          choices: rs.choices,
+        };
+      }
       break;
     }
 

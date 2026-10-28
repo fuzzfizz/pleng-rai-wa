@@ -59,6 +59,7 @@ import {
 import { calculateSliceStart } from "@/lib/audio-slice-utils";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
 import { loadPublicSongLibrary } from "@/lib/services/song-library-cache";
+import { cleanLyricsForGame } from "@/lib/lyrics-cleaner";
 
 function SoloPlayContent() {
   const searchParams = useSearchParams();
@@ -159,28 +160,34 @@ function SoloPlayContent() {
     async function initialize() {
       setIsLoadingPlaylists(true);
 
-      // 1. Fetch library songs
+      // 1. Fetch playable songs with full details (audioUrl, lyrics) via /api/admin/songs?limit=500
       let librarySongs = DEMO_SONGS;
       try {
-        const songs = await loadPublicSongLibrary();
-        if (Array.isArray(songs) && songs.length > 0) {
-          librarySongs = songs;
-          defaultLibrarySongsRef.current = songs;
-          if (isMounted && !queryPlaylistId?.trim()) {
-            // Only update songsPool if player hasn't already started playing/interacting with initial song
-            if (!hasInteractedRef.current) {
-              setSongsPool(songs);
+        const res = await fetch("/api/admin/songs?limit=500");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.songs) && data.songs.length > 0) {
+            librarySongs = data.songs;
+            defaultLibrarySongsRef.current = data.songs;
+            if (isMounted && !queryPlaylistId?.trim()) {
+              // Only update songsPool if player hasn't already started playing/interacting with initial song
+              if (!hasInteractedRef.current) {
+                setSongsPool(data.songs);
+              }
+              setIsLoadingSongs(false);
             }
-            setIsLoadingSongs(false);
           }
         }
-      } catch {
-        // Fallback to DEMO_SONGS
+      } catch (err) {
+        console.warn("Could not load songs from /api/admin/songs for solo play, using fallback:", err);
       } finally {
         if (isMounted && !queryPlaylistId?.trim()) {
           setIsLoadingSongs(false);
         }
       }
+
+      // Also prime public song library cache in background for autocomplete
+      loadPublicSongLibrary().catch(() => {});
 
       // 2. Fetch playlists
       try {
@@ -243,7 +250,7 @@ function SoloPlayContent() {
           if (isMounted) setIsLoadingSongs(false);
         }
       } else {
-        if (isMounted) {
+        if (isMounted && !hasInteractedRef.current) {
           setSongsPool(librarySongs);
         }
       }
@@ -575,12 +582,15 @@ function SoloPlayContent() {
   // Play AI Lyrics
   const handleSpeakLyrics = () => {
     playClickSound();
-    const lyrics =
+    const rawLyrics =
       lyricsType === "full"
-        ? currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || "ไม่มีเนื้อเพลง"
+        ? currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || ""
         : lyricsType === "chorus"
-        ? currentSong.lyricsChorus || currentSong.lyricsFull || currentSong.lyricsIntro || "ไม่มีเนื้อเพลง"
-        : currentSong.lyricsIntro || currentSong.lyricsChorus || currentSong.lyricsFull || "ไม่มีเนื้อเพลง";
+        ? currentSong.lyricsChorus || currentSong.lyricsFull || currentSong.lyricsIntro || ""
+        : currentSong.lyricsIntro || currentSong.lyricsChorus || currentSong.lyricsFull || "";
+
+    const cleaned = cleanLyricsForGame(rawLyrics);
+    const lyrics = cleaned.trim().length > 0 ? cleaned : "ไม่มีเนื้อเพลง";
 
     setIsAITalking(true);
     ttsReader.speakLyrics(lyrics, {
@@ -599,10 +609,11 @@ function SoloPlayContent() {
   useEffect(() => {
     if (gameMode !== "translated-lyrics") return;
 
-    const sourceText =
+    const rawText =
       currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || "";
+    const sourceText = cleanLyricsForGame(rawText);
 
-    if (!sourceText) {
+    if (!sourceText || !sourceText.trim()) {
       setTranslatedLyrics("ไม่พบเนื้อเพลงของเพลงนี้");
       return;
     }

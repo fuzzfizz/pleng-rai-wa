@@ -12,6 +12,8 @@ import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 import { translateThaiToEnglishLiteral } from "@/lib/translate";
 import { calculateSliceStart } from "@/lib/audio-slice-utils";
+import { cleanLyricsForGame } from "@/lib/lyrics-cleaner";
+import { DEMO_SONGS } from "@/lib/constants/demo-songs";
 import type { RoomSettings, Song, ChoiceOption } from "@/types";
 
 export async function POST(
@@ -257,7 +259,29 @@ export async function POST(
       });
     }
 
-    const song: Song = songs[0];
+    let song: Song = songs[0];
+
+    // If in lyrics mode and song has no lyrics in any field, fallback to finding a song in DEMO_SONGS with lyrics
+    if (
+      (settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics") &&
+      !song.lyricsFull?.trim() &&
+      !song.lyricsChorus?.trim() &&
+      !song.lyricsIntro?.trim()
+    ) {
+      const demoWithLyrics =
+        DEMO_SONGS.find(
+          (s) =>
+            !playedSongIds.includes(s.id) &&
+            Boolean(s.lyricsFull?.trim() || s.lyricsChorus?.trim() || s.lyricsIntro?.trim())
+        ) ||
+        DEMO_SONGS.find(
+          (s) => Boolean(s.lyricsFull?.trim() || s.lyricsChorus?.trim() || s.lyricsIntro?.trim())
+        );
+
+      if (demoWithLyrics) {
+        song = demoWithLyrics;
+      }
+    }
 
     // Build audio slice URL & lyrics
     let durationSec = settings.sliceDurationSec || 2.0;
@@ -294,11 +318,47 @@ export async function POST(
       rawThai = song.lyricsChorus || song.lyricsFull || song.lyricsIntro || "";
     }
 
+    // Fallback to DEMO_SONGS if rawThai is still empty after checking all 3 lyrics fields
+    if (
+      (settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics") &&
+      !rawThai.trim()
+    ) {
+      const demoWithLyrics =
+        DEMO_SONGS.find(
+          (s) =>
+            !playedSongIds.includes(s.id) &&
+            Boolean(s.lyricsFull || s.lyricsChorus || s.lyricsIntro)
+        ) ||
+        DEMO_SONGS.find((s) => Boolean(s.lyricsFull || s.lyricsChorus || s.lyricsIntro)) ||
+        DEMO_SONGS[0];
+
+      if (demoWithLyrics) {
+        if (settings.gameMode === "translated-lyrics" || settings.lyricsType === "full") {
+          rawThai = demoWithLyrics.lyricsFull || demoWithLyrics.lyricsChorus || demoWithLyrics.lyricsIntro || "";
+        } else if (settings.lyricsType === "intro") {
+          rawThai = demoWithLyrics.lyricsIntro || demoWithLyrics.lyricsChorus || demoWithLyrics.lyricsFull || "";
+        } else {
+          rawThai = demoWithLyrics.lyricsChorus || demoWithLyrics.lyricsFull || demoWithLyrics.lyricsIntro || "";
+        }
+      }
+    }
+
+    // Strip song title and artist header lines
+    let cleanedThai = cleanLyricsForGame(rawThai);
+
+    // Ensure lyrics is never empty for ai-lyrics or translated-lyrics
+    if (
+      (settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics") &&
+      !cleanedThai.trim()
+    ) {
+      cleanedThai = "มีแค่ใจดวงเดียวดวงนี้ จะทุ่มเทให้ถึงที่สุด จะล้มกี่ครั้งก็ไม่เคยหยุด จะไปให้สุดขอบฟ้า";
+    }
+
     let lyrics: string | undefined = undefined;
     if (settings.gameMode === "ai-lyrics") {
-      lyrics = rawThai;
+      lyrics = cleanedThai;
     } else if (settings.gameMode === "translated-lyrics") {
-      lyrics = await translateThaiToEnglishLiteral(rawThai);
+      lyrics = await translateThaiToEnglishLiteral(cleanedThai);
     }
 
     // Decoy choices generation for multiple-choice mode
