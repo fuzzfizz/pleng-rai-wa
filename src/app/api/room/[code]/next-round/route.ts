@@ -214,6 +214,9 @@ export async function POST(
       filterPlaylistId = settings.playlistId;
     }
 
+    const isLyricsMode =
+      settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics";
+
     // Fetch random unplayed song
     const songs = await SongService.getRandomSongs(1, {
       genreId: filterGenreId,
@@ -226,9 +229,26 @@ export async function POST(
       yearEnd: filterYearEnd,
       playlistId: filterPlaylistId,
       excludeIds: playedSongIds,
+      hasLyrics: isLyricsMode ? true : undefined,
     });
 
-    if (!songs || songs.length === 0) {
+    let song: Song | null = songs && songs.length > 0 ? songs[0] : null;
+
+    // If total database is empty (or returned 0 songs) and we haven't played songs yet,
+    // check if system can fall back to DEMO_SONGS
+    if (!song && playedSongIds.length === 0) {
+      const demoCandidate = DEMO_SONGS.find(
+        (s) =>
+          !playedSongIds.includes(s.id) &&
+          (!isLyricsMode || Boolean(s.lyricsFull?.trim() || s.lyricsChorus?.trim() || s.lyricsIntro?.trim()))
+      );
+
+      if (demoCandidate) {
+        song = demoCandidate;
+      }
+    }
+
+    if (!song) {
       const finalScores =
         (existingRoundState?.scores && Object.keys(existingRoundState.scores).length > 0)
           ? existingRoundState.scores
@@ -239,7 +259,9 @@ export async function POST(
       await RoomService.updateRoomStatus(cleanCode, "game_over");
       RoomStateStore.setGameOver(cleanCode);
 
-      const noMoreSongsMessage = `เล่นครบทุกเพลงในคลัง/เพลย์ลิสต์แล้ว (รวม ${completedRounds} ข้อ) สรุปคะแนนผู้ชนะ!`;
+      const noMoreSongsMessage = isLyricsMode
+        ? `เล่นครบทุกเพลงที่มีเนื้อเพลงในคลังแล้ว (รวม ${completedRounds} ข้อ)`
+        : `เล่นครบทุกเพลงในคลัง/เพลย์ลิสต์แล้ว (รวม ${completedRounds} ข้อ) สรุปคะแนนผู้ชนะ!`;
 
       await RealtimeBroadcastService.broadcast(cleanCode, "game_over", {
         gameOver: true,
@@ -259,27 +281,51 @@ export async function POST(
       });
     }
 
-    let song: Song = songs[0];
-
-    // If in lyrics mode and song has no lyrics in any field, fallback to finding a song in DEMO_SONGS with lyrics
+    // If in lyrics mode and song has no lyrics in any field, check fallback to DEMO_SONGS with lyrics
     if (
-      (settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics") &&
+      isLyricsMode &&
       !song.lyricsFull?.trim() &&
       !song.lyricsChorus?.trim() &&
       !song.lyricsIntro?.trim()
     ) {
-      const demoWithLyrics =
-        DEMO_SONGS.find(
-          (s) =>
-            !playedSongIds.includes(s.id) &&
-            Boolean(s.lyricsFull?.trim() || s.lyricsChorus?.trim() || s.lyricsIntro?.trim())
-        ) ||
-        DEMO_SONGS.find(
-          (s) => Boolean(s.lyricsFull?.trim() || s.lyricsChorus?.trim() || s.lyricsIntro?.trim())
-        );
+      const demoWithLyrics = DEMO_SONGS.find(
+        (s) =>
+          !playedSongIds.includes(s.id) &&
+          Boolean(s.lyricsFull?.trim() || s.lyricsChorus?.trim() || s.lyricsIntro?.trim())
+      );
 
       if (demoWithLyrics) {
         song = demoWithLyrics;
+      } else {
+        // No demo songs with lyrics available either - end game cleanly rather than mismatching lyrics
+        const finalScores =
+          (existingRoundState?.scores && Object.keys(existingRoundState.scores).length > 0)
+            ? existingRoundState.scores
+            : (dbRoundState?.scores && Object.keys(dbRoundState.scores).length > 0)
+            ? dbRoundState.scores
+            : (room.settings?.round_state?.scores || {});
+
+        await RoomService.updateRoomStatus(cleanCode, "game_over");
+        RoomStateStore.setGameOver(cleanCode);
+
+        const noMoreSongsMessage = `เล่นครบทุกเพลงที่มีเนื้อเพลงในคลังแล้ว (รวม ${completedRounds} ข้อ)`;
+
+        await RealtimeBroadcastService.broadcast(cleanCode, "game_over", {
+          gameOver: true,
+          round: completedRounds,
+          totalRounds: settings.totalRounds,
+          finalScores,
+          reason: "no_more_songs",
+          message: noMoreSongsMessage,
+        });
+
+        return NextResponse.json({
+          success: true,
+          gameOver: true,
+          reason: "no_more_songs",
+          message: noMoreSongsMessage,
+          finalScores,
+        });
       }
     }
 
@@ -318,40 +364,42 @@ export async function POST(
       rawThai = song.lyricsChorus || song.lyricsFull || song.lyricsIntro || "";
     }
 
-    // Fallback to DEMO_SONGS if rawThai is still empty after checking all 3 lyrics fields
-    if (
-      (settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics") &&
-      !rawThai.trim()
-    ) {
-      const demoWithLyrics =
-        DEMO_SONGS.find(
-          (s) =>
-            !playedSongIds.includes(s.id) &&
-            Boolean(s.lyricsFull || s.lyricsChorus || s.lyricsIntro)
-        ) ||
-        DEMO_SONGS.find((s) => Boolean(s.lyricsFull || s.lyricsChorus || s.lyricsIntro)) ||
-        DEMO_SONGS[0];
-
-      if (demoWithLyrics) {
-        if (settings.gameMode === "translated-lyrics" || settings.lyricsType === "full") {
-          rawThai = demoWithLyrics.lyricsFull || demoWithLyrics.lyricsChorus || demoWithLyrics.lyricsIntro || "";
-        } else if (settings.lyricsType === "intro") {
-          rawThai = demoWithLyrics.lyricsIntro || demoWithLyrics.lyricsChorus || demoWithLyrics.lyricsFull || "";
-        } else {
-          rawThai = demoWithLyrics.lyricsChorus || demoWithLyrics.lyricsFull || demoWithLyrics.lyricsIntro || "";
-        }
-      }
-    }
-
     // Strip song title and artist header lines
     let cleanedThai = cleanLyricsForGame(rawThai);
+    if (!cleanedThai.trim() && rawThai.trim()) {
+      cleanedThai = rawThai.trim();
+    }
 
-    // Ensure lyrics is never empty for ai-lyrics or translated-lyrics
-    if (
-      (settings.gameMode === "ai-lyrics" || settings.gameMode === "translated-lyrics") &&
-      !cleanedThai.trim()
-    ) {
-      cleanedThai = "มีแค่ใจดวงเดียวดวงนี้ จะทุ่มเทให้ถึงที่สุด จะล้มกี่ครั้งก็ไม่เคยหยุด จะไปให้สุดขอบฟ้า";
+    // If lyrics is empty for lyrics mode after all checks, end game cleanly instead of mismatching
+    if (isLyricsMode && !cleanedThai.trim()) {
+      const finalScores =
+        (existingRoundState?.scores && Object.keys(existingRoundState.scores).length > 0)
+          ? existingRoundState.scores
+          : (dbRoundState?.scores && Object.keys(dbRoundState.scores).length > 0)
+          ? dbRoundState.scores
+          : (room.settings?.round_state?.scores || {});
+
+      await RoomService.updateRoomStatus(cleanCode, "game_over");
+      RoomStateStore.setGameOver(cleanCode);
+
+      const noMoreSongsMessage = `เล่นครบทุกเพลงที่มีเนื้อเพลงในคลังแล้ว (รวม ${completedRounds} ข้อ)`;
+
+      await RealtimeBroadcastService.broadcast(cleanCode, "game_over", {
+        gameOver: true,
+        round: completedRounds,
+        totalRounds: settings.totalRounds,
+        finalScores,
+        reason: "no_more_songs",
+        message: noMoreSongsMessage,
+      });
+
+      return NextResponse.json({
+        success: true,
+        gameOver: true,
+        reason: "no_more_songs",
+        message: noMoreSongsMessage,
+        finalScores,
+      });
     }
 
     let lyrics: string | undefined = undefined;

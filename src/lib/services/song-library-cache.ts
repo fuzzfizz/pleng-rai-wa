@@ -11,10 +11,21 @@ const CACHE_KEY = "pleng_public_songs_cache_v1";
 let inMemorySongsCache: Song[] | null = null;
 let pendingFetchPromise: Promise<Song[]> | null = null;
 
-export async function loadPublicSongLibrary(): Promise<Song[]> {
-  // 1. Return in-memory cache if available with more than demo songs
-  if (inMemorySongsCache && inMemorySongsCache.length > 3) {
+export interface LoadPublicSongLibraryOptions {
+  forceRefresh?: boolean;
+}
+
+export async function loadPublicSongLibrary(
+  options?: LoadPublicSongLibraryOptions
+): Promise<Song[]> {
+  // 1. Return in-memory cache if available with at least 1 song, unless forceRefresh is true
+  if (inMemorySongsCache && inMemorySongsCache.length > 0 && !options?.forceRefresh) {
     return inMemorySongsCache;
+  }
+
+  // If forceRefresh is requested, clear pending promise to ensure fresh fetch
+  if (options?.forceRefresh) {
+    pendingFetchPromise = null;
   }
 
   // 2. Safe cleanup of legacy sessionStorage cache
@@ -24,12 +35,13 @@ export async function loadPublicSongLibrary(): Promise<Song[]> {
     } catch {}
   }
 
-  // 3. De-duplicate concurrent fetch calls
-  if (pendingFetchPromise) {
+  // 3. De-duplicate concurrent fetch calls (unless forceRefresh is true)
+  if (pendingFetchPromise && !options?.forceRefresh) {
     return pendingFetchPromise;
   }
 
-  pendingFetchPromise = (async () => {
+  let currentPromise: Promise<Song[]> | null = null;
+  const fetchPromise = (async () => {
     try {
       const res = await fetch("/api/songs?limit=500");
       if (res.ok) {
@@ -42,7 +54,9 @@ export async function loadPublicSongLibrary(): Promise<Song[]> {
     } catch (err) {
       console.warn("[SongLibraryCache] Failed to load public songs from /api/songs:", err);
     } finally {
-      pendingFetchPromise = null;
+      if (pendingFetchPromise === currentPromise) {
+        pendingFetchPromise = null;
+      }
     }
 
     return inMemorySongsCache && inMemorySongsCache.length > 0
@@ -50,17 +64,23 @@ export async function loadPublicSongLibrary(): Promise<Song[]> {
       : DEMO_SONGS;
   })();
 
-  return pendingFetchPromise;
+  currentPromise = fetchPromise;
+  pendingFetchPromise = fetchPromise;
+  return fetchPromise;
 }
 
 export function getCachedSongLibrary(): Song[] | null {
   return inMemorySongsCache;
 }
 
+export function invalidateSongLibraryCache(): void {
+  inMemorySongsCache = null;
+  pendingFetchPromise = null;
+}
+
 /**
  * Reset internal cache for unit testing
  */
 export function _resetSongLibraryCacheForTesting(): void {
-  inMemorySongsCache = null;
-  pendingFetchPromise = null;
+  invalidateSongLibraryCache();
 }

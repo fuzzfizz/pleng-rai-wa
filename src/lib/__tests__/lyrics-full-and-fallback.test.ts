@@ -3,6 +3,8 @@ import {
   mapSongFromRow,
   mapSongToRow,
   updateSong,
+  getRandomSongs,
+  songHasLyrics,
   setDbClient,
   resetDbClient,
 } from "@/lib/services/song-service";
@@ -391,6 +393,188 @@ describe("Task 2: Lyrics Full & Next-Round Fallback Logic", () => {
 
       const lyrics = prepareRawLyrics(songMissingFull, settings);
       expect(lyrics).toBe("ท่อนฮุกกระแทกใจ");
+    });
+  });
+
+  describe("SongService strict hasLyrics filtering", () => {
+    it("songHasLyrics correctly identifies songs with lyrics in any field", () => {
+      expect(songHasLyrics({ lyricsChorus: "ฮุก" })).toBe(true);
+      expect(songHasLyrics({ lyricsIntro: "อินโทร" })).toBe(true);
+      expect(songHasLyrics({ lyricsFull: "เต็ม" })).toBe(true);
+      expect(songHasLyrics({ lyrics_chorus: "ฮุกสเนก" })).toBe(true);
+      expect(songHasLyrics({ lyrics_intro: "อินโทรสเนก" })).toBe(true);
+      expect(songHasLyrics({ lyrics_full: "เต็มสเนก" })).toBe(true);
+      expect(songHasLyrics({ lyricsChorus: "   ", lyricsFull: "" })).toBe(false);
+      expect(songHasLyrics({})).toBe(false);
+    });
+
+    it("getRandomSongs with hasLyrics: true filters out songs without lyrics in standard query", async () => {
+      const mockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        or: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        then: (resolve: any) =>
+          resolve({
+            data: [
+              {
+                id: "song-no-lyrics",
+                title: "ไม่มีเนื้อเพลง",
+                artist: "Band A",
+                audio_url: "https://example.com/a.mp3",
+                lyrics_intro: null,
+                lyrics_chorus: "",
+                lyrics_full: null,
+                metadata: {},
+              },
+              {
+                id: "song-with-lyrics",
+                title: "มีเนื้อเพลง",
+                artist: "Band B",
+                audio_url: "https://example.com/b.mp3",
+                lyrics_intro: null,
+                lyrics_chorus: "ท่อนฮุกสดใส",
+                lyrics_full: null,
+                metadata: {},
+              },
+            ],
+            error: null,
+          }),
+      };
+
+      const mockDb = {
+        from: vi.fn().mockReturnValue(mockQueryBuilder),
+      };
+
+      setDbClient(mockDb);
+
+      const songs = await getRandomSongs(5, {
+        hasLyrics: true,
+        fallbackOnEmpty: false,
+      });
+
+      expect(mockDb.from).toHaveBeenCalledWith("songs");
+      expect(mockQueryBuilder.or).toHaveBeenCalledWith("lyrics_chorus.neq.'',lyrics_intro.neq.'',lyrics_full.neq.''");
+      expect(songs.length).toBe(1);
+      expect(songs[0].id).toBe("song-with-lyrics");
+      expect(songs[0].lyricsChorus).toBe("ท่อนฮุกสดใส");
+    });
+
+    it("getRandomSongs with playlistId and hasLyrics: true filters out playlist songs without lyrics", async () => {
+      const mockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        then: (resolve: any) =>
+          resolve({
+            data: [
+              {
+                order_num: 1,
+                songs: {
+                  id: "pl-song-1",
+                  title: "เพลงเพลย์ลิสต์ไม่มีเนื้อ",
+                  artist: "Artist 1",
+                  audio_url: "https://example.com/1.mp3",
+                  lyrics_intro: null,
+                  lyrics_chorus: null,
+                  lyrics_full: null,
+                  metadata: {},
+                },
+              },
+              {
+                order_num: 2,
+                songs: {
+                  id: "pl-song-2",
+                  title: "เพลงเพลย์ลิสต์มีเนื้อ",
+                  artist: "Artist 2",
+                  audio_url: "https://example.com/2.mp3",
+                  lyrics_intro: null,
+                  lyrics_chorus: null,
+                  lyrics_full: "เนื้อเพลงเต็มฉบับเพลย์ลิสต์",
+                  metadata: {},
+                },
+              },
+            ],
+            error: null,
+          }),
+      };
+
+      const mockDb = {
+        from: vi.fn().mockReturnValue(mockQueryBuilder),
+      };
+
+      setDbClient(mockDb);
+
+      const songs = await getRandomSongs(5, {
+        playlistId: "playlist-123",
+        hasLyrics: true,
+        fallbackOnEmpty: false,
+      });
+
+      expect(mockDb.from).toHaveBeenCalledWith("playlist_songs");
+      expect(songs.length).toBe(1);
+      expect(songs[0].id).toBe("pl-song-2");
+      expect(songs[0].lyricsFull).toBe("เนื้อเพลงเต็มฉบับเพลย์ลิสต์");
+    });
+
+    it("preserves hasLyrics: true during fallbackOnEmpty for filtered pool", async () => {
+      let callCount = 0;
+      const mockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        or: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        then: (resolve: any) => {
+          callCount++;
+          if (callCount === 1) {
+            // First query with genre filter returns no songs
+            return resolve({ data: [], error: null });
+          }
+          // Fallback query returns songs, some with lyrics and some without
+          return resolve({
+            data: [
+              {
+                id: "song-fallback-no-lyrics",
+                title: "เพลงไม่มีเนื้อ",
+                artist: "Artist X",
+                audio_url: "https://example.com/x.mp3",
+                lyrics_intro: null,
+                lyrics_chorus: null,
+                lyrics_full: null,
+                metadata: {},
+              },
+              {
+                id: "song-fallback-has-lyrics",
+                title: "เพลงมีเนื้อ",
+                artist: "Artist Y",
+                audio_url: "https://example.com/y.mp3",
+                lyrics_intro: null,
+                lyrics_chorus: "ท่อนฮุกกลับมาแล้ว",
+                lyrics_full: null,
+                metadata: {},
+              },
+            ],
+            error: null,
+          });
+        },
+      };
+
+      const mockDb = {
+        from: vi.fn().mockReturnValue(mockQueryBuilder),
+      };
+
+      setDbClient(mockDb);
+
+      const songs = await getRandomSongs(1, {
+        genreId: "rock",
+        hasLyrics: true,
+        fallbackOnEmpty: true,
+      });
+
+      expect(callCount).toBe(2);
+      expect(songs.length).toBe(1);
+      expect(songs[0].id).toBe("song-fallback-has-lyrics");
+      expect(songs[0].lyricsChorus).toBe("ท่อนฮุกกลับมาแล้ว");
     });
   });
 });

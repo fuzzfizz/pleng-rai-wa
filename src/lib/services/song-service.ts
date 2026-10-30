@@ -337,6 +337,18 @@ export interface GetRandomSongsOptions {
   playlistId?: string | null;
   excludeIds?: string[];
   fallbackOnEmpty?: boolean;
+  hasLyrics?: boolean;
+}
+
+export function songHasLyrics(s: any): boolean {
+  return Boolean(
+    s?.lyricsChorus?.trim() ||
+    s?.lyricsIntro?.trim() ||
+    s?.lyricsFull?.trim() ||
+    s?.lyrics_chorus?.trim() ||
+    s?.lyrics_intro?.trim() ||
+    s?.lyrics_full?.trim()
+  );
 }
 
 export interface EraFilterOption {
@@ -482,7 +494,7 @@ export async function getRandomSongs(
       throw error;
     }
 
-    const playlistSongs = (
+    let playlistSongs = (
       (data as unknown as Array<{
         order_num: number;
         songs: (SongRow & { genres?: GenreRow | null }) | null;
@@ -490,6 +502,10 @@ export async function getRandomSongs(
     )
       .filter((row) => row && row.songs)
       .map((row) => mapSongFromRow(row.songs!));
+
+    if (options?.hasLyrics) {
+      playlistSongs = playlistSongs.filter(songHasLyrics);
+    }
 
     // Fallback if no songs are in playlist
     if (playlistSongs.length === 0) {
@@ -507,6 +523,7 @@ export async function getRandomSongs(
         yearStart: options.yearStart,
         yearEnd: options.yearEnd,
         excludeIds: options.excludeIds,
+        hasLyrics: options.hasLyrics,
       });
     }
 
@@ -537,6 +554,10 @@ export async function getRandomSongs(
   let query = client
     .from("songs")
     .select("*, genres(id, name_th, name_en, slug, icon)");
+
+  if (options?.hasLyrics && typeof (query as any).or === "function") {
+    query = query.or("lyrics_chorus.neq.'',lyrics_intro.neq.'',lyrics_full.neq.''");
+  }
 
   if (options?.genreIds && options.genreIds.length > 0) {
     query = query.in("genre_id", options.genreIds);
@@ -575,6 +596,10 @@ export async function getRandomSongs(
     mapSongFromRow(row)
   );
 
+  if (options?.hasLyrics) {
+    songs = songs.filter(songHasLyrics);
+  }
+
   const hasFilters = Boolean(
     (options?.genreIds && options.genreIds.length > 0) ||
     options?.genreId ||
@@ -591,6 +616,7 @@ export async function getRandomSongs(
     return getRandomSongs(count, {
       excludeIds: options?.excludeIds,
       fallbackOnEmpty: false,
+      hasLyrics: options?.hasLyrics,
     });
   }
 

@@ -375,7 +375,7 @@ export function GameView({
   );
 
   useEffect(() => {
-    if (songLibrary && songLibrary.length > 3) {
+    if (songLibrary && songLibrary.length > 0) {
       setInternalSongs(songLibrary);
       return;
     }
@@ -393,11 +393,7 @@ export function GameView({
   }, [songLibrary]);
 
   const effectiveSongLibrary =
-    songLibrary && songLibrary.length > 3
-      ? songLibrary
-      : internalSongs && internalSongs.length > 3
-      ? internalSongs
-      : songLibrary && songLibrary.length > 0
+    songLibrary && songLibrary.length > 0
       ? songLibrary
       : internalSongs && internalSongs.length > 0
       ? internalSongs

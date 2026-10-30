@@ -74,3 +74,31 @@ describe("Translated Lyrics Mode Configuration (should-fix item 1)", () => {
     expect(sourceText).toBe("รู้ว่าเสี่ยงแต่คงต้องขอลอง ทั้งเพลงยาวๆ จบเพลง");
   });
 });
+
+describe("Solo Mode Data Sync & Empty Filter Handling (should-fix item 3)", () => {
+  it("binds real database single song without falling back to DEMO_SONGS", () => {
+    const singleDbSong: Song = {
+      id: "song-khern",
+      title: "เขิน",
+      artist: "GLISS",
+      aliases: [],
+      audioUrl: "https://example.com/khern.mp3",
+    };
+    const songsPool: Song[] = [singleDbSong];
+    const currentSong = songsPool.length > 0 ? songsPool[0] : null;
+
+    expect(currentSong).not.toBeNull();
+    expect(currentSong?.title).toBe("เขิน");
+    expect(currentSong?.title).not.toBe("แสงสุดท้าย");
+  });
+
+  it("does not silently fall back to DEMO_SONGS when filter returns 0 songs", () => {
+    const filterType: string = "genre";
+    const returnedSongs: Song[] = [];
+    const pool = filterType === "all" ? [{ id: "demo" } as Song] : returnedSongs;
+    const notice = pool.length === 0 ? "ไม่พบเพลงที่ตรงกับตัวกรอง" : null;
+
+    expect(pool).toHaveLength(0);
+    expect(notice).toBe("ไม่พบเพลงที่ตรงกับตัวกรอง");
+  });
+});

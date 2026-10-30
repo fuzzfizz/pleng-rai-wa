@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSongs } from "@/lib/services/song-service";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
       { success: true, songs: publicSongs },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
         },
       }
     );
@@ -54,7 +56,12 @@ export async function GET(req: NextRequest) {
     }));
     return NextResponse.json(
       { success: true, songs: fallbackSongs, fallback: true },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      }
     );
   }
 }

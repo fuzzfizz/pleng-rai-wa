@@ -27,7 +27,20 @@ export interface SpeakLyricsOptions {
 
 // Global active utterance reference to prevent Chromium garbage collection bug
 let activeUtterance: SpeechSynthesisUtterance | null = null;
+let activeAudio: HTMLAudioElement | null = null;
 let cachedVoices: SpeechSynthesisVoice[] = [];
+
+// Keywords identifying genuine female Thai voice names across platforms (Windows, macOS, iOS, Android)
+export const FEMALE_THAI_KEYWORDS = [
+  "google",
+  "siri",
+  "premwadee",
+  "achara",
+  "kanya",
+  "narisa",
+  "female",
+  "woman",
+];
 
 // Initialize voices listener and master volume subscriber if in browser environment
 if (typeof window !== "undefined") {
@@ -40,6 +53,8 @@ if (typeof window !== "undefined") {
   subscribeMasterVolume((vol) => {
     if (vol === 0 || isMasterMuted()) {
       stopSpeaking();
+    } else if (activeAudio) {
+      activeAudio.volume = Math.max(0, Math.min(1, vol));
     }
   });
 }
@@ -53,6 +68,29 @@ export function isSpeechSupported(): boolean {
     "speechSynthesis" in window &&
     typeof SpeechSynthesisUtterance !== "undefined"
   );
+}
+
+/**
+ * Checks whether the current system has a genuine female Thai voice available in Web Speech API.
+ * Windows/Chrome typically only ships with Microsoft Pattara / Niwat (male voices),
+ * which requires falling back to the server TTS proxy for female voice mode.
+ */
+export function hasGenuineFemaleThaiVoice(): boolean {
+  if (!isSpeechSupported()) return false;
+
+  const rawVoices = window.speechSynthesis.getVoices();
+  const allVoices = rawVoices.length > 0 ? rawVoices : cachedVoices;
+
+  const thaiVoices = allVoices.filter((v) => {
+    const lang = (v.lang || "").toLowerCase().replace(/_/g, "-");
+    const name = (v.name || "").toLowerCase();
+    return lang.startsWith("th") || lang.includes("th-th") || name.includes("thai");
+  });
+
+  return thaiVoices.some((v) => {
+    const name = (v.name || "").toLowerCase();
+    return FEMALE_THAI_KEYWORDS.some((kw) => name.includes(kw));
+  });
 }
 
 /**
@@ -89,14 +127,7 @@ export function getThaiVoices(gender?: "male" | "female"): SpeechSynthesisVoice[
     } else if (gender === "female") {
       const femaleVoice = thaiVoices.find((v) => {
         const name = (v.name || "").toLowerCase();
-        return (
-          name.includes("premwadee") ||
-          name.includes("kanya") ||
-          name.includes("achara") ||
-          name.includes("narisa") ||
-          name.includes("female") ||
-          name.includes("woman")
-        );
+        return FEMALE_THAI_KEYWORDS.some((kw) => name.includes(kw));
       });
       if (femaleVoice) {
         return [femaleVoice, ...thaiVoices.filter((v) => v !== femaleVoice)];
@@ -287,19 +318,35 @@ function stopKeepAlive() {
 }
 
 /**
- * Checks whether speech synthesis is currently actively speaking.
+ * Checks whether speech synthesis or HTML5 fallback audio is currently actively speaking.
  */
 export function isSpeaking(): boolean {
-  if (!isSpeechSupported()) return false;
-  return window.speechSynthesis.speaking;
+  const isAudioSpeaking = Boolean(
+    activeAudio !== null && !activeAudio.paused && !activeAudio.ended
+  );
+  const isSynthSpeaking = Boolean(
+    isSpeechSupported() && window.speechSynthesis?.speaking
+  );
+  return isAudioSpeaking || isSynthSpeaking;
 }
 
 /**
- * Immediately halts any ongoing speech and cleans up active references.
+ * Immediately halts any ongoing speech and cleans up active references
+ * (both Web Speech Synthesis and HTML5 Audio fallback).
  */
 export function stopSpeaking(): void {
   currentSpeechSessionId++;
   stopKeepAlive();
+
+  if (activeAudio) {
+    try {
+      activeAudio.pause();
+      activeAudio.currentTime = 0;
+      activeAudio.removeAttribute("src");
+      activeAudio.load();
+    } catch {}
+    activeAudio = null;
+  }
 
   if (!isSpeechSupported()) return;
 
@@ -322,6 +369,10 @@ export function stopSpeaking(): void {
  * - Male: pitch = 0.75, rate = 0.88
  * - Female: pitch = 1.25, rate = 0.95
  *
+ * Dual-Engine Architecture:
+ * - When female Thai voice is requested on systems without genuine native female voices (e.g. Windows Chrome
+ *   which only includes Pattara/Niwat), automatically streams audio from the /api/tts proxy endpoint.
+ *
  * Automatically chunks longer texts (> 200 characters) and maintains Chromium keepalive
  * to avoid speech engine cutoffs.
  *
@@ -332,11 +383,6 @@ export function speakLyrics(
   text: string,
   options?: SpeakLyricsOptions
 ): void {
-  if (!isSpeechSupported()) {
-    options?.onError?.(new Error("Web Speech API is not supported in this environment"));
-    return;
-  }
-
   const cleanText = text.trim();
   if (!cleanText) {
     options?.onEnd?.();
@@ -356,11 +402,6 @@ export function speakLyrics(
   // Halt any current playback cleanly
   stopSpeaking();
 
-  // Resume synthesis in case browser put it in paused state
-  if (window.speechSynthesis.paused) {
-    window.speechSynthesis.resume();
-  }
-
   // Resolve target voice gender: if "random", randomly pick "male" or "female"
   const rawGender = options?.gender;
   const resolvedGender: "male" | "female" =
@@ -372,6 +413,126 @@ export function speakLyrics(
     options?.lang?.toLowerCase().startsWith("en") ||
     options?.voice?.lang?.toLowerCase().startsWith("en")
   );
+
+  const hasAudioSupport =
+    typeof Audio !== "undefined" ||
+    (typeof window !== "undefined" && Boolean((window as any).Audio));
+
+  // DUAL-ENGINE: If female voice is requested for Thai and no genuine native female voice is installed
+  // (e.g. Windows Chrome which only has Pattara/Niwat), fallback to HTML5 Audio via /api/tts proxy.
+  if (
+    !isEnglish &&
+    resolvedGender === "female" &&
+    !hasGenuineFemaleThaiVoice() &&
+    hasAudioSupport
+  ) {
+    const chunks = splitTextIntoChunks(cleanText, 200);
+    if (chunks.length === 0) {
+      options?.onEnd?.();
+      return;
+    }
+
+    const sessionId = ++currentSpeechSessionId;
+    let chunkIndex = 0;
+
+    const playNextAudioChunk = () => {
+      if (sessionId !== currentSpeechSessionId) return;
+
+      if (chunkIndex >= chunks.length) {
+        activeAudio = null;
+        options?.onEnd?.();
+        return;
+      }
+
+      const chunkText = chunks[chunkIndex];
+      const audioUrl = `/api/tts?text=${encodeURIComponent(chunkText)}&lang=th&gender=female`;
+
+      let audio: HTMLAudioElement;
+      try {
+        if (typeof Audio !== "undefined") {
+          audio = new Audio(audioUrl);
+        } else if (typeof window !== "undefined" && (window as any).Audio) {
+          audio = new (window as any).Audio(audioUrl);
+        } else {
+          options?.onError?.(new Error("Audio playback is not supported in this environment"));
+          return;
+        }
+      } catch (err) {
+        options?.onError?.(err);
+        return;
+      }
+
+      const masterVol = typeof window !== "undefined" ? getMasterVolume() : 1.0;
+      const baseVol = options?.volume ?? 1.0;
+      const effectiveVol =
+        typeof window !== "undefined" && isMasterMuted()
+          ? 0
+          : Math.max(0, Math.min(1, baseVol * masterVol));
+
+      audio.volume = effectiveVol;
+      activeAudio = audio;
+
+      let started = false;
+      const handleStart = () => {
+        if (sessionId !== currentSpeechSessionId) return;
+        if (!started) {
+          started = true;
+          if (chunkIndex === 0) {
+            options?.onStart?.();
+          }
+        }
+      };
+
+      audio.onplay = handleStart;
+
+      audio.onended = () => {
+        if (sessionId !== currentSpeechSessionId) return;
+        chunkIndex++;
+        if (chunkIndex < chunks.length) {
+          playNextAudioChunk();
+        } else {
+          activeAudio = null;
+          options?.onEnd?.();
+        }
+      };
+
+      audio.onerror = (err) => {
+        if (sessionId !== currentSpeechSessionId) return;
+        activeAudio = null;
+        options?.onError?.(err);
+      };
+
+      try {
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch((err) => {
+            if (sessionId !== currentSpeechSessionId) return;
+            if (err?.name === "AbortError") return;
+            activeAudio = null;
+            options?.onError?.(err);
+          });
+        }
+      } catch (err) {
+        if (sessionId !== currentSpeechSessionId) return;
+        activeAudio = null;
+        options?.onError?.(err);
+      }
+    };
+
+    playNextAudioChunk();
+    return;
+  }
+
+  // Otherwise, use native browser Web Speech API
+  if (!isSpeechSupported()) {
+    options?.onError?.(new Error("Web Speech API is not supported in this environment"));
+    return;
+  }
+
+  // Resume synthesis in case browser put it in paused state
+  if (window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+  }
 
   // Acoustic defaults:
   // English: Male (pitch: 0.8, rate: 0.9), Female (pitch: 1.2, rate: 0.95)
@@ -484,6 +645,7 @@ export function speakLyrics(
 export const ttsReader = {
   getThaiVoices,
   getEnglishVoices,
+  hasGenuineFemaleThaiVoice,
   splitTextIntoChunks,
   speakLyrics,
   stopSpeaking,

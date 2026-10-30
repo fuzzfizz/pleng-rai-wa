@@ -58,7 +58,7 @@ import {
 } from "@/components/room/round-reveal-card";
 import { calculateSliceStart } from "@/lib/audio-slice-utils";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
-import { loadPublicSongLibrary } from "@/lib/services/song-library-cache";
+import { loadPublicSongLibrary, invalidateSongLibraryCache } from "@/lib/services/song-library-cache";
 import { cleanLyricsForGame } from "@/lib/lyrics-cleaner";
 
 function SoloPlayContent() {
@@ -78,16 +78,14 @@ function SoloPlayContent() {
   const defaultLibrarySongsRef = useRef<Song[]>(DEMO_SONGS);
 
   // Game Setup State
-  const [songsPool, setSongsPool] = useState<Song[]>(DEMO_SONGS);
+  const [songsPool, setSongsPool] = useState<Song[]>([]);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [gameMode, setGameMode] = useState<GameMode>("audio-slice");
   const [inputMode, setInputMode] = useState<AnswerInputMode>("autocomplete");
   const [sliceDuration, setSliceDuration] = useState<number>(1.0);
   const [lyricsType, setLyricsType] = useState<"chorus" | "full" | "intro">("chorus");
   const [voiceGender, setVoiceGender] = useState<AIVoiceGender>("female");
-  const [roundSliceStartSec, setRoundSliceStartSec] = useState<number>(() =>
-    calculateSliceStart(DEMO_SONGS[0], 1.0)
-  );
+  const [roundSliceStartSec, setRoundSliceStartSec] = useState<number>(0);
 
   // Gameplay State
   const [hintLevel, setHintLevel] = useState<number>(0);
@@ -123,14 +121,17 @@ function SoloPlayContent() {
     return () => unsubscribe();
   }, []);
 
-  const currentSong = songsPool[currentSongIndex] || songsPool[0] || DEMO_SONGS[0];
+  const currentSong: Song | null =
+    songsPool && songsPool.length > 0
+      ? songsPool[currentSongIndex] || songsPool[0]
+      : null;
 
   // Recalculate randomized slice start whenever the current song/round changes
   useEffect(() => {
     if (currentSong) {
       setRoundSliceStartSec(calculateSliceStart(currentSong, sliceDuration));
     }
-  }, [currentSongIndex, currentSong?.id]);
+  }, [currentSongIndex, currentSong?.id, sliceDuration]);
 
   // Helper to reset round sounds & answers
   const resetRoundState = () => {
@@ -161,7 +162,7 @@ function SoloPlayContent() {
       setIsLoadingPlaylists(true);
 
       // 1. Fetch playable songs with full details (audioUrl, lyrics) via /api/admin/songs?limit=500
-      let librarySongs = DEMO_SONGS;
+      let librarySongs: Song[] = [];
       try {
         const res = await fetch("/api/admin/songs?limit=500");
         if (res.ok) {
@@ -173,13 +174,43 @@ function SoloPlayContent() {
               // Only update songsPool if player hasn't already started playing/interacting with initial song
               if (!hasInteractedRef.current) {
                 setSongsPool(data.songs);
+                setCurrentSongIndex(0);
+              }
+              setIsLoadingSongs(false);
+            }
+          } else {
+            librarySongs = DEMO_SONGS;
+            defaultLibrarySongsRef.current = DEMO_SONGS;
+            if (isMounted && !queryPlaylistId?.trim()) {
+              if (!hasInteractedRef.current) {
+                setSongsPool(DEMO_SONGS);
+                setCurrentSongIndex(0);
               }
               setIsLoadingSongs(false);
             }
           }
+        } else {
+          librarySongs = DEMO_SONGS;
+          defaultLibrarySongsRef.current = DEMO_SONGS;
+          if (isMounted && !queryPlaylistId?.trim()) {
+            if (!hasInteractedRef.current) {
+              setSongsPool(DEMO_SONGS);
+              setCurrentSongIndex(0);
+            }
+            setIsLoadingSongs(false);
+          }
         }
       } catch (err) {
         console.warn("Could not load songs from /api/admin/songs for solo play, using fallback:", err);
+        librarySongs = DEMO_SONGS;
+        defaultLibrarySongsRef.current = DEMO_SONGS;
+        if (isMounted && !queryPlaylistId?.trim()) {
+          if (!hasInteractedRef.current) {
+            setSongsPool(DEMO_SONGS);
+            setCurrentSongIndex(0);
+          }
+          setIsLoadingSongs(false);
+        }
       } finally {
         if (isMounted && !queryPlaylistId?.trim()) {
           setIsLoadingSongs(false);
@@ -238,19 +269,19 @@ function SoloPlayContent() {
               );
             }
           } else {
-            setSongsPool(librarySongs);
+            setSongsPool(librarySongs.length > 0 ? librarySongs : DEMO_SONGS);
             setPlaylistNotice("ไม่พบเพลงในเพลย์ลิสต์ที่ระบุ กำลังใช้คลังเพลงหลักแทน");
           }
         } catch {
           if (isMounted) {
-            setSongsPool(librarySongs);
+            setSongsPool(librarySongs.length > 0 ? librarySongs : DEMO_SONGS);
             setPlaylistNotice("ไม่สามารถโหลดเพลย์ลิสต์ได้ กำลังใช้คลังเพลงหลักแทน");
           }
         } finally {
           if (isMounted) setIsLoadingSongs(false);
         }
       } else {
-        if (isMounted && !hasInteractedRef.current) {
+        if (isMounted && !hasInteractedRef.current && librarySongs.length > 0) {
           setSongsPool(librarySongs);
         }
       }
@@ -260,6 +291,9 @@ function SoloPlayContent() {
 
     return () => {
       isMounted = false;
+      ttsReader.stopSpeaking();
+      audioRef.current?.pause();
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, [user?.id, queryPlaylistId]);
 
@@ -353,12 +387,9 @@ function SoloPlayContent() {
             );
           }
         } else {
-          setSongsPool(
-            defaultLibrarySongsRef.current.length > 0
-              ? defaultLibrarySongsRef.current
-              : DEMO_SONGS
-          );
-          setPlaylistNotice("ไม่พบเพลงในเพลย์ลิสต์ กำลังใช้คลังเพลงหลักแทน");
+          setSongsPool([]);
+          setActivePlaylist(null);
+          setPlaylistNotice("ไม่พบเพลงที่ตรงกับตัวกรอง");
         }
       } else {
         setSelectedPlaylistId("all");
@@ -384,40 +415,47 @@ function SoloPlayContent() {
         const url = queryString ? `/api/admin/songs?${queryString}` : "/api/admin/songs";
 
         const res = await fetch(url);
-        const data = await res.json();
-
-        if (data.success && Array.isArray(data.songs) && data.songs.length > 0) {
-          setSongsPool(data.songs);
-        } else {
-          // Client-side fallback if offline / demo songs
-          let pool =
-            defaultLibrarySongsRef.current.length > 0
-              ? [...defaultLibrarySongsRef.current]
-              : [...DEMO_SONGS];
-          if (filter.type === "era" && filter.era) {
-            const eraFiltered = pool.filter((s) => s.era === filter.era);
-            if (eraFiltered.length > 0) pool = eraFiltered;
-          } else if (filter.type === "genre" && filter.genreId) {
-            const genreFiltered = pool.filter((s) => s.genreId === filter.genreId);
-            if (genreFiltered.length > 0) pool = genreFiltered;
-          } else if (filter.type === "artist") {
-            const artistFiltered = pool.filter((s) =>
-              filter.artists && filter.artists.length > 0
-                ? filter.artists.some((a) => s.artist?.toLowerCase().includes(a.toLowerCase()))
-                : s.artist?.toLowerCase().includes(filter.artist!.toLowerCase())
-            );
-            if (artistFiltered.length > 0) pool = artistFiltered;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.songs) && data.songs.length > 0) {
+            setSongsPool(data.songs);
+          } else {
+            if (filter.type === "all") {
+              setSongsPool(
+                defaultLibrarySongsRef.current.length > 0
+                  ? defaultLibrarySongsRef.current
+                  : DEMO_SONGS
+              );
+            } else {
+              setSongsPool([]);
+              setPlaylistNotice("ไม่พบเพลงที่ตรงกับตัวกรอง");
+            }
           }
-          setSongsPool(pool);
+        } else {
+          if (filter.type === "all") {
+            setSongsPool(
+              defaultLibrarySongsRef.current.length > 0
+                ? defaultLibrarySongsRef.current
+                : DEMO_SONGS
+            );
+          } else {
+            setSongsPool([]);
+            setPlaylistNotice("ไม่พบเพลงที่ตรงกับตัวกรอง");
+          }
         }
       }
     } catch (err) {
       console.warn("Error filtering songs in solo mode:", err);
-      setSongsPool(
-        defaultLibrarySongsRef.current.length > 0
-          ? defaultLibrarySongsRef.current
-          : DEMO_SONGS
-      );
+      if (filter.type === "all") {
+        setSongsPool(
+          defaultLibrarySongsRef.current.length > 0
+            ? defaultLibrarySongsRef.current
+            : DEMO_SONGS
+        );
+      } else {
+        setSongsPool([]);
+        setPlaylistNotice("ไม่พบเพลงที่ตรงกับตัวกรอง");
+      }
     } finally {
       setCurrentSongIndex(0);
       setIsLoadingSongs(false);
@@ -466,6 +504,7 @@ function SoloPlayContent() {
 
   // Play Audio Slice
   const handlePlaySlice = async () => {
+    if (!currentSong) return;
     hasInteractedRef.current = true;
     playClickSound();
     audioRef.current?.pause();
@@ -522,6 +561,7 @@ function SoloPlayContent() {
 
   // Start Buzzer Game Mode song stream
   const handleToggleBuzzerSong = () => {
+    if (!currentSong) return;
     hasInteractedRef.current = true;
     if (isPlayingAudio) {
       audioRef.current?.pause();
@@ -548,6 +588,7 @@ function SoloPlayContent() {
 
   // Hit Buzzer!
   const handleBuzz = () => {
+    if (!currentSong) return;
     hasInteractedRef.current = true;
     if (isBuzzed || isRevealed) return;
     audioRef.current?.pause();
@@ -581,6 +622,8 @@ function SoloPlayContent() {
 
   // Play AI Lyrics
   const handleSpeakLyrics = () => {
+    if (!currentSong) return;
+    hasInteractedRef.current = true;
     playClickSound();
     const rawLyrics =
       lyricsType === "full"
@@ -607,7 +650,7 @@ function SoloPlayContent() {
 
   // Fetch translated lyrics (always full song so player reads and finds chorus themselves)
   useEffect(() => {
-    if (gameMode !== "translated-lyrics") return;
+    if (gameMode !== "translated-lyrics" || !currentSong) return;
 
     const rawText =
       currentSong.lyricsFull || currentSong.lyricsChorus || currentSong.lyricsIntro || "";
@@ -645,7 +688,7 @@ function SoloPlayContent() {
     return () => {
       isMounted = false;
     };
-  }, [gameMode, currentSong.id, currentSong.lyricsFull, currentSong.lyricsChorus, currentSong.lyricsIntro]);
+  }, [gameMode, currentSong?.id, currentSong?.lyricsFull, currentSong?.lyricsChorus, currentSong?.lyricsIntro]);
 
   // Autocomplete search
   const handleInputChange = (text: string) => {
@@ -660,6 +703,7 @@ function SoloPlayContent() {
 
   // Submit Answer
   const handleSubmitAnswer = (answerToSubmit?: string) => {
+    if (!currentSong) return;
     const finalAnswer = (answerToSubmit ?? userGuess).trim();
     if (!finalAnswer) return;
 
@@ -705,6 +749,7 @@ function SoloPlayContent() {
     setIsAITalking(false);
 
     // Pick next random song
+    if (songsPool.length === 0) return;
     const nextIdx = (currentSongIndex + 1) % songsPool.length;
     setCurrentSongIndex(nextIdx);
     const nextSong = songsPool[nextIdx];
@@ -802,6 +847,7 @@ function SoloPlayContent() {
               setGameMode("audio-slice");
               setIsBuzzed(false);
               setIsPlayingAudio(false);
+              ttsReader.stopSpeaking();
             }}
             className={`min-h-[44px] lg:min-h-[50px] py-2 lg:py-2.5 px-3 lg:px-4 rounded-xl text-xs lg:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameMode === "audio-slice" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
@@ -815,6 +861,7 @@ function SoloPlayContent() {
             onClick={() => {
               setGameMode("buzzer");
               setIsPlayingAudio(false);
+              ttsReader.stopSpeaking();
             }}
             className={`min-h-[44px] lg:min-h-[50px] py-2 lg:py-2.5 px-3 lg:px-4 rounded-xl text-xs lg:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameMode === "buzzer" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
@@ -829,6 +876,7 @@ function SoloPlayContent() {
               setGameMode("ai-lyrics");
               setIsPlayingAudio(false);
               setIsBuzzed(false);
+              ttsReader.stopSpeaking();
             }}
             className={`min-h-[44px] lg:min-h-[50px] py-2 lg:py-2.5 px-3 lg:px-4 rounded-xl text-xs lg:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameMode === "ai-lyrics" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
@@ -843,6 +891,7 @@ function SoloPlayContent() {
               setGameMode("translated-lyrics");
               setIsPlayingAudio(false);
               setIsBuzzed(false);
+              ttsReader.stopSpeaking();
             }}
             className={`min-h-[44px] lg:min-h-[50px] py-2 lg:py-2.5 px-3 lg:px-4 rounded-xl text-xs lg:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameMode === "translated-lyrics" ? "bg-amber-500 text-stone-950 shadow-sm" : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
@@ -855,18 +904,48 @@ function SoloPlayContent() {
 
         {/* Game Mode Interactive Play Area */}
         <div className="bg-white/80 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm dark:shadow-2xl backdrop-blur-xl relative overflow-hidden">
-          {/* Track counter badge */}
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-xs lg:text-sm font-medium text-stone-500 dark:text-stone-400">
-              ข้อที่ {currentSongIndex + 1} จาก {songsPool.length} เพลง
-            </span>
+          {isLoadingSongs ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+              <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
+              <p className="text-sm font-medium text-stone-600 dark:text-stone-300">
+                กำลังโหลดคลังเพลง...
+              </p>
+            </div>
+          ) : !currentSong || songsPool.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-4 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                <HelpCircle className="w-6 h-6" />
+              </div>
+              <div className="max-w-md">
+                <h4 className="text-base font-bold text-stone-900 dark:text-white mb-1">
+                  ไม่พบเพลงที่ตรงกับตัวกรอง
+                </h4>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  {playlistNotice || "ไม่พบเพลงในเงื่อนไขที่เลือก กรุณาเลือกแหล่งเพลงหรือตัวกรองอื่น"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleApplyFilter({ type: "all" })}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition-all shadow-sm cursor-pointer"
+              >
+                ดูเพลงทั้งหมด
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Track counter badge */}
+              <div className="flex items-center justify-between mb-6">
+                <span className="text-xs lg:text-sm font-medium text-stone-500 dark:text-stone-400">
+                  ข้อที่ {currentSongIndex + 1} จาก {songsPool.length} เพลง
+                </span>
 
-            {currentSong.era && (
-              <span className="text-xs lg:text-sm bg-stone-100 dark:bg-stone-800/80 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2.5 lg:px-3 py-0.5 lg:py-1 rounded-full">
-                เพลงยุค {currentSong.era}
-              </span>
-            )}
-          </div>
+                {currentSong.era && (
+                  <span className="text-xs lg:text-sm bg-stone-100 dark:bg-stone-800/80 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2.5 lg:px-3 py-0.5 lg:py-1 rounded-full">
+                    เพลงยุค {currentSong.era}
+                  </span>
+                )}
+              </div>
 
           {/* MODE 1: Audio Slice */}
           {gameMode === "audio-slice" && (
@@ -1236,10 +1315,12 @@ function SoloPlayContent() {
               </button>
             </div>
           )}
+          </>
+          )}
         </div>
 
         {/* Answer Input Section */}
-        {!isRevealed && (
+        {!isLoadingSongs && currentSong && !isRevealed && (
           <div className="bg-white/80 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 lg:p-8 shadow-sm dark:shadow-xl space-y-4 lg:space-y-5">
             {/* Progressive Hint Bar */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800">

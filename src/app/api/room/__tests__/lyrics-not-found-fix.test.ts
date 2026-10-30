@@ -159,7 +159,7 @@ describe("Lyrics Not Found & Active Question Rehydration Fix", () => {
       expect(data.lyrics).toContain("แม้ทั้งชีวิตพังทลาย แต่ว่าใจดวงนี้ไม่เคยสลาย");
     });
 
-    it("falls back to DEMO_SONGS if picked song has no lyrics in any field for ai-lyrics mode", async () => {
+    it("falls back to DEMO_SONGS if picked song has no lyrics in any field for ai-lyrics mode and keeps song and lyrics 100% synchronized", async () => {
       const roomCode = "FBKLRC";
       const hostToken = "host-token-456";
 
@@ -189,8 +189,8 @@ describe("Lyrics Not Found & Active Question Rehydration Fix", () => {
         lyricsFull: "",
       };
 
-      vi.spyOn(SongService, "getRandomSongs").mockResolvedValue([songWithoutLyrics]);
-      vi.spyOn(RoomService, "updateRoomRound").mockResolvedValue({} as any);
+      const getRandomSongsSpy = vi.spyOn(SongService, "getRandomSongs").mockResolvedValue([songWithoutLyrics]);
+      const updateRoomRoundSpy = vi.spyOn(RoomService, "updateRoomRound").mockResolvedValue({} as any);
       vi.spyOn(RealtimeBroadcastService, "broadcast").mockResolvedValue(undefined as any);
 
       const req = new NextRequest(`http://localhost:3000/api/room/${roomCode}/next-round`, {
@@ -205,12 +205,26 @@ describe("Lyrics Not Found & Active Question Rehydration Fix", () => {
 
       const data = await response.json();
       expect(data.success).toBe(true);
-      expect(data.lyrics).toBeDefined();
-      expect(data.lyrics.trim().length).toBeGreaterThan(0);
-      expect(data.lyrics).not.toBe("ไม่มีเนื้อเพลง");
+      expect(getRandomSongsSpy).toHaveBeenCalledWith(1, expect.objectContaining({ hasLyrics: true }));
+
+      // Strict Song-Lyrics Integrity verification:
+      // Both song and lyrics MUST belong to the exact same fallback song (DEMO_SONGS[0])
+      const roundState = RoomStateStore.getRoomRoundState(roomCode);
+      expect(roundState).toBeDefined();
+      expect(roundState?.currentSong?.id).toBe(DEMO_SONGS[0].id);
+      expect(roundState?.currentSong?.title).toBe(DEMO_SONGS[0].title);
+      expect(roundState?.currentSong?.artist).toBe(DEMO_SONGS[0].artist);
+      expect(roundState?.lyrics).toBe(data.lyrics);
+      expect(data.lyrics).toContain("มีแค่ใจดวงเดียวดวงนี้");
+
+      // Verify updateRoomRound received the synchronized demo song ID, not the no-lyrics song
+      expect(updateRoomRoundSpy).toHaveBeenCalledWith(
+        roomCode,
+        expect.objectContaining({ currentSongId: DEMO_SONGS[0].id })
+      );
     });
 
-    it("ensures lyrics is never empty when gameMode is translated-lyrics", async () => {
+    it("ensures lyrics is never empty and matches song entity when gameMode is translated-lyrics", async () => {
       const roomCode = "TRNLRC";
       const hostToken = "host-token-789";
 
@@ -237,7 +251,7 @@ describe("Lyrics Not Found & Active Question Rehydration Fix", () => {
         audioUrl: "https://example.com/empty.mp3",
       };
 
-      vi.spyOn(SongService, "getRandomSongs").mockResolvedValue([songEmptyLyrics]);
+      const getRandomSongsSpy = vi.spyOn(SongService, "getRandomSongs").mockResolvedValue([songEmptyLyrics]);
       vi.spyOn(RoomService, "updateRoomRound").mockResolvedValue({} as any);
       vi.spyOn(RealtimeBroadcastService, "broadcast").mockResolvedValue(undefined as any);
 
@@ -253,9 +267,116 @@ describe("Lyrics Not Found & Active Question Rehydration Fix", () => {
 
       const data = await response.json();
       expect(data.success).toBe(true);
+      expect(getRandomSongsSpy).toHaveBeenCalledWith(1, expect.objectContaining({ hasLyrics: true }));
       expect(data.lyrics).toBeDefined();
       expect(typeof data.lyrics).toBe("string");
       expect(data.lyrics.trim().length).toBeGreaterThan(0);
+
+      const roundState = RoomStateStore.getRoomRoundState(roomCode);
+      expect(roundState?.currentSong?.id).toBe(DEMO_SONGS[0].id);
+      expect(roundState?.lyrics).toBe(data.lyrics);
+    });
+
+    it("ends game cleanly with reason 'no_more_songs' when SongService returns 0 songs with lyrics in lyrics mode", async () => {
+      const roomCode = "NOLYRC";
+      const hostToken = "host-token-no-lyrics";
+
+      vi.spyOn(RoomService, "getRoomByCode").mockResolvedValue({
+        id: "room-nolyrics",
+        code: roomCode,
+        host_player_id: hostToken,
+        hostPlayerId: hostToken,
+        status: "question_active",
+        current_round: 2,
+        played_song_ids: ["song-1", "song-2"],
+        settings: {
+          gameMode: "ai-lyrics",
+          lyricsType: "full",
+          totalRounds: 5,
+        },
+      } as any);
+
+      vi.spyOn(SongService, "getRandomSongs").mockResolvedValue([]);
+      const updateRoomStatusSpy = vi.spyOn(RoomService, "updateRoomStatus").mockResolvedValue({} as any);
+      const broadcastSpy = vi.spyOn(RealtimeBroadcastService, "broadcast").mockResolvedValue(undefined as any);
+
+      const req = new NextRequest(`http://localhost:3000/api/room/${roomCode}/next-round`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken: hostToken }),
+      });
+
+      const response = await nextRoundHandler(req, {
+        params: Promise.resolve({ code: roomCode }),
+      });
+
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.gameOver).toBe(true);
+      expect(data.reason).toBe("no_more_songs");
+      expect(data.message).toBe("เล่นครบทุกเพลงที่มีเนื้อเพลงในคลังแล้ว (รวม 2 ข้อ)");
+
+      expect(updateRoomStatusSpy).toHaveBeenCalledWith(roomCode, "game_over");
+      expect(broadcastSpy).toHaveBeenCalledWith(
+        roomCode,
+        "game_over",
+        expect.objectContaining({
+          gameOver: true,
+          reason: "no_more_songs",
+          message: "เล่นครบทุกเพลงที่มีเนื้อเพลงในคลังแล้ว (รวม 2 ข้อ)",
+        })
+      );
+    });
+
+    it("ends game cleanly when song has no lyrics and all demo songs are already exhausted", async () => {
+      const roomCode = "EXHDEM";
+      const hostToken = "host-token-exh";
+
+      const allDemoIds = DEMO_SONGS.map((d) => d.id);
+
+      vi.spyOn(RoomService, "getRoomByCode").mockResolvedValue({
+        id: "room-exh",
+        code: roomCode,
+        host_player_id: hostToken,
+        hostPlayerId: hostToken,
+        status: "question_active",
+        current_round: 3,
+        played_song_ids: [...allDemoIds],
+        settings: {
+          gameMode: "ai-lyrics",
+          lyricsType: "chorus",
+          totalRounds: 5,
+        },
+      } as any);
+
+      const emptySong: Song = {
+        id: "empty-song-id",
+        title: "ไม่มีเนื้อ",
+        artist: "ไม่มีศิลปิน",
+        aliases: [],
+        audioUrl: "https://example.com/audio.mp3",
+      };
+
+      vi.spyOn(SongService, "getRandomSongs").mockResolvedValue([emptySong]);
+      const updateRoomStatusSpy = vi.spyOn(RoomService, "updateRoomStatus").mockResolvedValue({} as any);
+      vi.spyOn(RealtimeBroadcastService, "broadcast").mockResolvedValue(undefined as any);
+
+      const req = new NextRequest(`http://localhost:3000/api/room/${roomCode}/next-round`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken: hostToken }),
+      });
+
+      const response = await nextRoundHandler(req, {
+        params: Promise.resolve({ code: roomCode }),
+      });
+
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.gameOver).toBe(true);
+      expect(data.reason).toBe("no_more_songs");
+      expect(data.message).toBe("เล่นครบทุกเพลงที่มีเนื้อเพลงในคลังแล้ว (รวม 3 ข้อ)");
+      expect(updateRoomStatusSpy).toHaveBeenCalledWith(roomCode, "game_over");
     });
   });
 });

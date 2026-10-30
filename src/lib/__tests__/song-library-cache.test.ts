@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   loadPublicSongLibrary,
   getCachedSongLibrary,
+  invalidateSongLibraryCache,
   _resetSongLibraryCacheForTesting,
 } from "@/lib/services/song-library-cache";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
@@ -144,5 +145,79 @@ describe("song-library-cache", () => {
     const songs = await loadPublicSongLibrary();
     expect(songs).toEqual(mockSongs);
     expect(getCachedSongLibrary()).toEqual(mockSongs);
+  });
+
+  it("works for small libraries with 1 or 2 songs without falling back to DEMO_SONGS", async () => {
+    const singleSong = [{ id: "song-khern", title: "เขิน", artist: "GLISS" }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, songs: singleSong }),
+    });
+    globalThis.fetch = fetchMock as any;
+
+    const songs = await loadPublicSongLibrary();
+    expect(songs).toEqual(singleSong);
+    expect(songs).toHaveLength(1);
+    expect(songs[0].title).toBe("เขิน");
+    expect(getCachedSongLibrary()).toEqual(singleSong);
+
+    // Second call should serve from cache without re-fetching
+    const cached = await loadPublicSongLibrary();
+    expect(cached).toEqual(singleSong);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("bypasses in-memory cache and performs fresh fetch when forceRefresh is true", async () => {
+    const initialSongs = [{ id: "1", title: "Song 1", artist: "Artist 1" }];
+    const updatedSongs = [
+      { id: "1", title: "Song 1", artist: "Artist 1" },
+      { id: "2", title: "Song 2", artist: "Artist 2" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, songs: initialSongs }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, songs: updatedSongs }),
+      });
+    globalThis.fetch = fetchMock as any;
+
+    const res1 = await loadPublicSongLibrary();
+    expect(res1).toEqual(initialSongs);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Regular call uses cache
+    const resCached = await loadPublicSongLibrary();
+    expect(resCached).toEqual(initialSongs);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // forceRefresh: true triggers fresh network fetch
+    const resRefreshed = await loadPublicSongLibrary({ forceRefresh: true });
+    expect(resRefreshed).toEqual(updatedSongs);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(getCachedSongLibrary()).toEqual(updatedSongs);
+  });
+
+  it("clears cache completely when invalidateSongLibraryCache is called", async () => {
+    const initialSongs = [{ id: "1", title: "Song 1", artist: "Artist 1" }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, songs: initialSongs }),
+    });
+    globalThis.fetch = fetchMock as any;
+
+    await loadPublicSongLibrary();
+    expect(getCachedSongLibrary()).toEqual(initialSongs);
+
+    invalidateSongLibraryCache();
+    expect(getCachedSongLibrary()).toBeNull();
+
+    // Calling again will re-fetch
+    await loadPublicSongLibrary();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
