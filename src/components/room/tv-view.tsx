@@ -23,6 +23,7 @@ import {
   Users,
   QrCode,
   Radio,
+  Bot,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -558,22 +559,33 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                 </div>
               )}
 
-              {/* AI Lyrics Mode / Translated Lyrics Mode: Show speech prompt */}
-              {(gameMode === "ai-lyrics" || gameMode === "translated-lyrics") && activeQuestion?.lyrics && (
+              {/* Translated Lyrics Mode: Show English text */}
+              {gameMode === "translated-lyrics" && activeQuestion?.lyrics && (
                 <div className="w-full max-w-2xl mb-6 p-6 rounded-3xl bg-stone-950/90 border border-amber-500/40 shadow-xl">
                   <div className="flex items-center justify-center gap-2 text-amber-300 text-sm font-bold uppercase tracking-wider mb-2">
                     <Radio className="w-4 h-4 animate-pulse" />
-                    <span>
-                      {gameMode === "translated-lyrics"
-                        ? "Google Translate Karaoke (ภาษาอังกฤษ)..."
-                        : "AI กำลังอ่านเนื้อเพลง..."}
-                    </span>
+                    <span>Google Translate Karaoke (ภาษาอังกฤษ)...</span>
                   </div>
                   <div className="max-h-[200px] sm:max-h-[260px] overflow-y-auto custom-scrollbar px-1">
                     <blockquote className="text-2xl sm:text-3xl font-extrabold text-white leading-relaxed italic whitespace-pre-line break-words">
                       &quot;{activeQuestion.lyrics}&quot;
                     </blockquote>
                   </div>
+                </div>
+              )}
+
+              {/* AI Lyrics Mode: Show robot animation (No lyrics text displayed) */}
+              {gameMode === "ai-lyrics" && (
+                <div className="w-full max-w-xl mb-6 p-8 rounded-3xl bg-stone-900/90 border border-amber-500/40 shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+                  <div className="w-20 h-20 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mb-4 text-amber-400">
+                    <Bot className="w-10 h-10 animate-bounce" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-white mb-2">
+                    🤖 AI กำลังอ่านเนื้อเพลง
+                  </div>
+                  <p className="text-sm text-stone-400 max-w-md">
+                    ตั้งใจฟังเสียง AI ผ่านลำโพง แล้วแย่งกันทายชื่อเพลง!
+                  </p>
                 </div>
               )}
 

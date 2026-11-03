@@ -801,19 +801,19 @@ export function HostSettingsModal({
                     }`}
                   >
                     <div className="font-semibold">🎵 ท่อนฮุก (Chorus)</div>
-                    <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงท่อนจำ คุ้นหูง่ายกว่า (หากไม่มีจะใช้ทั้งเพลง)</div>
+                    <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงท่อนจำ คุ้นหู ทายง่าย</div>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "full" }))}
+                    onClick={() => setDraft((prev) => ({ ...prev, lyricsType: "intro" }))}
                     className={`min-h-[44px] py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer text-sm font-medium ${
-                      draft.lyricsType === "full"
+                      draft.lyricsType === "intro"
                         ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
                         : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                     }`}
                   >
-                    <div className="font-semibold">📜 ทั้งเพลง (Full Song)</div>
-                    <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงเต็มทั้งเพลง ให้คำใบ้จุใจ</div>
+                    <div className="font-semibold">🎼 ท่อนเปิด (Intro)</div>
+                    <div className="text-[11px] text-stone-500 dark:text-stone-400">เนื้อเพลงท่อนขึ้นต้น ท้าทายเซียนเพลง</div>
                   </button>
                 </div>
               </div>

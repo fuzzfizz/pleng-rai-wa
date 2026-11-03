@@ -145,10 +145,12 @@ export interface RoomSettings {
   playlistId?: string | null; // custom playlist
   songFilter?: SongFilterConfig;
   // Room listing & access control
+  isSolo?: boolean;
   isPrivate?: boolean;
   password?: string;
   hostDisplayName?: string;
   hostAvatar?: string;
+  soloStats?: { correct: number; wrong: number };
   // Progressive hints (0 = none, 1 = genre, 2 = year, 3 = artist)
   revealedHintLevel?: number;
   // Live player count in room

@@ -26,6 +26,30 @@ export interface AmbientSynthController {
   setVolume: (volume: number, muted: boolean) => void;
 }
 
+// Global registry of active ambient synths as a fail-safe against orphaned AudioContext audio nodes
+const activeAmbientSynths = new Set<AmbientSynthController>();
+
+/**
+ * Immediately stops, ramps gain to 0, disconnects, and unregisters all active procedural ambient synths.
+ */
+export function stopAllAmbientSynths(): void {
+  for (const synth of Array.from(activeAmbientSynths)) {
+    try {
+      synth.stop();
+    } catch (e) {
+      console.warn("Failed to stop ambient synth:", e);
+    }
+  }
+  activeAmbientSynths.clear();
+}
+
+/**
+ * Returns current count of active procedural ambient synths (useful for verification/tests).
+ */
+export function getActiveAmbientSynthsCount(): number {
+  return activeAmbientSynths.size;
+}
+
 /**
  * Smoothly animates HTMLAudioElement volume between startVol and targetVol.
  */
@@ -125,6 +149,8 @@ export function createProceduralAmbientSynth(
 
     let chordStep = 0;
     let timerId: ReturnType<typeof setTimeout> | null = null;
+    const activeOscillators = new Set<AudioScheduledSourceNode>();
+    const activeNoteGains = new Set<GainNode>();
 
     const playChord = () => {
       if (!isPlaying) return;
@@ -135,6 +161,7 @@ export function createProceduralAmbientSynth(
       // When muted or volume is essentially zero, skip oscillator creation to guarantee silence and save CPU
       if (!currentMuted && currentVol > 0.001) {
         notes.forEach((freq, idx) => {
+          if (!isPlaying) return;
           const osc = ctx.createOscillator();
           osc.type = idx % 2 === 0 ? "sine" : "triangle";
           osc.frequency.setValueAtTime(freq, now);
@@ -148,30 +175,64 @@ export function createProceduralAmbientSynth(
           osc.connect(noteGain);
           noteGain.connect(filter);
 
+          activeOscillators.add(osc);
+          activeNoteGains.add(noteGain);
+
+          osc.onended = () => {
+            activeOscillators.delete(osc);
+            activeNoteGains.delete(noteGain);
+            try {
+              (osc as any).disconnect?.();
+              (noteGain as any).disconnect?.();
+            } catch {}
+          };
+
           osc.start(now);
           osc.stop(now + 3.3);
         });
       }
 
-      timerId = setTimeout(playChord, 2800);
+      if (isPlaying) {
+        timerId = setTimeout(playChord, 2800);
+      }
     };
 
     playChord();
 
-    return {
+    const controller: AmbientSynthController = {
       stop: () => {
         isPlaying = false;
-        if (timerId) clearTimeout(timerId);
+        if (timerId) {
+          clearTimeout(timerId);
+          timerId = null;
+        }
+        activeAmbientSynths.delete(controller);
+
+        for (const osc of activeOscillators) {
+          try {
+            osc.stop();
+            (osc as any).disconnect?.();
+          } catch {}
+        }
+        activeOscillators.clear();
+
+        for (const ng of activeNoteGains) {
+          try {
+            (ng as any).disconnect?.();
+          } catch {}
+        }
+        activeNoteGains.clear();
+
         try {
-          masterGain.gain.cancelScheduledValues(ctx.currentTime);
-          masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
-          masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-          setTimeout(() => {
-            try {
-              masterGain.disconnect();
-              filter.disconnect();
-            } catch {}
-          }, 700);
+          const now = ctx.currentTime;
+          masterGain.gain.cancelScheduledValues(now);
+          masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+          masterGain.gain.linearRampToValueAtTime(0, now + 0.05);
+        } catch {}
+
+        try {
+          masterGain.disconnect();
+          filter.disconnect();
         } catch {}
       },
       setVolume: (volume: number, muted: boolean) => {
@@ -186,6 +247,9 @@ export function createProceduralAmbientSynth(
         } catch {}
       },
     };
+
+    activeAmbientSynths.add(controller);
+    return controller;
   } catch {
     return null;
   }
@@ -557,6 +621,7 @@ export function ThreeVinylCanvas({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fadeAnimRef = useRef<number | null>(null);
   const synthRef = useRef<AmbientSynthController | null>(null);
+  const isMountedRef = useRef<boolean>(true);
 
   // Sync with master volume in real-time across both HTMLAudio and procedural synth fallback
   useEffect(() => {
@@ -606,6 +671,8 @@ export function ThreeVinylCanvas({
     prevPlayingRef.current = activePlaying;
 
     if (activePlaying) {
+      if (!isMountedRef.current) return;
+
       // 1. Play turntable start mechanical needle drop sound effect
       soundEffects.turntableStart();
 
@@ -614,10 +681,13 @@ export function ThreeVinylCanvas({
         synthRef.current.stop();
         synthRef.current = null;
       }
+      stopAllAmbientSynths();
 
       // 2. Offline fallback check
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
+        if (isMountedRef.current && isPlayingRef.current) {
+          synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
+        }
         return;
       }
 
@@ -630,26 +700,42 @@ export function ThreeVinylCanvas({
         audioRef.current = audio;
 
         audio.addEventListener("error", () => {
-          if (audioRef.current && audioRef.current.src.includes("loficafe")) {
-            audioRef.current.src = FALLBACK_STREAM_URL;
-            audioRef.current.load();
-            audioRef.current.volume = getMasterVolume();
-            audioRef.current.muted = isMasterMuted();
-            const p = audioRef.current.play();
+          if (!isMountedRef.current || !isPlayingRef.current) return;
+          const currentAudio = audioRef.current;
+          if (!currentAudio) return;
+
+          if (currentAudio.src && currentAudio.src.includes("loficafe")) {
+            currentAudio.src = FALLBACK_STREAM_URL;
+            currentAudio.load();
+            currentAudio.volume = getMasterVolume();
+            currentAudio.muted = isMasterMuted();
+            const p = currentAudio.play();
             if (p !== undefined) {
               p.then(() => {
+                if (!isMountedRef.current || !isPlayingRef.current) {
+                  currentAudio.pause();
+                  return;
+                }
                 fadeAudioVolume(
-                  audioRef.current!,
+                  currentAudio,
                   0,
                   getMasterVolume(),
                   FADE_IN_DURATION_MS,
                   fadeAnimRef
                 );
-              }).catch(() => {
+              }).catch((err: any) => {
+                if (
+                  !isMountedRef.current ||
+                  !isPlayingRef.current ||
+                  err?.name === "AbortError"
+                ) {
+                  return;
+                }
                 synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
               });
             }
           } else {
+            if (!isMountedRef.current || !isPlayingRef.current) return;
             synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
           }
         });
@@ -666,6 +752,10 @@ export function ThreeVinylCanvas({
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
+            if (!isMountedRef.current || !isPlayingRef.current) {
+              audio?.pause();
+              return;
+            }
             fadeAudioVolume(
               audio!,
               0,
@@ -674,24 +764,43 @@ export function ThreeVinylCanvas({
               fadeAnimRef
             );
           })
-          .catch((err) => {
+          .catch((err: any) => {
+            if (
+              !isMountedRef.current ||
+              !isPlayingRef.current ||
+              err?.name === "AbortError"
+            ) {
+              return;
+            }
             console.warn("Primary stream play failed, trying fallback:", err);
-            if (audio) {
-              audio.src = FALLBACK_STREAM_URL;
-              audio.load();
-              audio.volume = getMasterVolume();
-              audio.muted = isMasterMuted();
-              const p2 = audio.play();
+            const currentAudio = audioRef.current;
+            if (currentAudio && isMountedRef.current && isPlayingRef.current) {
+              currentAudio.src = FALLBACK_STREAM_URL;
+              currentAudio.load();
+              currentAudio.volume = getMasterVolume();
+              currentAudio.muted = isMasterMuted();
+              const p2 = currentAudio.play();
               if (p2 !== undefined) {
                 p2.then(() => {
+                  if (!isMountedRef.current || !isPlayingRef.current) {
+                    currentAudio.pause();
+                    return;
+                  }
                   fadeAudioVolume(
-                    audio!,
+                    currentAudio,
                     0,
                     getMasterVolume(),
                     FADE_IN_DURATION_MS,
                     fadeAnimRef
                   );
-                }).catch(() => {
+                }).catch((fallbackErr: any) => {
+                  if (
+                    !isMountedRef.current ||
+                    !isPlayingRef.current ||
+                    fallbackErr?.name === "AbortError"
+                  ) {
+                    return;
+                  }
                   synthRef.current = createProceduralAmbientSynth(getMasterVolume(), isMasterMuted());
                 });
               }
@@ -707,6 +816,7 @@ export function ThreeVinylCanvas({
         synthRef.current.stop();
         synthRef.current = null;
       }
+      stopAllAmbientSynths();
 
       // 2. Smoothly fade audio volume down to 0 over ~0.6s and pause
       const audio = audioRef.current;
@@ -718,7 +828,9 @@ export function ThreeVinylCanvas({
           FADE_OUT_DURATION_MS,
           fadeAnimRef,
           () => {
-            audio.pause();
+            if (!isPlayingRef.current) {
+              audio.pause();
+            }
           }
         );
       }
@@ -727,21 +839,31 @@ export function ThreeVinylCanvas({
 
   // Comprehensive audio cleanup on component unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
+      isPlayingRef.current = false;
+
       if (fadeAnimRef.current !== null) {
         cancelAnimationFrame(fadeAnimRef.current);
         fadeAnimRef.current = null;
       }
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-        audioRef.current.load();
+        const audio = audioRef.current;
         audioRef.current = null;
+        try {
+          audio.pause();
+          audio.volume = 0;
+          audio.muted = true;
+          audio.removeAttribute("src");
+          audio.load();
+        } catch {}
       }
       if (synthRef.current) {
         synthRef.current.stop();
         synthRef.current = null;
       }
+      stopAllAmbientSynths();
     };
   }, []);
 
@@ -1479,6 +1601,7 @@ export function ThreeVinylCanvas({
     buttonPressYRef.current = 0.035;
 
     const willPlay = !activePlaying;
+    isPlayingRef.current = willPlay;
 
     if (onTogglePlay) {
       onTogglePlay();

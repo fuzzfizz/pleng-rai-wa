@@ -55,6 +55,7 @@ export interface LobbyViewProps {
  * e.g. "โหมด: แย่งกดกริ่ง • 10 ข้อ • 2.0 วินาที • ค้นหาชื่อเพลง"
  */
 export function formatSettingsSummary(settings: RoomSettings): string {
+  const soloPrefix = settings.isSolo ? "🎮 เล่นคนเดียว (Solo) • " : "";
   const modeLabel =
     settings.gameMode === "buzzer"
       ? "โหมด: แย่งกดกริ่ง"
@@ -96,7 +97,7 @@ export function formatSettingsSummary(settings: RoomSettings): string {
       ? " • ไม่จำกัดเวลา (รอตอบครบทุกคน)"
       : " • ไม่จำกัดเวลา (แย่งกันตอบ)";
 
-  return `${modeLabel} • ${roundsLabel} • ${detailLabel} • ${inputLabel}${resolutionLabel}`;
+  return `${soloPrefix}${modeLabel} • ${roundsLabel} • ${detailLabel} • ${inputLabel}${resolutionLabel}`;
 }
 
 export function LobbyView({
@@ -192,6 +193,10 @@ export function LobbyView({
   const allNonHostReady =
     nonHostPlayers.length > 0 && readyNonHostCount === nonHostPlayers.length;
   const hasOtherPlayers = nonHostPlayers.length > 0;
+  const isSolo = Boolean(settings?.isSolo);
+  const canStartGame = isSolo
+    ? !isStarting
+    : hasOtherPlayers && allNonHostReady && !isStarting;
 
   const settingsSummary = formatSettingsSummary(settings);
 
@@ -393,9 +398,9 @@ export function LobbyView({
             <>
               <button
                 onClick={handleStartGameClick}
-                disabled={!hasOtherPlayers || !allNonHostReady || isStarting}
+                disabled={!canStartGame}
                 className={`w-full min-h-[44px] py-4 lg:py-5 px-8 rounded-2xl font-bold text-lg lg:text-xl flex items-center justify-center gap-2.5 transition-all ${
-                  !hasOtherPlayers || !allNonHostReady
+                  !canStartGame
                     ? "bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed shadow-none"
                     : "bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-lg shadow-amber-500/30 ring-2 ring-amber-500/50 active:scale-[0.98] cursor-pointer"
                 }`}
@@ -408,12 +413,17 @@ export function LobbyView({
                 ) : (
                   <>
                     <Play className="w-5 h-5 fill-current" />
-                    <span>เริ่มเกม (Start Game)</span>
+                    <span>{isSolo ? "เริ่มเกมคนเดียว (Start Solo Game)" : "เริ่มเกม (Start Game)"}</span>
                   </>
                 )}
               </button>
 
-              {!hasOtherPlayers ? (
+              {isSolo ? (
+                <div className="flex items-center gap-1.5 text-xs lg:text-sm text-emerald-600 dark:text-emerald-400 text-center font-medium">
+                  <Check className="w-4 h-4 shrink-0" />
+                  <span>🎮 ห้องเล่นคนเดียว: คุณสามารถกดเริ่มเกมได้ทันที และปรับแต่งตั้งค่าเกมได้ตามต้องการ</span>
+                </div>
+              ) : !hasOtherPlayers ? (
                 <div className="flex items-center gap-1.5 text-xs lg:text-sm text-amber-700 dark:text-amber-300 text-center">
                   <Info className="w-4 h-4 shrink-0" />
                   <span>

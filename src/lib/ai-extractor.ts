@@ -340,6 +340,79 @@ export const KNOWN_THAI_SONGS: ExtractedSongMetadata[] = [
     youtubeSearchQuery: "เธอเป็นแฟนฉันแล้ว กะลา",
   },
   {
+    title: "เคลิ้ม",
+    artist: "Slot Machine",
+    aliases: [
+      "kloem",
+      "klerm",
+      "เคลิ้ม slot machine",
+      "slot machine เคลิ้ม",
+      "หัวใจดวงนี้ไม่หลาบจำ",
+      "เหมือนโดนซ้ำซ้ำแล้วสะใจ",
+    ],
+    releaseYear: 2013,
+    genreSlug: "rock",
+    era: "2010s",
+    hookStartSec: 54,
+    hookEndSec: 80,
+    lyricsIntro: "รู้ดีเธอน่ะใจร้าย แต่ก็ไม่วายจะยอมรับ\nก็รู้ดีเธอต้องผิดสัญญา แต่ก็รักเธอไม่รู้ทำไม",
+    lyricsChorus: "หัวใจดวงนี้ไม่หลาบจำ\nเหมือนโดนซ้ำซ้ำแล้วสะใจ\nหัวใจนี่มันงมงาย\nตักเตือนไม่ยอมฟังกัน",
+    lyricsFull: `เพลง: เคลิ้ม
+ศิลปิน: Slot Machine
+
+รู้ดีเธอน่ะใจร้าย แต่ก็ไม่วายจะยอมรับ
+ก็รู้ดีเธอต้องผิดสัญญา แต่ก็รักเธอไม่รู้ทำไม
+
+เพียง สบตาเธอ ใจดวงเดิม เคลิ้มลอยไป
+
+หัวใจดวงนี้ไม่หลาบจำ
+เหมือนโดนซ้ำซ้ำแล้วสะใจ
+หัวใจนี่มันงมงาย
+ตักเตือนไม่ยอมฟังกัน
+เหมือนโดนเท่านั้นยังไม่พอ
+ขอยอมเจ็บช้ำมันต่อไป
+หัวใจเจ้ากรรมนั้นไซร้
+เฝ้าคอยทำร้ายตัวเอง
+
+รู้ดีว่าต้องพอแล้ว
+แต่ก็ไม่เคยทำอย่างนั้น
+เหมือนตัวเราไม่เคยสำคัญ
+เจอเธอทุกทีก็หลงทางไป
+
+เพียง สบตาเธอ วันเวลา ย้อนคืนมา
+
+หัวใจดวงนี้ไม่หลาบจำ
+เหมือนโดนซ้ำซ้ำแล้วสะใจ
+หัวใจนี่มันงมงาย
+ตักเตือนไม่ยอมฟังกัน
+เหมือนโดนเท่านั้นยังไม่พอ
+ขอยอมเจ็บช้ำมันต่อไป
+หัวใจเจ้ากรรมนั้นไซร้
+เฝ้าคอยทำร้ายตัวเอง
+
+เพียง สบตาเธอ ใจดวงเดิม เคลิ้มลอยไป
+เพียง สบตากัน วันเวลา ย้อนคืนมา
+
+หัวใจดวงนี้ไม่หลาบจำ
+เหมือนโดนซ้ำซ้ำแล้วสะใจ
+หัวใจนี่มันงมงาย
+ตักเตือนไม่ยอมฟังกัน
+เหมือนโดนเท่านั้นยังไม่พอ
+ขอยอมเจ็บช้ำมันต่อไป
+หัวใจเจ้ากรรมนั้นไซร้
+เฝ้าคอยทำร้ายตัวเอง
+
+หัวใจดวงนี้ไม่หลาบจำ
+เหมือนโดนซ้ำซ้ำแล้วสะใจ
+หัวใจนี่มันงมงาย
+ตักเตือนไม่ยอมฟังกัน
+เหมือนโดนเท่านั้นยังไม่พอ
+ขอยอมเจ็บช้ำมันต่อไป
+หัวใจเจ้ากรรมนั้นไซร้
+เฝ้าคอยทำร้ายตัวเอง`,
+    youtubeSearchQuery: "เคลิ้ม Slot Machine",
+  },
+  {
     title: "ทรงอย่างแบด",
     artist: "Paper Planes",
     aliases: ["song yang bad", "bad boy", "paper planes ทรงอย่างแบด", "ทรงอย่างแบดแซดอย่างบ่อย"],
@@ -514,6 +587,7 @@ export async function heuristicExtractSongMetadata(
     "cocktail",
     "tilly birds",
     "three man down",
+    "slot machine",
   ];
   const isOnlyArtist = KNOWN_ARTISTS.some(
     (a) =>
@@ -849,6 +923,18 @@ export function extractHookTimestampFromSyncedLyrics(
 }
 
 /**
+ * Strips markdown codeblock backticks if Gemini wraps JSON output in ```json ... ```
+ */
+export function cleanJsonResponse(raw: string): string {
+  if (!raw) return "";
+  let cleaned = raw.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  }
+  return cleaned.trim();
+}
+
+/**
  * Builds the system prompt for Gemini song metadata extraction
  */
 function buildExtractionPrompt(
@@ -868,15 +954,24 @@ INSTRUCTIONS FOR EXTRACTING LYRICS:
 1. Extract verbatim 2-4 lines of intro (opening lines) from the text above for lyricsIntro.
 2. Extract verbatim 2-4 lines of the main chorus/hook from the text above for lyricsChorus.
 3. DO NOT alter, paraphrase, or invent words. Use exact lines from the provided ground truth text.
-4. Set lyricsConfidence = "verified".`;
+4. Set lyricsConfidence = "verified".
+5. Set lyricsFull to the complete lyrics text above.`;
   } else {
     lyricsInstructions = `
-🚨 ZERO-TOLERANCE ANTI-HALLUCINATION RULES FOR LYRICS:
-- No verified lyrics text is available for this song.
-- You MUST output empty string "" for both lyricsIntro and lyricsChorus.
-- Set lyricsConfidence = "not_found".
-- NEVER make up, invent, or compose rhyming lyrics (e.g. inventing 'ฝากกล่องดวงใจเอาไว้กับฉันก่อนไหมพี่ / เบอร์โทรอื่น มีอีกเป็นร้อยเป็นพันนาที').
-- If real verbatim lyrics cannot be verified from a provided text, lyrics MUST remain empty string "".`;
+🔍 SEARCH GROUNDING & ANTI-HALLUCINATION VERIFICATION RULES FOR LYRICS:
+- Use the Google Search tool to search for and verify authentic Thai song lyrics from reputable music portals (e.g. Siamzone, Sanook, Genius, TrueID Music, or official record labels).
+- Cross-reference search results to verify the EXACT original Thai spelling, phrasing, and verses verbatim.
+- STRICTLY FORBIDDEN: Phonetic hallucinations, misheard lyrics (mondegreens), or inventing words that merely sound phonetically similar (e.g. singing "เหมือนเดิมซ้ำ ๆ แล้วสะใจ" instead of "เหมือนโดนซ้ำซ้ำแล้วสะใจ", or fabricating rhyming phrases).
+- If authentic lyrics ARE verified from reliable web search sources:
+  * Extract verbatim 2-4 lines of intro (opening lines) for lyricsIntro.
+  * Extract verbatim 2-4 lines of the iconic chorus/hook for lyricsChorus.
+  * Include the full verbatim lyrics in lyricsFull.
+  * Set lyricsConfidence = "verified".
+- If authentic lyrics CANNOT be verified with certainty from trusted web search sources:
+  * You MUST output empty string "" for both lyricsIntro and lyricsChorus.
+  * Leave lyricsFull as empty string "".
+  * Set lyricsConfidence = "not_found".
+  * NEVER compose, guess, or invent lyrics under any circumstances.`;
   }
 
   return `You are a strict, factual Thai music database curator for the web quiz game "เพลงไรวะ" (Pleng-Rai-Wa).
@@ -909,7 +1004,7 @@ Output MUST be valid JSON adhering strictly to the schema.`;
 }
 
 /**
- * Calls Gemini using the official @google/genai SDK with resilient model fallback
+ * Calls Gemini using the official @google/genai SDK with Google Search Grounding and resilient model fallback
  */
 async function callGeminiSdk(
   prompt: string,
@@ -928,6 +1023,7 @@ async function callGeminiSdk(
         model,
         contents: prompt,
         config: {
+          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: SONG_METADATA_GEMINI_SCHEMA,
           temperature: 0.1,
@@ -940,6 +1036,31 @@ async function callGeminiSdk(
       }
     } catch (err: any) {
       lastError = err;
+
+      // If responseSchema + googleSearch tool causes an incompatibility error, retry with tools and JSON mime type
+      if (
+        err?.message?.includes("schema") ||
+        err?.message?.includes("tool") ||
+        err?.status === 400
+      ) {
+        try {
+          const fallbackRes = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              tools: [{ googleSearch: {} }],
+              responseMimeType: "application/json",
+              temperature: 0.1,
+            },
+          });
+          if (fallbackRes.text) {
+            return fallbackRes.text;
+          }
+        } catch {
+          // Continue to quota/status checks
+        }
+      }
+
       if (
         err?.status === 429 ||
         err?.status === 503 ||
@@ -957,7 +1078,7 @@ async function callGeminiSdk(
 }
 
 /**
- * REST fallback to Google Generative Language API
+ * REST fallback to Google Generative Language API with Google Search Grounding
  */
 async function callGeminiRest(
   prompt: string,
@@ -971,6 +1092,7 @@ async function callGeminiRest(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ googleSearch: {} }],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: SONG_METADATA_GEMINI_SCHEMA,
@@ -980,6 +1102,26 @@ async function callGeminiRest(
   });
 
   if (!res.ok) {
+    // If responseSchema causes conflict with tools in REST, retry with tools and JSON responseMimeType
+    const retryRes = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ googleSearch: {} }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.1,
+        },
+      }),
+    });
+
+    if (retryRes.ok) {
+      const retryData = await retryRes.json();
+      const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (retryText) return retryText;
+    }
+
     const errorText = await res.text();
     throw new Error(`Gemini REST API failed with status ${res.status}: ${errorText}`);
   }
@@ -1030,17 +1172,24 @@ function sanitizeExtractedMetadata(
     };
   }
 
-  // ZERO-TOLERANCE ANTI-HALLUCINATION GUARDRAIL:
-  // If no authentic lyrics ground truth was provided, the LLM cannot be trusted to self-report "verified" lyrics.
-  // We strictly wipe lyrics to empty strings unless grounded by authentic text or curated database.
-  const isLyricsAuthentic = Boolean(verifiedLyrics && verifiedLyrics.trim().length > 30);
+  // ANTI-HALLUCINATION GUARDRAIL:
+  // Lyrics are authentic if provided by LRCLIB ground truth OR verified via Google Search grounding
+  const hasGroundTruth = Boolean(verifiedLyrics && verifiedLyrics.trim().length > 30);
+  const isLyricsAuthentic =
+    hasGroundTruth ||
+    (parsed.lyricsConfidence === "verified" &&
+      Boolean(
+        (typeof parsed.lyricsChorus === "string" && parsed.lyricsChorus.trim().length > 0) ||
+        (typeof parsed.lyricsFull === "string" && parsed.lyricsFull.trim().length > 0)
+      ));
+
   const lyricsConfidence =
     songFound && isLyricsAuthentic && parsed.lyricsConfidence === "verified"
       ? "verified"
       : "not_found";
 
-  // When LRCLIB returns plainLyrics, store plainLyrics.trim() into lyricsFull!
-  const plainLyricsFromLrclib = isLyricsAuthentic && verifiedLyrics ? verifiedLyrics.trim() : undefined;
+  // When LRCLIB returns plainLyrics, store plainLyrics.trim() into lyricsFull; otherwise use parsed.lyricsFull if verified
+  const plainLyricsFromLrclib = hasGroundTruth && verifiedLyrics ? verifiedLyrics.trim() : undefined;
   const parsedLyricsFull =
     typeof parsed.lyricsFull === "string" && parsed.lyricsFull.trim().length > 0
       ? parsed.lyricsFull.trim()
@@ -1188,7 +1337,7 @@ export async function extractSongMetadata(
   // 5. Try official @google/genai SDK
   try {
     const rawJsonText = await callGeminiSdk(prompt, apiKey!, modelName);
-    const parsed = JSON.parse(rawJsonText);
+    const parsed = JSON.parse(cleanJsonResponse(rawJsonText));
     return sanitizeExtractedMetadata(parsed, queryOrUrl, verifiedLyricsText, syncedLyricsText);
   } catch (sdkError) {
     console.warn("[ai-extractor] Google GenAI SDK failed, attempting REST fallback:", sdkError);
@@ -1196,7 +1345,7 @@ export async function extractSongMetadata(
     // 6. Try REST fallback
     try {
       const restJsonText = await callGeminiRest(prompt, apiKey!, modelName);
-      const parsed = JSON.parse(restJsonText);
+      const parsed = JSON.parse(cleanJsonResponse(restJsonText));
       return sanitizeExtractedMetadata(parsed, queryOrUrl, verifiedLyricsText, syncedLyricsText);
     } catch (restError) {
       console.warn("[ai-extractor] Gemini REST fallback failed, using heuristic parser:", restError);
@@ -1217,17 +1366,18 @@ User Request: "${prompt}"
 
 🚨 STRICT FACTUAL GUARDRAILS & ACCURACY RULES:
 1. ONLY return REAL, OFFICIAL song tracks released by this artist/band. Under NO circumstances should you fabricate, hallucinate, or make up fake song names!
-2. If an album or EP is specified (e.g. "Bodyslam อัลบั้ม Drive", "Mint Silly Fools"):
+2. Use Google Search grounding to cross-reference tracklists, release years, and lyrics with reputable music sources (e.g. Siamzone, Sanook, Genius, official label discographies).
+3. If an album or EP is specified (e.g. "Bodyslam อัลบั้ม Drive", "Mint Silly Fools"):
    - Extract the real tracklist of that album in canonical order.
-3. If a number of hits is requested (e.g. "Bodyslam 20 เพลงฮิต", "Potato 10 เพลงดัง"):
+4. If a number of hits is requested (e.g. "Bodyslam 20 เพลงฮิต", "Potato 10 เพลงดัง"):
    - Provide the requested number of iconic, well-known hit songs.
-4. If no album or count is specified:
+5. If no album or count is specified:
    - Provide the top 10-15 most famous songs of the artist.
-5. NEVER fabricate or compose rhyming lyrics! If you know the exact verbatim opening or chorus hook lyrics, provide them. If not 100% certain, return empty string "".
-6. Valid genreSlug MUST be one of: 'rock', 'pop', 'indie', '90s', 't-pop', 'country-thai', 'life'.
-7. Valid era MUST be one of: '80s', '90s', '2000s', '2010s', '2020s'.
-8. hookStartSec and hookEndSec must be realistic chorus start/end times in seconds (e.g. 50-80s).
-9. youtubeSearchQuery should be formatted cleanly as: "[Song Title] [Artist Name]".
+6. ZERO TOLERANCE for phonetic hallucinations or fabricated lyrics! Cross-verify authentic lyrics using web search. If exact verbatim opening or chorus hook lyrics are verified, provide them. If not 100% certain, return empty string "".
+7. Valid genreSlug MUST be one of: 'rock', 'pop', 'indie', '90s', 't-pop', 'country-thai', 'life'.
+8. Valid era MUST be one of: '80s', '90s', '2000s', '2010s', '2020s'.
+9. hookStartSec and hookEndSec must be realistic chorus start/end times in seconds (e.g. 50-80s).
+10. youtubeSearchQuery should be formatted cleanly as: "[Song Title] [Artist Name]".
 
 Output MUST strictly follow the JSON schema.`;
 }
@@ -1238,21 +1388,48 @@ async function callBatchGeminiSdk(
   modelName: string
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: BATCH_DISCOGRAPHY_GEMINI_SCHEMA,
-      temperature: 0.2,
-    },
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: BATCH_DISCOGRAPHY_GEMINI_SCHEMA,
+        temperature: 0.2,
+      },
+    });
 
-  const text = response.text;
-  if (!text) {
-    throw new Error("Gemini SDK returned empty response text for batch discography");
+    const text = response.text;
+    if (!text) {
+      throw new Error("Gemini SDK returned empty response text for batch discography");
+    }
+    return text;
+  } catch (err: any) {
+    if (
+      err?.message?.includes("schema") ||
+      err?.message?.includes("tool") ||
+      err?.status === 400
+    ) {
+      try {
+        const fallbackRes = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            temperature: 0.2,
+          },
+        });
+        if (fallbackRes.text) {
+          return fallbackRes.text;
+        }
+      } catch {
+        // Continue to throw original error
+      }
+    }
+    throw err;
   }
-  return text;
 }
 
 async function callBatchGeminiRest(
@@ -1267,6 +1444,7 @@ async function callBatchGeminiRest(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ googleSearch: {} }],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: BATCH_DISCOGRAPHY_GEMINI_SCHEMA,
@@ -1276,6 +1454,24 @@ async function callBatchGeminiRest(
   });
 
   if (!res.ok) {
+    const retryRes = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ googleSearch: {} }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.2,
+        },
+      }),
+    });
+    if (retryRes.ok) {
+      const retryData = await retryRes.json();
+      const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (retryText) return retryText;
+    }
+
     const errorText = await res.text();
     throw new Error(`Gemini REST API failed with status ${res.status}: ${errorText}`);
   }
@@ -1349,7 +1545,7 @@ export async function extractBatchDiscography(
   }
 
   try {
-    const parsed = JSON.parse(rawJson);
+    const parsed = JSON.parse(cleanJsonResponse(rawJson));
     const artist = typeof parsed.artist === "string" ? parsed.artist.trim() : userPrompt.trim();
     const albumOrCollection =
       typeof parsed.albumOrCollection === "string" ? parsed.albumOrCollection.trim() : undefined;

@@ -50,6 +50,7 @@ import { PlaylistService } from "@/lib/services/playlist-service";
 import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { SongSourceModal, getSongFilterLabel } from "@/components/common/song-source-modal";
+import { SettingsMenu } from "@/components/common/settings-menu";
 import {
   formatTime,
   getInitialHookPosition,
@@ -780,7 +781,8 @@ function SoloPlayContent() {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <SettingsMenu />
           <button
             type="button"
             onClick={toggleMute}
@@ -1085,7 +1087,7 @@ function SoloPlayContent() {
                 </p>
               </div>
 
-              {/* Lyrics Type Switch: Chorus vs Full Song */}
+              {/* Lyrics Type Switch: Chorus vs Intro */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1100,14 +1102,14 @@ function SoloPlayContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLyricsType("full")}
+                  onClick={() => setLyricsType("intro")}
                   className={`min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center touch-manipulation ${
-                    lyricsType === "full"
+                    lyricsType === "intro"
                       ? "bg-amber-500 text-stone-950 shadow-sm"
                       : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
                   }`}
                 >
-                  📜 ทั้งเพลง (Full Song)
+                  🎼 ท่อนเปิด (Intro)
                 </button>
               </div>
 

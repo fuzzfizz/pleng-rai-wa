@@ -25,6 +25,7 @@ const ThreeVinylCanvas = dynamic(
 );
 import {
   Users,
+  User,
   Play,
   Volume2,
   Bell,
@@ -77,6 +78,7 @@ export default function HomePage() {
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [roomPassword, setRoomPassword] = useState("");
   const [isPrivateRoom, setIsPrivateRoom] = useState(false);
+  const [isSoloRoom, setIsSoloRoom] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -157,9 +159,10 @@ export default function HomePage() {
           hostDisplayName: finalNickname,
           hostAvatar: finalAvatar,
           settings: {
-            maxPlayers,
-            password: roomPassword.trim() || undefined,
-            isPrivate: isPrivateRoom,
+            maxPlayers: isSoloRoom ? 1 : maxPlayers,
+            password: isSoloRoom ? undefined : roomPassword.trim() || undefined,
+            isPrivate: isSoloRoom ? true : isPrivateRoom,
+            isSolo: isSoloRoom,
           },
         }),
       });
@@ -242,6 +245,7 @@ export default function HomePage() {
                     if (profile?.avatar) {
                       setHostAvatar(profile.avatar);
                     }
+                    setIsSoloRoom(false);
                     setIsCreateModalOpen(true);
                   }}
                   className="w-full flex items-center justify-center gap-2 py-3.5 lg:py-4 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-base lg:text-lg shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer"
@@ -298,13 +302,24 @@ export default function HomePage() {
                   </div>
                 )}
 
-                <Link
-                  href="/play/solo"
-                  className="mt-1 w-full py-2.5 lg:py-3 text-xs lg:text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateError(null);
+                    if (!hostNickname && profile?.displayName) {
+                      setHostNickname(profile.displayName);
+                    }
+                    if (profile?.avatar) {
+                      setHostAvatar(profile.avatar);
+                    }
+                    setIsSoloRoom(true);
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="mt-1 w-full py-2.5 lg:py-3 text-xs lg:text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800/50 cursor-pointer"
                 >
-                  <Play className="w-3.5 h-3.5" />
-                  <span>เล่นคนเดียว</span>
-                </Link>
+                  <User className="w-3.5 h-3.5" />
+                  <span>เล่นคนเดียว (Solo Room)</span>
+                </button>
               </div>
             </div>
           </div>
@@ -398,14 +413,46 @@ export default function HomePage() {
             {/* Modal Title */}
             <div className="text-center mb-5">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3 shadow-sm">
-                <Users className="w-6 h-6" />
+                {isSoloRoom ? <User className="w-6 h-6" /> : <Users className="w-6 h-6" />}
               </div>
-              <h3 className="text-2xl font-black text-stone-900 dark:text-white">สร้างห้องเล่นกับเพื่อน</h3>
+              <h3 className="text-2xl font-black text-stone-900 dark:text-white">
+                {isSoloRoom ? "สร้างห้องเล่นคนเดียว" : "สร้างห้องเล่นกับเพื่อน"}
+              </h3>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                {profile?.displayName
+                {isSoloRoom
+                  ? "ฝึกทายเพลงคนเดียว พร้อมบันทึกสถิติข้อที่ทายถูกและผิด"
+                  : profile?.displayName
                   ? "สร้างห้องและตั้งค่าการแข่งขันในฐานะหัวหน้าห้อง (Host)"
                   : "ตั้งชื่อเล่นของคุณเพื่อรับบทเป็นหัวหน้าห้อง (Host)"}
               </p>
+            </div>
+
+            {/* Room Type Switcher (Party vs Solo) */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-stone-100 dark:bg-stone-950/70 rounded-2xl mb-5">
+              <button
+                type="button"
+                onClick={() => setIsSoloRoom(false)}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  !isSoloRoom
+                    ? "bg-white dark:bg-stone-800 text-stone-900 dark:text-white shadow-sm"
+                    : "text-stone-500 hover:text-stone-900 dark:hover:text-stone-300"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>เล่นหลายคน (Party)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSoloRoom(true)}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  isSoloRoom
+                    ? "bg-white dark:bg-stone-800 text-stone-900 dark:text-white shadow-sm"
+                    : "text-stone-500 hover:text-stone-900 dark:hover:text-stone-300"
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>เล่นคนเดียว (Solo)</span>
+              </button>
             </div>
 
             {/* Authenticated Host Identity Card OR Guest Avatar & Nickname Selection */}
@@ -479,7 +526,21 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Max Players Selector */}
+              {isSoloRoom ? (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-3">
+                  <User className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-xs text-stone-600 dark:text-stone-300 space-y-1">
+                    <strong className="text-stone-900 dark:text-white block font-bold">
+                      โหมดเล่นคนเดียว (Solo Room)
+                    </strong>
+                    <p>
+                      คุณสามารถเริ่มเล่นและตั้งค่าเกมได้ทันทีโดยไม่ต้องรอผู้เล่นอื่น ระบบจะนับสถิติจำนวนข้อที่ทายถูกและทายผิด พร้อมสรุปความแม่นยำให้เมื่อจบเกม
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Max Players Selector */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
@@ -545,6 +606,8 @@ export default function HomePage() {
                   ห้องส่วนตัว (ไม่แสดงในตารางห้องสาธารณะบนหน้าแรก)
                 </label>
               </div>
+                </>
+              )}
 
               {createError && (
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
@@ -574,7 +637,7 @@ export default function HomePage() {
                     </>
                   ) : (
                     <>
-                      <span>สร้างห้องเลย!</span>
+                      <span>{isSoloRoom ? "สร้างห้องเล่นคนเดียว" : "สร้างห้องเลย!"}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}

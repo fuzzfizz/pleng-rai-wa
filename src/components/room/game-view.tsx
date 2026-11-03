@@ -17,6 +17,7 @@ import {
   Sparkles,
   Zap,
   Radio,
+  Bot,
   Search,
   Send,
   Loader2,
@@ -523,6 +524,60 @@ export function GameView({
   const hadMultiplePlayersRef = useRef<boolean>(false);
   const isSkipping = isSurrendering;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isAITalking, setIsAITalking] = useState(false);
+
+  // Solo mode score and accuracy tracking
+  const isSolo = Boolean(roomRealtime.room?.settings?.isSolo);
+  const [soloCorrect, setSoloCorrect] = useState(0);
+  const [soloWrong, setSoloWrong] = useState(0);
+  const recordedRoundsRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!isSolo) return;
+    if (status === "revealing" && !recordedRoundsRef.current.has(currentRound)) {
+      recordedRoundsRef.current.add(currentRound);
+      const isWinner = roundWinner?.playerId === myPlayer?.id || playerAttemptResult === "correct";
+      if (isWinner) {
+        setSoloCorrect((prev) => prev + 1);
+      } else {
+        setSoloWrong((prev) => prev + 1);
+      }
+    } else if (status === "lobby") {
+      recordedRoundsRef.current.clear();
+      setSoloCorrect(0);
+      setSoloWrong(0);
+    }
+  }, [status, currentRound, isSolo, myPlayer?.id, playerAttemptResult, roundWinner?.playerId]);
+
+  useEffect(() => {
+    if (!isSolo) return;
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem(
+          "pleng_solo_stats",
+          JSON.stringify({ correct: soloCorrect, wrong: soloWrong })
+        );
+      } catch {}
+    }
+  }, [isSolo, soloCorrect, soloWrong]);
+
+  const handleReplayAILyrics = useCallback(() => {
+    if (!activeQuestion?.lyrics) return;
+    if (isAITalking) {
+      ttsReader.stopSpeaking();
+      setIsAITalking(false);
+    } else {
+      setIsAITalking(true);
+      ttsReader.speakLyrics(activeQuestion.lyrics, {
+        gender: roomRealtime.room?.settings?.voiceGender,
+        lang: "th-TH",
+        volume: getMasterVolume(),
+        onStart: () => setIsAITalking(true),
+        onEnd: () => setIsAITalking(false),
+        onError: () => setIsAITalking(false),
+      });
+    }
+  }, [activeQuestion?.lyrics, isAITalking, roomRealtime.room?.settings?.voiceGender]);
 
   // Issue 4 (Option 4A): Single-player auto-abort when remaining players <= 1
   const activeHumanPlayers = players.filter(
@@ -536,6 +591,9 @@ export function GameView({
   }, [activeHumanPlayers.length]);
 
   useEffect(() => {
+    // Never abort if this is a solo room!
+    if (roomRealtime.room?.settings?.isSolo) return;
+
     const isGameActive =
       status === "question_active" || status === "buzzed" || status === "revealing";
 
@@ -743,13 +801,18 @@ export function GameView({
     // Mode: AI Lyrics (speaks Thai via TTS)
     if (gameMode === "ai-lyrics") {
       if (status === "question_active" && activeQuestion?.lyrics && !isMasterMuted() && getMasterVolume() > 0) {
+        setIsAITalking(true);
         ttsReader.speakLyrics(activeQuestion.lyrics, {
           gender: roomRealtime.room?.settings?.voiceGender,
           lang: "th-TH",
           volume: getMasterVolume(),
+          onStart: () => setIsAITalking(true),
+          onEnd: () => setIsAITalking(false),
+          onError: () => setIsAITalking(false),
         });
       } else {
         ttsReader.stopSpeaking();
+        setIsAITalking(false);
       }
       return;
     }
@@ -1079,8 +1142,22 @@ export function GameView({
             </span>
           </div>
 
-          {/* Quick Player Scores Ribbon */}
-          {status === "revealing" && isLastRound ? (
+          {/* Quick Player Scores Ribbon / Solo Stats Counter */}
+          {isSolo ? (
+            <div className="flex items-center gap-2 px-3 py-1 lg:px-4 lg:py-1.5 rounded-full bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs text-xs sm:text-sm font-semibold">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓ ถูก: {soloCorrect}</span>
+              <span className="text-stone-300 dark:text-stone-700">|</span>
+              <span className="text-rose-600 dark:text-rose-400 font-bold">✗ ผิด: {soloWrong}</span>
+              {soloCorrect + soloWrong > 0 && (
+                <>
+                  <span className="text-stone-300 dark:text-stone-700">|</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-mono font-bold">
+                    {Math.round((soloCorrect / (soloCorrect + soloWrong)) * 100)}%
+                  </span>
+                </>
+              )}
+            </div>
+          ) : status === "revealing" && isLastRound ? (
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs font-bold">
               <span>🏁 ลุ้นคะแนนสรุปบนแท่นรับรางวัล!</span>
             </div>
@@ -1190,21 +1267,69 @@ export function GameView({
           <div className="w-full flex flex-col items-center justify-center gap-4">
             {/* Audio Wave / Lyrics Reading Visualization */}
             <div className="flex flex-col items-center gap-2 my-2 text-center">
-              {gameMode === "ai-lyrics" || gameMode === "translated-lyrics" ? (
+              {gameMode === "translated-lyrics" ? (
                 <div className="max-w-lg lg:max-w-2xl p-4 lg:p-6 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-amber-500/40 shadow-lg text-amber-800 dark:text-amber-200">
                   <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
                     <Radio className="w-4 h-4 animate-pulse text-amber-500" />
-                    <span>
-                      {gameMode === "translated-lyrics"
-                        ? "🌐 Google Translate Karaoke (เนื้อเพลงแปลอังกฤษ)"
-                        : "AI กำลังอ่านท่อนเนื้อเพลง"}
-                    </span>
+                    <span>🌐 Google Translate Karaoke (เนื้อเพลงแปลอังกฤษ)</span>
                   </div>
                   <div className="max-h-[200px] sm:max-h-[260px] overflow-y-auto custom-scrollbar px-1">
                     <p className="text-base sm:text-lg lg:text-2xl font-semibold italic text-stone-900 dark:text-white drop-shadow whitespace-pre-line break-words">
                       &ldquo;{activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}&rdquo;
                     </p>
                   </div>
+                </div>
+              ) : gameMode === "ai-lyrics" ? (
+                <div className="flex flex-col items-center justify-center p-5 sm:p-7 rounded-3xl bg-white/90 dark:bg-stone-900/90 border border-amber-500/30 shadow-xl text-center max-w-md w-full animate-in fade-in duration-200">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mb-2.5">
+                    <Bot className={`w-7 h-7 sm:w-8 sm:h-8 text-amber-600 dark:text-amber-400 ${isAITalking ? "animate-bounce" : ""}`} />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white mb-0.5">
+                    🤖 AI กำลังอ่านท่อนเนื้อเพลง
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mb-3">
+                    ฟังเสียง AI สังเคราะห์ แล้วทายชื่อเพลง (โหมดนี้ซ่อนเนื้อเพลง)
+                  </p>
+
+                  <div className="flex items-center gap-1.5 h-8 px-4 py-1.5 bg-stone-100 dark:bg-stone-800/80 rounded-full mb-3.5">
+                    <Volume2 className="w-4 h-4 text-amber-500 mr-1 shrink-0" />
+                    <span className="text-xs font-medium text-stone-600 dark:text-stone-300 mr-1.5">
+                      {isAITalking ? "กำลังอ่าน..." : "อ่านจบแล้ว"}
+                    </span>
+                    {[0.4, 0.9, 0.6, 1.0, 0.7, 0.3, 0.8].map((scale, i) => (
+                      <span
+                        key={i}
+                        className={`w-1 rounded-full transition-all duration-300 ${
+                          isAITalking
+                            ? "bg-gradient-to-t from-amber-500 to-orange-400 animate-pulse"
+                            : "bg-stone-300 dark:bg-stone-700 h-2"
+                        }`}
+                        style={{
+                          height: isAITalking ? `${Math.round(scale * 18)}px` : "5px",
+                          animationDelay: `${i * 120}ms`,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleReplayAILyrics}
+                    aria-label={isAITalking ? "หยุดเสียง AI" : "ฟังอีกครั้ง"}
+                    className="min-h-[44px] px-5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/25 flex items-center gap-2 cursor-pointer transition active:scale-95 touch-manipulation"
+                  >
+                    {isAITalking ? (
+                      <>
+                        <Pause className="w-4 h-4" />
+                        <span>หยุดชั่วคราว</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-4 h-4" />
+                        <span>ฟังอีกครั้ง</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-center gap-2.5">

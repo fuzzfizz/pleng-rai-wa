@@ -17,6 +17,8 @@ import { getDeterministicAvatar } from "./player-card";
 export interface PodiumViewProps {
   players: Player[];
   isHost?: boolean;
+  isSolo?: boolean;
+  soloStats?: { correct: number; wrong: number };
   onPlayAgain?: () => void | Promise<unknown>;
   onBackToLobby?: () => void | Promise<unknown>;
   onResetAllToLobby?: () => void | Promise<unknown>;
@@ -91,9 +93,21 @@ export function getSortedPodiumPlayers(players: Player[]): Player[] {
   });
 }
 
+export function getPerformanceBadge(correct: number, wrong: number): string {
+  const total = correct + wrong;
+  if (total === 0) return "🎧 เล่นเพลินๆ สบายๆ";
+  const rate = Math.round((correct / total) * 100);
+  if (rate === 100) return "🌟 หูทิพย์ระดับเทพ! ทายถูกครบ 100%";
+  if (rate >= 80) return "🔥 เซียนเพลงตัวจริง! แม่นยำเกิน 80%";
+  if (rate >= 50) return "🎵 พอตัวเลยนะ! ทายถูกมากกว่าครึ่ง";
+  return "📻 วอร์มหูอีกนิด เดี๋ยวก็จับทางได้!";
+}
+
 export function PodiumView({
   players,
   isHost = false,
+  isSolo = false,
+  soloStats,
   onPlayAgain,
   onBackToLobby,
   onResetAllToLobby,
@@ -108,6 +122,19 @@ export function PodiumView({
   const secondPlace = sortedPlayers[1] || null;
   const thirdPlace = sortedPlayers[2] || null;
   const runnersUp = sortedPlayers.slice(3);
+
+  const effectiveSoloStats = useMemo(() => {
+    if (soloStats) return soloStats;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.sessionStorage.getItem("pleng_solo_stats");
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return { correct: 0, wrong: 0 };
+  }, [soloStats]);
+
+  const isSoloDisplay = Boolean(isSolo || (sortedPlayers.length === 1 && isSolo));
 
   // Trigger celebration fanfare SFX and confetti bursts on mount
   useEffect(() => {
@@ -301,18 +328,85 @@ export function PodiumView({
       <div className="text-center mb-4 sm:mb-10 z-10 w-full max-w-full px-2">
         <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[11px] sm:text-sm font-bold uppercase tracking-wider mb-2 shadow-sm">
           <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin text-amber-400" />
-          <span>จบการแข่งขัน • Game Over</span>
+          <span>{isSoloDisplay ? "จบการฝึกซ้อมคนเดียว • Solo Practice Complete" : "จบการแข่งขัน • Game Over"}</span>
         </div>
         <h1 className="text-2xl sm:text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-500 tracking-tight">
-          แท่นรับรางวัล (Podium)
+          {isSoloDisplay ? "สถิติการเล่นคนเดียว" : "แท่นรับรางวัล (Podium)"}
         </h1>
         <p className="text-xs sm:text-base text-slate-300 mt-1 sm:mt-2 font-medium">
-          ขอแสดงความยินดีกับผู้ชนะและผู้ร่วมสนุกทุกคน!
+          {isSoloDisplay
+            ? "ยอดเยี่ยมมาก! มาดูผลคะแนนและความแม่นยำในการทายเพลงของคุณ"
+            : "ขอแสดงความยินดีกับผู้ชนะและผู้ร่วมสนุกทุกคน!"}
         </p>
       </div>
 
       {/* Top 3 Podium Platform */}
-      {sortedPlayers.length === 0 ? (
+      {/* Solo Mode Stats Summary OR Top 3 Podium Platform */}
+      {isSoloDisplay ? (
+        <div className="w-full max-w-md sm:max-w-xl my-4 sm:my-8 p-6 sm:p-8 rounded-3xl bg-slate-900/90 border border-amber-500/30 shadow-2xl backdrop-blur-xl flex flex-col items-center z-10">
+          <div className="relative mb-3 sm:mb-4">
+            <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-3xl overflow-hidden flex items-center justify-center bg-stone-900 border-3 sm:border-4 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.5)] text-3xl sm:text-5xl">
+              {firstPlace ? (() => {
+                const av = getDeterministicAvatar(firstPlace);
+                const isImg = av.startsWith("http://") || av.startsWith("https://") || av.startsWith("/");
+                return isImg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={av} alt={firstPlace.displayName} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{av}</span>
+                );
+              })() : "🎧"}
+            </div>
+            <div className="absolute -top-3 -right-2 text-xl sm:text-2xl animate-bounce">
+              👑
+            </div>
+          </div>
+
+          <h2 className="text-lg sm:text-2xl font-black text-amber-200 mb-1 truncate max-w-full">
+            {firstPlace?.displayName || "ผู้เล่น"}
+          </h2>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-extrabold text-xs sm:text-sm mb-5 border border-amber-500/40">
+            <Trophy className="w-4 h-4" />
+            <span>คะแนนรวม: {firstPlace?.score ?? 0} คะแนน</span>
+          </div>
+
+          <div className="w-full grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-5">
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-800/80 border border-emerald-500/30 flex flex-col items-center text-center">
+              <span className="text-xs text-emerald-400 font-semibold mb-0.5">✓ ทายถูก</span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-300 font-mono">
+                {effectiveSoloStats.correct}
+              </span>
+              <span className="text-[11px] text-slate-400">ข้อ</span>
+            </div>
+
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-800/80 border border-rose-500/30 flex flex-col items-center text-center">
+              <span className="text-xs text-rose-400 font-semibold mb-0.5">✗ ทายผิด / ข้าม</span>
+              <span className="text-2xl sm:text-3xl font-black text-rose-300 font-mono">
+                {effectiveSoloStats.wrong}
+              </span>
+              <span className="text-[11px] text-slate-400">ข้อ</span>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-2xl bg-slate-800/80 border border-amber-500/30 flex flex-col items-center text-center">
+              <span className="text-xs text-amber-400 font-semibold mb-0.5">ความแม่นยำ</span>
+              <span className="text-2xl sm:text-3xl font-black text-amber-300 font-mono">
+                {effectiveSoloStats.correct + effectiveSoloStats.wrong > 0
+                  ? Math.round((effectiveSoloStats.correct / (effectiveSoloStats.correct + effectiveSoloStats.wrong)) * 100)
+                  : 0}%
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {effectiveSoloStats.correct + effectiveSoloStats.wrong} เพลงทั้งหมด
+              </span>
+            </div>
+          </div>
+
+          <div className="w-full p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-center">
+            <span className="text-xs sm:text-sm font-bold text-amber-200">
+              {getPerformanceBadge(effectiveSoloStats.correct, effectiveSoloStats.wrong)}
+            </span>
+          </div>
+        </div>
+      ) : sortedPlayers.length === 0 ? (
         <div className="p-8 my-10 bg-slate-900/60 border border-slate-800 rounded-3xl text-center text-slate-400">
           <p className="text-lg">ยังไม่มีข้อมูลผู้เล่นหรือคะแนนในการแข่งขัน</p>
         </div>
@@ -381,7 +475,7 @@ export function PodiumView({
       )}
 
       {/* Runners-up / 4th Place and below list */}
-      {runnersUp.length > 0 && (
+      {!isSoloDisplay && runnersUp.length > 0 && (
         <div className="w-full max-w-2xl mt-6 sm:mt-8 mb-4 sm:mb-6 z-10 px-1">
           <div className="flex items-center gap-2 mb-3 px-2">
             <Award className="w-5 h-5 text-amber-500" />

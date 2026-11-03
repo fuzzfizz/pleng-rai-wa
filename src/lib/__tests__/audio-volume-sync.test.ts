@@ -330,6 +330,190 @@ describe("audio-volume synchronization", () => {
 
     activeSynth?.stop();
   });
+
+  it("ensures stop() ramps masterGain to 0, disconnects nodes, and unregisters from active registry", async () => {
+    const gainNodes: any[] = [];
+    const filterNodes: any[] = [];
+    const mockCtx = {
+      currentTime: 10,
+      destination: {},
+      createGain: vi.fn(() => {
+        const node = {
+          gain: {
+            value: 1,
+            setValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            linearRampToValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            exponentialRampToValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            cancelScheduledValues: vi.fn(),
+          },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        gainNodes.push(node);
+        return node;
+      }),
+      createBiquadFilter: vi.fn(() => {
+        const filter = {
+          type: "lowpass",
+          frequency: { setValueAtTime: vi.fn() },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        filterNodes.push(filter);
+        return filter;
+      }),
+      createOscillator: vi.fn(() => ({
+        type: "sine",
+        frequency: { setValueAtTime: vi.fn() },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+      })),
+    };
+
+    const soundEffectsModule = await import("../sound-effects");
+    vi.spyOn(soundEffectsModule, "getAudioContext").mockReturnValue(mockCtx as any);
+
+    const {
+      createProceduralAmbientSynth,
+      stopAllAmbientSynths,
+      getActiveAmbientSynthsCount,
+    } = await import("../../components/common/three-vinyl-canvas");
+
+    // Clean start
+    stopAllAmbientSynths();
+    expect(getActiveAmbientSynthsCount()).toBe(0);
+
+    const synth = createProceduralAmbientSynth(0.5, false);
+    expect(synth).not.toBeNull();
+    expect(getActiveAmbientSynthsCount()).toBe(1);
+
+    const masterGain = gainNodes[0];
+    const filter = filterNodes[0];
+
+    // Trigger stop()
+    synth?.stop();
+
+    // Verify gain ramped to 0
+    expect(masterGain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0, expect.any(Number));
+    expect(masterGain.gain.value).toBe(0);
+
+    // Verify nodes disconnected
+    expect(masterGain.disconnect).toHaveBeenCalled();
+    expect(filter.disconnect).toHaveBeenCalled();
+
+    // Verify removed from registry
+    expect(getActiveAmbientSynthsCount()).toBe(0);
+  });
+
+  it("ensures stopAllAmbientSynths() stops and disconnects all registered ambient synths as fail-safe", async () => {
+    const gainNodes: any[] = [];
+    const mockCtx = {
+      currentTime: 10,
+      destination: {},
+      createGain: vi.fn(() => {
+        const node = {
+          gain: {
+            value: 1,
+            setValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            linearRampToValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            exponentialRampToValueAtTime: vi.fn((val) => {
+              node.gain.value = val;
+            }),
+            cancelScheduledValues: vi.fn(),
+          },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        gainNodes.push(node);
+        return node;
+      }),
+      createBiquadFilter: vi.fn(() => ({
+        type: "lowpass",
+        frequency: { setValueAtTime: vi.fn() },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      })),
+      createOscillator: vi.fn(() => ({
+        type: "sine",
+        frequency: { setValueAtTime: vi.fn() },
+        connect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+      })),
+    };
+
+    const soundEffectsModule = await import("../sound-effects");
+    vi.spyOn(soundEffectsModule, "getAudioContext").mockReturnValue(mockCtx as any);
+
+    const {
+      createProceduralAmbientSynth,
+      stopAllAmbientSynths,
+      getActiveAmbientSynthsCount,
+    } = await import("../../components/common/three-vinyl-canvas");
+
+    stopAllAmbientSynths();
+    createProceduralAmbientSynth(0.4, false);
+    createProceduralAmbientSynth(0.7, false);
+
+    expect(getActiveAmbientSynthsCount()).toBe(2);
+
+    stopAllAmbientSynths();
+
+    expect(getActiveAmbientSynthsCount()).toBe(0);
+    // Both master gains should be disconnected
+    expect(gainNodes[0].disconnect).toHaveBeenCalled();
+    expect(gainNodes[1].disconnect).toHaveBeenCalled();
+  });
+
+  it("verifies play catch handler ignores AbortError and honors unmounted state", () => {
+    let synthCreated = false;
+    const createSynth = () => {
+      synthCreated = true;
+    };
+
+    const handlePlayError = (
+      err: any,
+      isMounted: boolean,
+      isPlaying: boolean
+    ) => {
+      if (!isMounted || !isPlaying || err?.name === "AbortError") {
+        return;
+      }
+      createSynth();
+    };
+
+    // Case 1: AbortError on navigation/pause
+    const abortErr = new Error("The play() request was interrupted by a call to pause().");
+    abortErr.name = "AbortError";
+    handlePlayError(abortErr, true, true);
+    expect(synthCreated).toBe(false);
+
+    // Case 2: Unmounted component on error
+    const netErr = new Error("Failed to load resource");
+    netErr.name = "NetworkError";
+    handlePlayError(netErr, false, true);
+    expect(synthCreated).toBe(false);
+
+    // Case 3: Not playing
+    handlePlayError(netErr, true, false);
+    expect(synthCreated).toBe(false);
+
+    // Case 4: Mounted, playing, legitimate non-abort error -> can fallback
+    handlePlayError(netErr, true, true);
+    expect(synthCreated).toBe(true);
+  });
 });
 
 

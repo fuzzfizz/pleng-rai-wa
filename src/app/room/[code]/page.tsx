@@ -686,6 +686,7 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
         players={roomRealtime.players}
         myPlayer={roomRealtime.myPlayer}
         isHost={roomRealtime.isHost}
+
         settings={currentSettings}
         isGameOverPendingHost={currentStatus === "game_over"}
         onViewPodium={() => setIsLocalInLobby(false)}
@@ -718,6 +719,9 @@ function RoomPageContent({ rawCode }: { rawCode: string }): React.JSX.Element {
       <PodiumView
         players={roomRealtime.players}
         isHost={roomRealtime.isHost}
+
+        isSolo={Boolean(currentSettings.isSolo)}
+        soloStats={currentSettings.soloStats}
         onPlayAgain={async () => {
           await roomRealtime.nextRound();
         }}
