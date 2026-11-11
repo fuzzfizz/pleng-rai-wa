@@ -233,6 +233,23 @@ describe("Task 4: Post-Game Mobile Responsive & LoL-style Individual Lobby Retur
       expect(playerStr).not.toContain("เริ่มเกมใหม่ (Play Again)");
       expect(playerStr).not.toContain("พาทุกคนกลับล็อบบี้");
     });
+
+    it("does NOT render 'พาทุกคนกลับล็อบบี้' in solo mode even if isHost is true", () => {
+      const soloPlayer: Player[] = [mockPlayers[0]];
+      const soloStr = renderToString(
+        <PodiumView
+          players={soloPlayer}
+          isHost={true}
+          isSolo={true}
+          onPlayAgain={vi.fn()}
+          onResetAllToLobby={vi.fn()}
+          onBackToLobby={vi.fn()}
+        />
+      );
+
+      expect(soloStr).toContain("เริ่มเกมใหม่ (Play Again)");
+      expect(soloStr).not.toContain("พาทุกคนกลับล็อบบี้");
+    });
   });
 
   describe("PlayerCard & getPlayerStatusBadge in GameOver Pending Mode", () => {

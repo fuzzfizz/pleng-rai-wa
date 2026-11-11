@@ -78,7 +78,7 @@ export function RoomManageModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, isSaving, isTransferring, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || Boolean(settings.isSolo)) return null;
 
   const otherPlayers = players.filter((p) => p.id !== currentHostPlayerId);
   const targetPlayer = otherPlayers.find((p) => p.id === selectedTransferTarget);

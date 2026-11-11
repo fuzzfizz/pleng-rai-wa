@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.1.2] - 2026-11-11
+
+### Changed
+- **Create Room Button & Modal Title Rebrand**:
+  - Renamed the main hero action button in `src/app/page.tsx` from "สร้างห้อง" to "สร้างห้องทายเพลง".
+  - Updated Create Room modal title for multiplayer mode to "สร้างห้องเล่นหลายคน (Party)".
+  - Updated public room directory guidance text in `ActiveRoomsTable` to reference "สร้างห้องทายเพลง".
+- **Solo Room UI Streamlining & Cleanup**:
+  - Hidden "พาทุกคนกลับล็อบบี้" in both `PodiumView` and `LobbyView` when in Solo room mode.
+  - Hidden "QR Code ชวนเพื่อน" button and "จัดการห้อง" (room capacity and host transfer) button in `LobbyView` for Solo rooms.
+  - Hidden "จอทีวี (TV Mode)" header link in `LobbyView` during Solo mode.
+  - Replaced "ห้องปาร์ตี้ดนตรีสด" card badge with "🎮 ห้องเล่นคนเดียว (Solo Room)".
+  - Replaced confusing ready badge ("พร้อมแล้ว 0/1 คน") with clear indicator "✓ พร้อมเริ่มได้ทันที" in Solo mode.
+  - Added fail-safe guard in `RoomManageModal` to prevent rendering when `settings.isSolo` is true.
+
+---
+
 ## [v1.1.1] - 2026-11-11
 
 ### Changed

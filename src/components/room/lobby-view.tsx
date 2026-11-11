@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import type { Player, RoomSettings } from "@/types";
 import {
   Music,
+  User,
   Users,
   Copy,
   Check,
@@ -228,17 +229,19 @@ export function LobbyView({
 
         <div className="flex items-center gap-2 sm:gap-3">
           {/* TV Party Mode button */}
-          <Link
-            href={`/room/${cleanCode}?view=tv`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs lg:text-sm text-amber-800 dark:text-amber-300 hover:text-amber-950 dark:hover:text-white px-3 py-2 lg:px-4 lg:py-2.5 min-h-[44px] rounded-full border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 transition-all shadow-sm shadow-amber-500/10"
-            title="เปิดจอใหญ่สำหรับปาร์ตี้ / ต่อทีวี"
-          >
-            <Tv className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">จอทีวี (TV Mode)</span>
-            <ExternalLink className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-          </Link>
+          {!isSolo && (
+            <Link
+              href={`/room/${cleanCode}?view=tv`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs lg:text-sm text-amber-800 dark:text-amber-300 hover:text-amber-950 dark:hover:text-white px-3 py-2 lg:px-4 lg:py-2.5 min-h-[44px] rounded-full border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 transition-all shadow-sm shadow-amber-500/10"
+              title="เปิดจอใหญ่สำหรับปาร์ตี้ / ต่อทีวี"
+            >
+              <Tv className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">จอทีวี (TV Mode)</span>
+              <ExternalLink className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+            </Link>
+          )}
 
           {/* Unified Settings Menu */}
           <SettingsMenu />
@@ -254,7 +257,7 @@ export function LobbyView({
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-semibold mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>ห้องปาร์ตี้ดนตรีสด</span>
+            <span>{isSolo ? "🎮 ห้องเล่นคนเดียว (Solo Room)" : "ห้องปาร์ตี้ดนตรีสด"}</span>
           </div>
 
           <h2 className="text-xs sm:text-sm lg:text-base font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest mb-2">
@@ -287,47 +290,49 @@ export function LobbyView({
 
           {/* Action Buttons Row: QR Code & Host Settings */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
-            <button
-              onClick={() => {
-                try {
-                  soundEffects.click();
-                } catch {}
-                setQrModalOpen(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
-            >
-              <QrCode className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span>QR Code ชวนเพื่อน</span>
-            </button>
+            {!isSolo && (
+              <button
+                onClick={() => {
+                  try {
+                    soundEffects.click();
+                  } catch {}
+                  setQrModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <QrCode className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>QR Code ชวนเพื่อน</span>
+              </button>
+            )}
 
             {isHost && (
-              <>
-                <button
-                  onClick={() => {
-                    try {
-                      soundEffects.click();
-                    } catch {}
-                    setSettingsModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  <Settings className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>ตั้งค่าห้องเกม</span>
-                </button>
+              <button
+                onClick={() => {
+                  try {
+                    soundEffects.click();
+                  } catch {}
+                  setSettingsModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <Settings className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>ตั้งค่าห้องเกม</span>
+              </button>
+            )}
 
-                <button
-                  onClick={() => {
-                    try {
-                      soundEffects.click();
-                    } catch {}
-                    setRoomManageModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>จัดการห้อง</span>
-                </button>
-              </>
+            {isHost && !isSolo && (
+              <button
+                onClick={() => {
+                  try {
+                    soundEffects.click();
+                  } catch {}
+                  setRoomManageModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 lg:px-6 lg:py-3.5 min-h-[44px] lg:min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700/80 text-xs sm:text-sm lg:text-base font-semibold transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>จัดการห้อง</span>
+              </button>
             )}
           </div>
         </div>
@@ -356,14 +361,20 @@ export function LobbyView({
         <section className="w-full space-y-3">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              {isSolo ? (
+                <User className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              ) : (
+                <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              )}
               <h3 className="font-bold text-stone-900 dark:text-white text-base sm:text-lg lg:text-xl">
-                ผู้เล่นในห้อง ({totalPlayers} คน)
+                {isSolo ? "ผู้เล่น (คุณ)" : `ผู้เล่นในห้อง (${totalPlayers} คน)`}
               </h3>
             </div>
 
             <div className="inline-flex items-center gap-1.5 text-xs lg:text-sm px-3 py-1 lg:px-4 lg:py-1.5 rounded-full border border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 text-stone-600 dark:text-stone-400">
-              {isGameOverPendingHost ? (
+              {isSolo ? (
+                <span className="text-emerald-500 font-medium">✓ พร้อมเริ่มได้ทันที</span>
+              ) : isGameOverPendingHost ? (
                 <span>
                   {`กลับล็อบบี้แล้ว ${players.filter((p) => p.isLobbyReady).length}/${players.length} คน`}
                 </span>
@@ -442,7 +453,7 @@ export function LobbyView({
 
               {isGameOverPendingHost && (
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-                  {onResetAllToLobby && (
+                  {onResetAllToLobby && !isSolo && (
                     <button
                       type="button"
                       onClick={onResetAllToLobby}

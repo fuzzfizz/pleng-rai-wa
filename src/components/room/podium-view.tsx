@@ -554,7 +554,7 @@ export function PodiumView({
           </button>
         )}
 
-        {isHost && onResetAllToLobby && (
+        {isHost && !isSoloDisplay && onResetAllToLobby && (
           <button
             type="button"
             onClick={handleResetAllToLobby}

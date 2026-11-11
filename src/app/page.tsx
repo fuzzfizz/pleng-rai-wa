@@ -251,7 +251,7 @@ export default function HomePage() {
                   className="w-full flex items-center justify-center gap-2 py-3.5 lg:py-4 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-base lg:text-lg shadow-md shadow-amber-500/20 transition-all active:scale-[0.98] cursor-pointer"
                 >
                   <Users className="w-5 h-5" />
-                  <span>สร้างห้อง</span>
+                  <span>สร้างห้องทายเพลง</span>
                 </button>
 
                 <div className="relative flex items-center justify-center my-1">
@@ -416,7 +416,7 @@ export default function HomePage() {
                 {isSoloRoom ? <User className="w-6 h-6" /> : <Users className="w-6 h-6" />}
               </div>
               <h3 className="text-2xl font-black text-stone-900 dark:text-white">
-                {isSoloRoom ? "สร้างห้องเล่นคนเดียว" : "สร้างห้องเล่นกับเพื่อน"}
+                {isSoloRoom ? "สร้างห้องเล่นคนเดียว" : "สร้างห้องเล่นหลายคน (Party)"}
               </h3>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
                 {isSoloRoom

@@ -1,8 +1,11 @@
+import React from "react";
 import { describe, it, expect } from "vitest";
+import { renderToString } from "react-dom/server";
 import { formatSettingsSummary } from "@/components/room/lobby-view";
 import { getPerformanceBadge } from "@/components/room/podium-view";
+import { RoomManageModal } from "@/components/room/room-manage-modal";
 import { DEFAULT_ROOM_SETTINGS } from "@/lib/services/room-service";
-import type { RoomSettings } from "@/types";
+import type { Player, RoomSettings } from "@/types";
 
 describe("Solo Room Unification & Accuracy Tracking", () => {
   it("formats lobby settings summary with solo badge when isSolo is true", () => {
@@ -52,5 +55,63 @@ describe("Solo Room Unification & Accuracy Tracking", () => {
       lyricsType: "intro",
     };
     expect(formatSettingsSummary(introSettings)).toContain("ท่อนเปิด");
+  });
+
+  describe("RoomManageModal solo room safety guards", () => {
+    const mockPlayers: Player[] = [
+      {
+        id: "player-solo",
+        displayName: "Solo Host",
+        isHost: true,
+        isReady: true,
+        isLobbyReady: true,
+        score: 0,
+        sessionToken: "token-solo",
+        lastSeenAt: new Date().toISOString(),
+      },
+    ];
+
+    it("returns null / empty markup when settings.isSolo is true even if isOpen is true", () => {
+      const soloSettings: RoomSettings = {
+        ...DEFAULT_ROOM_SETTINGS,
+        isSolo: true,
+      };
+
+      const rendered = renderToString(
+        React.createElement(RoomManageModal, {
+          isOpen: true,
+          onClose: () => {},
+          players: mockPlayers,
+          settings: soloSettings,
+          currentHostPlayerId: "player-solo",
+          onSaveSettings: async () => {},
+          onTransferHost: async () => {},
+        })
+      );
+
+      expect(rendered).toBe("");
+    });
+
+    it("renders modal content when isOpen is true and settings.isSolo is false", () => {
+      const partySettings: RoomSettings = {
+        ...DEFAULT_ROOM_SETTINGS,
+        isSolo: false,
+      };
+
+      const rendered = renderToString(
+        React.createElement(RoomManageModal, {
+          isOpen: true,
+          onClose: () => {},
+          players: mockPlayers,
+          settings: partySettings,
+          currentHostPlayerId: "player-solo",
+          onSaveSettings: async () => {},
+          onTransferHost: async () => {},
+        })
+      );
+
+      expect(rendered).toContain("จัดการห้อง");
+      expect(rendered).toContain("จำนวนผู้เล่นสูงสุด");
+    });
   });
 });
