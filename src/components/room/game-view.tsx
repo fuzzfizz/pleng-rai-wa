@@ -423,6 +423,7 @@ export function GameView({
     "correct" | "wrong_exhausted" | null
   >(null);
   const [lastCorrectScoreDelta, setLastCorrectScoreDelta] = useState<number>(100);
+  const [lyricsFontSize, setLyricsFontSize] = useState<"compact" | "normal">("normal");
 
   const isWaitAll = room?.settings?.answerResolutionMode === "wait_all";
   const waitAllStatus = useMemo(
@@ -1268,14 +1269,44 @@ export function GameView({
             {/* Audio Wave / Lyrics Reading Visualization */}
             <div className="flex flex-col items-center gap-2 my-2 text-center">
               {gameMode === "translated-lyrics" ? (
-                <div className="max-w-lg lg:max-w-2xl p-4 lg:p-6 rounded-2xl bg-white/90 dark:bg-stone-900/90 border border-amber-500/40 shadow-lg text-amber-800 dark:text-amber-200">
-                  <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
-                    <Radio className="w-4 h-4 animate-pulse text-amber-500" />
-                    <span>🌐 Google Translate Karaoke (เนื้อเพลงแปลอังกฤษ)</span>
+                <div className="w-full max-w-xl sm:max-w-2xl lg:max-w-4xl p-4 sm:p-6 lg:p-7 rounded-3xl bg-white/95 dark:bg-stone-900/95 border border-amber-500/40 shadow-xl text-stone-800 dark:text-stone-200 backdrop-blur-md">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 dark:border-stone-800 pb-3 mb-3">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      <Radio className="w-4 h-4 animate-pulse text-amber-500" />
+                      <span>🌐 Google Translate Karaoke (เนื้อเพลงแปลอังกฤษ)</span>
+                    </div>
+                    <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800/80 p-0.5 rounded-xl border border-stone-200 dark:border-stone-700/60 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setLyricsFontSize("compact")}
+                        className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+                          lyricsFontSize === "compact"
+                            ? "bg-white dark:bg-stone-900 text-amber-600 dark:text-amber-400 shadow-xs font-bold"
+                            : "text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                        }`}
+                      >
+                        กะทัดรัด
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLyricsFontSize("normal")}
+                        className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+                          lyricsFontSize === "normal"
+                            ? "bg-white dark:bg-stone-900 text-amber-600 dark:text-amber-400 shadow-xs font-bold"
+                            : "text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                        }`}
+                      >
+                        ปกติ
+                      </button>
+                    </div>
                   </div>
-                  <div className="max-h-[200px] sm:max-h-[260px] overflow-y-auto custom-scrollbar px-1">
-                    <p className="text-base sm:text-lg lg:text-2xl font-semibold italic text-stone-900 dark:text-white drop-shadow whitespace-pre-line break-words">
-                      &ldquo;{activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}&rdquo;
+                  <div className="max-h-[300px] sm:max-h-[380px] lg:max-h-[440px] overflow-y-auto custom-scrollbar px-2 text-left">
+                    <p
+                      className={`sm:columns-2 gap-8 text-stone-900 dark:text-stone-100 font-medium whitespace-pre-line break-words leading-relaxed ${
+                        lyricsFontSize === "compact" ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+                      }`}
+                    >
+                      {activeQuestion?.lyrics || "กำลังสตรีมเสียงเนื้อเพลง..."}
                     </p>
                   </div>
                 </div>

@@ -30,6 +30,7 @@ import {
   Volume2,
   Bell,
   Bot,
+  Languages,
   ArrowRight,
   X,
   Loader2,
@@ -229,7 +230,7 @@ export default function HomePage() {
             </h2>
 
             <p className="text-sm sm:text-base lg:text-lg text-stone-600 dark:text-stone-400 max-w-lg lg:max-w-xl mb-6 lg:mb-8 leading-relaxed drop-shadow-sm">
-              ทายเสี้ยววินาที แย่งกดกริ่ง หรือฟังเสียง AI อ่านเนื้อเพลงแบบไร้อารมณ์ เล่นชิวๆ บนมือถือและคอมพิวเตอร์
+              ทายเสี้ยววินาที แย่งกดกริ่ง ฟัง AI อ่านเนื้อเพลง หรืออ่านเนื้อเพลงแปลอังกฤษ เล่นสนุกได้ทั้งบนมือถือและคอมพิวเตอร์
             </p>
 
             {/* Action Box */}
@@ -340,17 +341,17 @@ export default function HomePage() {
       {/* Active Rooms Public Directory */}
       <ActiveRoomsTable />
 
-      {/* 3 Game Modes Grid */}
-      <section className="w-full max-w-5xl lg:max-w-6xl z-10 py-6 lg:py-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 4 Game Modes Grid */}
+      <section className="w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl z-10 py-6 lg:py-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Mode 1 */}
           <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 lg:p-7 hover:border-amber-500/40 transition-colors shadow-sm">
             <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
               <Volume2 className="w-5 h-5" />
             </div>
-            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมด Audio Slice</h3>
+            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมดตัดท่อนสั้น (Audio Slice)</h3>
             <p className="text-xs lg:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
-              ฟังเสียงเพลงสั้นเพียง 1, 2 หรือ 5 วินาที แล้วทายชื่อเพลง ท้าทายหูทิพย์ขั้นสุด
+              ฟังตัวอย่างเสียงเพลงสั้น 1 ถึง 5 วินาที แล้วทายชื่อเพลงให้ถูกต้อง เหมาะสำหรับการทดสอบความจำและความคุ้นเคยในบทเพลง
             </p>
           </div>
 
@@ -359,9 +360,9 @@ export default function HomePage() {
             <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-3">
               <Bell className="w-5 h-5" />
             </div>
-            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมดกดกริ่งแย่งตอบ</h3>
+            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมดกดกริ่งแย่งตอบ (Buzzer Battle)</h3>
             <p className="text-xs lg:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
-              เพลงจะเล่นไปเรื่อยๆ ใครมั่นใจให้กดกริ่งหยุดเพลงทันที คนกดเร็วสุดได้สิทธิ์ตอบก่อน!
+              เพลงจะเล่นต่อเนื่องไปเรื่อยๆ ผู้เล่นสามารถกดกริ่งเพื่อหยุดเพลงและชิงสิทธิ์ตอบก่อน แข่งขันกันด้วยความรวดเร็วและความแม่นยำ
             </p>
           </div>
 
@@ -370,9 +371,20 @@ export default function HomePage() {
             <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-amber-600/15 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-3">
               <Bot className="w-5 h-5" />
             </div>
-            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมด AI อ่านเนื้อเพลง ⭐</h3>
+            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมด AI อ่านเนื้อเพลง (AI Lyrics)</h3>
             <p className="text-xs lg:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
-              ให้เสียง AI อ่านเนื้อเพลงท่อนเปิดหรือท่อนฮุกแบบเรียบนิ่ง ไร้ทำนอง ชวนขำและจำยากมาก
+              ฟังเสียงสังเคราะห์ของ AI อ่านท่อนฮุกหรือท่อนเปิดโดยไม่มีทำนอง แล้วทายชื่อเพลงจากข้อความเนื้อร้องที่ได้ยิน
+            </p>
+          </div>
+
+          {/* Mode 4 */}
+          <div className="bg-white/80 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800/80 rounded-2xl p-5 lg:p-7 hover:border-amber-500/40 transition-colors shadow-sm">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+              <Languages className="w-5 h-5" />
+            </div>
+            <h3 className="text-base lg:text-lg font-bold text-stone-900 dark:text-white mb-1">โหมดแปลเนื้อเพลง (Translated Lyrics)</h3>
+            <p className="text-xs lg:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
+              อ่านเนื้อเพลงไทยที่ถูกแปลเป็นภาษาอังกฤษแบบตรงตัว แล้ววิเคราะห์หาว่ามาจากเพลงต้นฉบับเพลงใด
             </p>
           </div>
         </div>
