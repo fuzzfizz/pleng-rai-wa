@@ -35,10 +35,9 @@ describe("Playlist Navigation & Freemium Auth Gate Integration", () => {
     });
 
     it("has complete and correctly ordered NAV_LINKS for desktop and mobile navigation", () => {
-      expect(NAV_LINKS).toHaveLength(3);
+      expect(NAV_LINKS).toHaveLength(2);
       expect(NAV_LINKS[0]).toEqual({ label: "หน้าแรก", href: "/" });
-      expect(NAV_LINKS[1]).toEqual({ label: "เล่นคนเดียว", href: "/play/solo" });
-      expect(NAV_LINKS[2]).toEqual({
+      expect(NAV_LINKS[1]).toEqual({
         label: "เพลย์ลิสต์",
         href: "/playlists",
         icon: ListMusic,

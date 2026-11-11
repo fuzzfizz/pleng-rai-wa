@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.1.1] - 2026-11-11
+
+### Changed
+- **Navigation Bar Cleanup**:
+  - Removed obsolete "เล่นคนเดียว" (`/play/solo`) link from `NAV_LINKS` in `NavHeader` now that Solo room mode is fully integrated into the standard room creation workflow.
+- **Create Room Button Label**:
+  - Renamed hero action button from "สร้างห้องเล่นกับเพื่อน" to "สร้างห้อง" in `src/app/page.tsx` and updated empty rooms hint in `ActiveRoomsTable` to accurately reflect both Party and Solo modes inside the creation modal.
+
+---
+
 ## [v1.1.0] - 2026-11-03
 
 ### Added

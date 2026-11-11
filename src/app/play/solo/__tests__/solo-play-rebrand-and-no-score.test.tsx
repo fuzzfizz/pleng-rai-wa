@@ -4,11 +4,9 @@ import { prepareSettingsPayload } from "@/components/room/host-settings-modal";
 import type { Song, RoomSettings } from "@/types";
 
 describe("Solo Play Rebrand and Scoring Removal (should-fix item 2)", () => {
-  it("uses 'เล่นคนเดียว' for solo navigation item instead of 'ซ้อมเดี่ยว'", () => {
+  it("removes solo navigation item from NAV_LINKS so solo mode is accessed via home creation", () => {
     const soloNav = NAV_LINKS.find((item) => item.href === "/play/solo");
-    expect(soloNav).toBeDefined();
-    expect(soloNav?.label).toBe("เล่นคนเดียว");
-    expect(soloNav?.label).not.toContain("ซ้อม");
+    expect(soloNav).toBeUndefined();
   });
 
   it("formats correct answer message without score or points awarded", () => {
