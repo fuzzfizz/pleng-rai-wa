@@ -15,6 +15,7 @@ export interface ChoiceOption {
 }
 
 export interface ActiveQuestion {
+  id?: string;
   sliceUrl?: string;
   durationSec?: number;
   lyrics?: string;

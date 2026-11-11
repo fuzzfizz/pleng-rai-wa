@@ -22,6 +22,7 @@ import {
 import type { Player, RoomSettings, Song, GameMode, ChoiceOption } from "@/types";
 
 export interface ActiveQuestion {
+  id?: string;
   sliceUrl?: string;
   durationSec?: number;
   lyrics?: string;

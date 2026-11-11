@@ -35,6 +35,7 @@ import { getDeterministicAvatar } from "./player-card";
 import { buildRoomJoinUrl } from "./qr-code-modal";
 import { formatWrongGuessMessage, RESUME_AUDIO_CUE } from "./wrong-guess-banner";
 import { PodiumView, getSortedPodiumPlayers } from "./podium-view";
+import { TranslatedLyricsTeleprompter } from "./translated-lyrics-teleprompter";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 import { getWaitAllPlayerStatus, calculateSliceRemainingTime } from "./game-view";
 import { soundEffects } from "@/lib/sound-effects";
@@ -561,17 +562,11 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
 
               {/* Translated Lyrics Mode: Show English text */}
               {gameMode === "translated-lyrics" && activeQuestion?.lyrics && (
-                <div className="w-full max-w-4xl mb-6 p-6 sm:p-8 rounded-3xl bg-stone-950/90 border border-amber-500/40 shadow-xl">
-                  <div className="flex items-center justify-center gap-2 text-amber-300 text-sm font-bold uppercase tracking-wider mb-2">
-                    <Radio className="w-4 h-4 animate-pulse" />
-                    <span>Google Translate Karaoke (ภาษาอังกฤษ)...</span>
-                  </div>
-                  <div className="max-h-[360px] sm:max-h-[460px] overflow-y-auto custom-scrollbar px-2 text-left">
-                    <blockquote className="sm:columns-2 gap-8 text-lg sm:text-xl font-bold text-white leading-relaxed italic whitespace-pre-line break-words">
-                      &quot;{activeQuestion.lyrics}&quot;
-                    </blockquote>
-                  </div>
-                </div>
+                <TranslatedLyricsTeleprompter
+                  lyrics={activeQuestion.lyrics}
+                  roundKey={activeQuestion.id || 1}
+                  isTvMode={true}
+                />
               )}
 
               {/* AI Lyrics Mode: Show robot animation (No lyrics text displayed) */}

@@ -7,15 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.1.4] - 2026-11-11
+
+### Added
+- **Translated Lyrics Teleprompter Auto-Scroll**:
+  - Introduced `TranslatedLyricsTeleprompter` component with smooth 60fps downward auto-scroll powered by `requestAnimationFrame` and timestamp delta timing.
+  - Added user control toolbar with speed presets (`[ ช้า (20px/s) | ปกติ (38px/s) | เร็ว (65px/s) ]`), play/pause toggle button, and smooth restart to top button.
+  - Implemented automatic manual override: temporarily pauses auto-scrolling when player touches, scrolls, or drags, smoothly resuming after 2.5s of inactivity.
+  - Designed centered, single-column natural lyrics flow with top and bottom gradient fade masks.
+  - Integrated teleprompter auto-scroll into both Player Game View (`GameView`) and Party TV View (`TVView`).
+
+---
+
 ## [v1.1.3] - 2026-11-11
 
 ### Changed
 - **Translated Lyrics Gameplay Readability Overhaul**:
-  - Re-architected translated lyrics presentation into a balanced 2-column layout (`sm:columns-2 gap-8`) on tablet and desktop screens, enabling players to read full songs at a glance without endless scrolling.
-  - Reduced oversized font to a balanced, comfortable scale (`text-xs sm:text-sm lg:text-base`) with relaxed line-height.
-  - Expanded display box viewport height (`max-h-[300px] sm:max-h-[380px] lg:max-h-[440px]`) and width for optimal reading ergonomics.
-  - Added an interactive dynamic font-size switcher (`[ กะทัดรัด | ปกติ ]`) directly in the header of the lyrics card.
-  - Updated TV view (`TVView`) to support 2-column wide layout for large screen readability.
+  - Re-architected translated lyrics presentation into a balanced layout on tablet and desktop screens, enabling players to read full songs at a glance.
+  - Reduced oversized font to a balanced, comfortable scale with relaxed line-height.
+  - Expanded display box viewport height and width for optimal reading ergonomics.
+  - Updated TV view (`TVView`) for large screen readability.
 - **Homepage 4 Modes Showcase & Natural Copywriting**:
   - Expanded homepage game modes grid to 4 columns (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4`), adding **โหมดแปลเนื้อเพลง (Translated Lyrics)**.
   - Rewrote game mode descriptions using natural, professional, and clear Thai language (replacing unnatural marketing slang like "ท้าทายหูทิพย์ขั้นสุด" and "ชวนขำและจำยากมาก").

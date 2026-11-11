@@ -73,24 +73,19 @@ describe("Homepage 4 Game Modes Grid & Copy (Clean, Professional, Non-Cringe)", 
     });
   });
 
-  describe("Task 2: Enhanced Readability for Translated Lyrics in GameView & TvView", () => {
-    it("includes font size switcher state and controls in game-view.tsx", () => {
-      expect(gameViewSource).toContain("lyricsFontSize");
-      expect(gameViewSource).toContain('useState<"compact" | "normal">("normal")');
-      expect(gameViewSource).toContain("กะทัดรัด");
-      expect(gameViewSource).toContain("ปกติ");
-      expect(gameViewSource).toContain("sm:columns-2 gap-8");
-      expect(gameViewSource).toContain("max-w-xl sm:max-w-2xl lg:max-w-4xl");
+  describe("Task 2: Teleprompter Integration for Translated Lyrics in GameView & TvView", () => {
+    it("integrates TranslatedLyricsTeleprompter in game-view.tsx", () => {
+      expect(gameViewSource).toContain("TranslatedLyricsTeleprompter");
+      expect(gameViewSource).toContain("<TranslatedLyricsTeleprompter");
+      expect(gameViewSource).toContain('lyrics={activeQuestion?.lyrics || ""}');
+      expect(gameViewSource).toContain("roundKey={currentRound}");
     });
 
-    it("configures wide container and multi-column typography for tv-view.tsx", () => {
-      expect(tvViewSource).toContain("max-w-4xl mb-6 p-6 sm:p-8 rounded-3xl");
-      expect(tvViewSource).toContain(
-        "sm:columns-2 gap-8 text-lg sm:text-xl font-bold text-white leading-relaxed italic whitespace-pre-line break-words"
-      );
-      expect(tvViewSource).toContain(
-        "max-h-[360px] sm:max-h-[460px] overflow-y-auto custom-scrollbar px-2 text-left"
-      );
+    it("integrates TranslatedLyricsTeleprompter in tv-view.tsx with isTvMode={true}", () => {
+      expect(tvViewSource).toContain("TranslatedLyricsTeleprompter");
+      expect(tvViewSource).toContain("<TranslatedLyricsTeleprompter");
+      expect(tvViewSource).toContain("lyrics={activeQuestion.lyrics}");
+      expect(tvViewSource).toContain("isTvMode={true}");
     });
   });
 });
