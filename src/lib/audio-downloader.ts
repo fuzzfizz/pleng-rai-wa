@@ -24,6 +24,13 @@ export interface YouTubeCandidate {
   duration: number;
 }
 
+export const SEVERE_UNORIGINAL_PATTERNS = [
+  /\bcover\b/i,
+  /\breaction\b/i,
+  /คาราโอเกะ/i,
+  /\bkaraoke\b/i,
+];
+
 export const BLACKLIST_PATTERNS = [
   /\bofficial\s+mv\b/i,
   /\bmv\b/i,
@@ -32,14 +39,11 @@ export const BLACKLIST_PATTERNS = [
   /short\s+film/i,
   /\blive\b/i,
   /\bconcert\b/i,
-  /\bcover\b/i,
-  /คาราโอเกะ/i,
-  /\bkaraoke\b/i,
   /\bteaser\b/i,
-  /\breaction\b/i,
   /\blongplay\b/i,
   /รวมเพลง/i,
   /full\s+album/i,
+  ...SEVERE_UNORIGINAL_PATTERNS,
 ];
 
 /**
@@ -62,9 +66,17 @@ export function scoreYouTubeCandidate(
   const title = candidate.title || "";
   const channel = candidate.channel || "";
 
-  // Blacklist check
-  for (const pattern of BLACKLIST_PATTERNS) {
+  // Severe unoriginal check (fan covers, reactions, karaoke) - penalized much more heavily than MVs
+  for (const pattern of SEVERE_UNORIGINAL_PATTERNS) {
     if (pattern.test(title)) {
+      score -= 250;
+      break;
+    }
+  }
+
+  // Blacklist format check (MVs, short films, live, concerts, compilations)
+  for (const pattern of BLACKLIST_PATTERNS) {
+    if (pattern.test(title) && !SEVERE_UNORIGINAL_PATTERNS.some((p) => p.test(title))) {
       score -= 100;
       break;
     }

@@ -8,7 +8,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { extractSongMetadata } from "../src/lib/ai-extractor.ts";
-import { downloadAndProcessYoutube } from "../src/lib/audio-downloader.ts";
+import { downloadAndProcessYoutube, cleanupTempAudio } from "../src/lib/audio-downloader.ts";
+import { cleanLyricsForGame } from "../src/lib/lyrics-cleaner.ts";
 import { uploadAudioToR2 } from "../src/lib/r2.ts";
 
 /**
@@ -156,22 +157,38 @@ export async function main() {
     if (genre) genreId = genre.id;
   }
 
+  if (hookStart >= hookEnd && hookEnd > 0) {
+    console.warn(`⚠️ คำเตือน: ท่อนฮุก hook_start (${hookStart}s) มากกว่าหรือเท่ากับ hook_end (${hookEnd}s) กรุณาตรวจสอบ`);
+  }
+
   // 3. Download & process audio from YouTube
   console.log(`\n🎧 กำลังดาวน์โหลดและแปลงไฟล์เสียง MP3 (128kbps) จาก YouTube...`);
-  const audioResult = await downloadAndProcessYoutube(ytTarget);
+  const audioResult = await downloadAndProcessYoutube(ytTarget, {
+    expectedDurationSec: metadata.durationSec || 0,
+  });
   console.log(`✓ ดาวน์โหลดสำเร็จ: ความยาว ${audioResult.durationSec} วินาที (ขนาด ${(audioResult.buffer.length / 1024 / 1024).toFixed(2)} MB)`);
 
   // 4. Upload to Cloudflare R2
   const songId = crypto.randomUUID();
   const r2Key = `songs/${songId}/full.mp3`;
   console.log(`\n☁️ กำลังอัปโหลดไฟล์เสียงขึ้น Cloudflare R2 (${r2Key})...`);
-  const audioUrl = await uploadAudioToR2(audioResult.buffer, r2Key, "audio/mpeg");
-  console.log(`✓ อัปโหลดขึ้น Cloudflare R2 สำเร็จ: ${audioUrl}`);
+  let audioUrl;
+  try {
+    audioUrl = await uploadAudioToR2(audioResult.buffer, r2Key, "audio/mpeg");
+    console.log(`✓ อัปโหลดขึ้น Cloudflare R2 สำเร็จ: ${audioUrl}`);
+  } finally {
+    if (audioResult.tempFilePath) {
+      cleanupTempAudio(audioResult.tempFilePath);
+    }
+  }
 
   // 5. Insert song row into Supabase
   console.log(`\n💾 กำลังบันทึกข้อมูลเพลงลงในฐานข้อมูล Supabase...`);
-  const customLyrics = flags.lyrics;
-  const lyricsFull = customLyrics ?? metadata.lyricsFull ?? null;
+  const customLyrics = flags.lyrics?.trim();
+  const rawLyricsFull = customLyrics || metadata.lyricsFull || null;
+  const lyricsFull = rawLyricsFull ? (cleanLyricsForGame(rawLyricsFull) || null) : null;
+  const lyricsIntro = metadata.lyricsIntro ? (cleanLyricsForGame(metadata.lyricsIntro) || null) : null;
+  const lyricsChorus = metadata.lyricsChorus ? (cleanLyricsForGame(metadata.lyricsChorus) || null) : null;
   const lyricsConfidence = customLyrics ? "verified" : (metadata.lyricsConfidence || "not_found");
 
   const songRow = {
@@ -186,8 +203,8 @@ export async function main() {
     hook_start_sec: hookStart,
     hook_end_sec: hookEnd,
     duration_sec: audioResult.durationSec || metadata.durationSec || 0,
-    lyrics_intro: metadata.lyricsIntro || null,
-    lyrics_chorus: metadata.lyricsChorus || null,
+    lyrics_intro: lyricsIntro,
+    lyrics_chorus: lyricsChorus,
     lyrics_full: lyricsFull,
     metadata: {
       youtubeSource: ytTarget,
