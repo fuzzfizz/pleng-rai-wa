@@ -17,6 +17,153 @@ export interface DownloadResult {
   title?: string;
 }
 
+export interface YouTubeCandidate {
+  id: string;
+  title: string;
+  channel: string;
+  duration: number;
+}
+
+export const BLACKLIST_PATTERNS = [
+  /\bofficial\s+mv\b/i,
+  /\bmv\b/i,
+  /\bmusic\s+video\b/i,
+  /หนังสั้น/i,
+  /short\s+film/i,
+  /\blive\b/i,
+  /\bconcert\b/i,
+  /\bcover\b/i,
+  /คาราโอเกะ/i,
+  /\bkaraoke\b/i,
+  /\bteaser\b/i,
+  /\breaction\b/i,
+  /\blongplay\b/i,
+  /รวมเพลง/i,
+  /full\s+album/i,
+];
+
+/**
+ * Scores a YouTube candidate video for audio ingestion.
+ * Prioritizes YouTube Topic and Audio/Lyrics tracks, while heavily penalizing MVs,
+ * concerts, covers, and tracks with durations outside the 90s-480s bounds.
+ */
+export function scoreYouTubeCandidate(
+  candidate: YouTubeCandidate,
+  expectedDurationSec?: number
+): number {
+  const duration = candidate.duration || 0;
+
+  // Duration bound: 90s to 480s for automatically selected YouTube tracks
+  if (duration > 480 || (duration > 0 && duration < 90)) {
+    return -999;
+  }
+
+  let score = 0;
+  const title = candidate.title || "";
+  const channel = candidate.channel || "";
+
+  // Blacklist check
+  for (const pattern of BLACKLIST_PATTERNS) {
+    if (pattern.test(title)) {
+      score -= 100;
+      break;
+    }
+  }
+
+  // Topic channel bonus (YouTube Music auto-generated studio master)
+  if (/- topic$/i.test(channel.trim())) {
+    score += 100;
+  }
+
+  // Audio / Lyric keywords bonus
+  if (/\b(?:official\s+)?audio\b/i.test(title)) score += 50;
+  if (/\b(?:official\s+)?lyrics?(?:\s+video)?\b/i.test(title) || /เนื้อเพลง/i.test(title)) score += 40;
+
+  // Expected duration proximity bonus (within 15s) / penalty
+  if (expectedDurationSec && expectedDurationSec > 0 && duration > 0) {
+    const diff = Math.abs(duration - expectedDurationSec);
+    if (diff <= 5) score += 30;
+    else if (diff <= 15) score += 15;
+    else if (diff > 45) score -= 40;
+  }
+
+  return score;
+}
+
+/**
+ * Selects the best audio candidate from a list of YouTube search results.
+ */
+export function selectBestAudioCandidate(
+  candidates: YouTubeCandidate[],
+  expectedDurationSec?: number
+): YouTubeCandidate | null {
+  if (!candidates || candidates.length === 0) return null;
+
+  let best: YouTubeCandidate | null = null;
+  let highestScore = -Infinity;
+
+  for (const candidate of candidates) {
+    const score = scoreYouTubeCandidate(candidate, expectedDurationSec);
+    if (score > highestScore) {
+      highestScore = score;
+      best = candidate;
+    }
+  }
+
+  if (highestScore <= -500) {
+    return null;
+  }
+
+  return best;
+}
+
+/**
+ * Searches top 5 candidates via yt-dlp and picks the best audio candidate
+ * (favoring Topic tracks and Audio versions over MVs).
+ */
+export async function searchSmartAudioCandidate(
+  query: string,
+  ytDlpPath?: string,
+  expectedDurationSec?: number
+): Promise<{ url: string; title: string; duration: number } | null> {
+  const binary = ytDlpPath || (await getYtDlpPath());
+  try {
+    const searchTarget = `ytsearch5:${query}`;
+    const { stdout } = await execFileAsync(binary, [
+      "--flat-playlist",
+      "--no-warnings",
+      "--print",
+      "%(id)s|||%(title)s|||%(channel)s|||%(uploader)s|||%(duration)s",
+      searchTarget,
+    ]);
+
+    const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const candidates: YouTubeCandidate[] = lines.map((line) => {
+      const [id, title, channel, uploader, durationStr] = line.split("|||");
+      const ch = channel && channel !== "NA" ? channel : uploader || "";
+      const dur = durationStr && durationStr !== "NA" ? parseFloat(durationStr) : 0;
+      return {
+        id: (id || "").trim(),
+        title: (title || "").trim(),
+        channel: (ch || "").trim(),
+        duration: isNaN(dur) ? 0 : dur,
+      };
+    }).filter((c) => Boolean(c.id));
+
+    const best = selectBestAudioCandidate(candidates, expectedDurationSec);
+    if (best) {
+      return {
+        url: `https://www.youtube.com/watch?v=${best.id}`,
+        title: best.title,
+        duration: best.duration,
+      };
+    }
+  } catch (err) {
+    console.warn("[audio-downloader] Smart candidate search failed, fallback to direct query:", err);
+  }
+  return null;
+}
+
 /**
  * Searches for a binary executable across common paths and PATH environment.
  */
@@ -176,14 +323,26 @@ export async function downloadAndProcessYoutube(
   options?: {
     cleanupTemp?: boolean;
     outputDir?: string;
+    expectedDurationSec?: number;
   }
 ): Promise<DownloadResult> {
   const ytDlpPath = await getYtDlpPath();
   const ffmpegPath = getFfmpegPath();
 
-  // Normalize target: If not an HTTP URL, treat as YouTube search query
+  // Normalize target: If not an HTTP URL, use smart candidate search (or fallback to ytsearch1)
   const isUrl = /^https?:\/\//i.test(youtubeUrlOrQuery.trim());
-  const target = isUrl ? youtubeUrlOrQuery.trim() : `ytsearch1:${youtubeUrlOrQuery.trim()}`;
+  let target = youtubeUrlOrQuery.trim();
+  let candidateTitle: string | undefined;
+
+  if (!isUrl) {
+    const smart = await searchSmartAudioCandidate(target, ytDlpPath, options?.expectedDurationSec);
+    if (smart) {
+      target = smart.url;
+      candidateTitle = smart.title;
+    } else {
+      target = `ytsearch1:${target}`;
+    }
+  }
 
   // Create isolated temp workspace
   const tempDir = options?.outputDir || fs.mkdtempSync(path.join(os.tmpdir(), "pleng-dl-"));
@@ -210,7 +369,7 @@ export async function downloadAndProcessYoutube(
 
     const { stdout } = await execFileAsync(ytDlpPath, ytDlpArgs);
     const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const videoTitle = lines[0] || "Unknown Title";
+    const videoTitle = lines[0] || candidateTitle || "Unknown Title";
     let reportedDuration = lines[1] ? parseFloat(lines[1]) : 0;
 
     // Locate the downloaded raw audio file in tempDir
