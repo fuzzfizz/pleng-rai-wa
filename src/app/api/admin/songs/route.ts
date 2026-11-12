@@ -13,11 +13,14 @@ export async function GET(req: NextRequest) {
     const artistsParam = searchParams.get("artists");
     const artists = artistsParam ? artistsParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
     const artist = searchParams.get("artist") || undefined;
+    const album = searchParams.get("album") || undefined;
+    const albumsParam = searchParams.get("albums");
+    const albums = albumsParam ? albumsParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
     const searchQuery = searchParams.get("q") || undefined;
     const limitParam = searchParams.get("limit");
     const limit = limitParam ? Math.min(500, Math.max(1, Number(limitParam) || 100)) : 100;
 
-    const songs = await getSongs({ genreId, era, artist, artists, searchQuery, limit });
+    const songs = await getSongs({ genreId, era, artist, artists, album, albums, searchQuery, limit });
     return NextResponse.json({ success: true, songs });
   } catch (error) {
     console.error("Fetch songs error:", error);
@@ -71,6 +74,7 @@ export async function PATCH(req: NextRequest) {
       id,
       title,
       artist,
+      album,
       aliases,
       releaseYear,
       genreId,
@@ -95,6 +99,7 @@ export async function PATCH(req: NextRequest) {
     const updates: Partial<Song> = {};
     if (title !== undefined) updates.title = title;
     if (artist !== undefined) updates.artist = artist;
+    if (album !== undefined) updates.album = album;
     if (aliases !== undefined) updates.aliases = Array.isArray(aliases) ? aliases : [];
     if (releaseYear !== undefined) {
       updates.releaseYear = releaseYear !== null && releaseYear !== "" ? Number(releaseYear) : undefined;

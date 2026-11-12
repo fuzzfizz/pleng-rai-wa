@@ -417,6 +417,14 @@ function SoloPlayContent() {
             queryParams.set("artist", filter.artist);
           }
         }
+        if (filter.type === "album") {
+          if (filter.albums && filter.albums.length > 0) {
+            queryParams.set("albums", filter.albums.join(","));
+            queryParams.set("album", filter.albums[0]);
+          } else if (filter.album) {
+            queryParams.set("album", filter.album);
+          }
+        }
 
         const queryString = queryParams.toString();
         const url = queryString ? `/api/admin/songs?${queryString}` : "/api/admin/songs";

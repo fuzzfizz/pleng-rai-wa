@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.2.1] - 2026-11-12
+
+### Added
+- **Album Filtering Support Across Solo & Multiplayer Room Setup**:
+  - Added dedicated 💿 **"อัลบั้ม" (Album)** tab in `SongSourceModal` with 6-tab responsive grid navigation.
+  - Interactive album cards displaying vinyl icon, album title, artist name, song count badge, and multi-select capability (`draft.albums` & `draft.album`).
+  - Search filter within Album tab allowing instant searching by album title or artist name.
+  - Backend API & Service layer aggregation in `SongService.getSongFilterOptions()` returning available albums with accurate song counts and artist metadata.
+  - Added album query filtering support in `SongService.getSongs()`, `SongService.getRandomSongs()`, `/api/admin/songs`, and room round generator `/api/room/[code]/next-round`.
+  - Added comprehensive unit tests in `src/components/common/__tests__/song-source-modal-album.test.ts`.
+
+---
+
 ## [v1.2.0] - 2026-11-12
 
 ### Added

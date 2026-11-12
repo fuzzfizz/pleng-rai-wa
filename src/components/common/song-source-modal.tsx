@@ -20,6 +20,7 @@ import {
   ListMusic,
 } from "lucide-react";
 import type { SongFilterConfig, SongFilterType, Genre, Playlist } from "@/types";
+import type { AlbumFilterOption } from "@/lib/services/song-service";
 import { soundEffects } from "@/lib/sound-effects";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth/auth-modal";
@@ -105,6 +106,12 @@ export function getSongFilterLabel(filter?: SongFilterConfig, customPlaylistTitl
     }
     return `🎤 ศิลปิน: ${filter.artist || filter.artists?.[0] || "ไม่ระบุ"}`;
   }
+  if (filter.type === "album") {
+    if (filter.albums && filter.albums.length > 1) {
+      return `💿 อัลบั้ม (${filter.albums.length} อัลบั้ม): ${filter.albums.join(", ")}`;
+    }
+    return `💿 อัลบั้ม: ${filter.album || filter.albums?.[0] || "ไม่ระบุ"}`;
+  }
   if (filter.type === "playlist") {
     return customPlaylistTitle ? `🎶 เพลย์ลิสต์: ${customPlaylistTitle}` : "🎶 ใช้เพลย์ลิสต์";
   }
@@ -150,6 +157,7 @@ export function SongSourceModal({
   const [genres, setGenres] = useState<Genre[]>(FALLBACK_GENRES);
   const [eraCounts, setEraCounts] = useState<Record<string, number>>({});
   const [artists, setArtists] = useState<string[]>([]);
+  const [albums, setAlbums] = useState<AlbumFilterOption[]>([]);
   const [totalSongsCount, setTotalSongsCount] = useState<number>(0);
   const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(false);
 
@@ -159,6 +167,8 @@ export function SongSourceModal({
 
   // Artist search input
   const [artistSearch, setArtistSearch] = useState<string>("");
+  // Album search input
+  const [albumSearch, setAlbumSearch] = useState<string>("");
 
   // Filter out non-musical / era categories from genres
   const displayGenres = useMemo(() => {
@@ -226,6 +236,7 @@ export function SongSourceModal({
       setDraft(initial);
       setActiveTab(initial.type || "all");
       setArtistSearch("");
+      setAlbumSearch("");
       setPlaylistSearch("");
       setPlaylistWarningId(null);
 
@@ -267,6 +278,9 @@ export function SongSourceModal({
           if (data.filters.artists) {
             setArtists(data.filters.artists);
           }
+          if (data.filters.albums) {
+            setAlbums(data.filters.albums);
+          }
           if (typeof data.filters.totalSongs === "number") {
             setTotalSongsCount(data.filters.totalSongs);
           }
@@ -303,6 +317,17 @@ export function SongSourceModal({
     const q = artistSearch.toLowerCase().trim();
     return artists.filter((a) => a.toLowerCase().includes(q));
   }, [artists, artistSearch]);
+
+  // Filtered albums based on search
+  const filteredAlbums = useMemo(() => {
+    if (!albumSearch.trim()) return albums;
+    const q = albumSearch.toLowerCase().trim();
+    return albums.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        (a.artist && a.artist.toLowerCase().includes(q))
+    );
+  }, [albums, albumSearch]);
 
   // Filtered playlists based on sub-tab and search
   const filteredPlaylists = useMemo(() => {
@@ -356,6 +381,12 @@ export function SongSourceModal({
       return Boolean(
         (draft.artists && draft.artists.length > 0) ||
         (draft.artist && draft.artist.trim().length > 0)
+      );
+    }
+    if (draft.type === "album") {
+      return Boolean(
+        (draft.albums && draft.albums.length > 0) ||
+        (draft.album && draft.album.trim().length > 0)
       );
     }
     if (draft.type === "playlist") return Boolean(draft.playlistId);
@@ -434,7 +465,7 @@ export function SongSourceModal({
         </div>
 
         {/* Filter Mode Navigation Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-950/70 border border-stone-200/80 dark:border-stone-800/80 shrink-0 text-xs font-semibold">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-950/70 border border-stone-200/80 dark:border-stone-800/80 shrink-0 text-xs font-semibold">
           {/* Tab 1: All */}
           <button
             type="button"
@@ -538,13 +569,42 @@ export function SongSourceModal({
             <span>ศิลปิน</span>
           </button>
 
-          {/* Tab 5: Playlist */}
+          {/* Tab 5: Album */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("album");
+              if (
+                draft.type !== "album" ||
+                (!draft.album && (!draft.albums || draft.albums.length === 0))
+              ) {
+                const firstAlbum = albums[0];
+                if (firstAlbum) {
+                  setDraft({
+                    type: "album",
+                    album: firstAlbum.name,
+                    albums: [firstAlbum.name],
+                  });
+                }
+              }
+            }}
+            className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px] ${
+              activeTab === "album"
+                ? "bg-white dark:bg-stone-800 text-amber-800 dark:text-amber-300 shadow-sm font-bold"
+                : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
+            }`}
+          >
+            <span>💿</span>
+            <span>อัลบั้ม</span>
+          </button>
+
+          {/* Tab 6: Playlist */}
           <button
             type="button"
             onClick={() => {
               setActiveTab("playlist");
             }}
-            className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px] col-span-2 sm:col-span-1 md:col-span-1 ${
+            className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px] ${
               activeTab === "playlist"
                 ? "bg-white dark:bg-stone-800 text-amber-800 dark:text-amber-300 shadow-sm font-bold"
                 : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
@@ -941,7 +1001,146 @@ export function SongSourceModal({
               </div>
             );
           })()}
-          {/* TAB 5: PLAYLIST */}
+
+          {/* TAB 5: ALBUM */}
+          {activeTab === "album" && (() => {
+            const selectedAlbums =
+              draft.type === "album"
+                ? draft.albums && draft.albums.length > 0
+                  ? draft.albums
+                  : draft.album
+                  ? [draft.album]
+                  : []
+                : [];
+
+            return (
+              <div className="space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="ค้นหาชื่ออัลบั้ม หรือ ชื่อศิลปิน..."
+                    value={albumSearch}
+                    onChange={(e) => setAlbumSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  />
+                </div>
+
+                {/* Header Row */}
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-stone-600 dark:text-stone-300">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                      อัลบั้มในฐานข้อมูล:
+                    </label>
+                    {selectedAlbums.length > 0 && (
+                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        เลือกแล้ว {selectedAlbums.length} อัลบั้ม
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allAlbumNames = (filteredAlbums.length > 0 ? filteredAlbums : albums).map((a) => a.name);
+                        setDraft({
+                          type: "album",
+                          albums: allAlbumNames,
+                          album: allAlbumNames[0] || undefined,
+                        });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      ✓ เลือกทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraft({
+                          type: "album",
+                          albums: [],
+                          album: undefined,
+                        });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      ✕ ล้างค่า
+                    </button>
+                    {isLoadingFilters && (
+                      <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px] ml-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> โหลดอัลบั้ม...
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Grid of Album Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1">
+                  {filteredAlbums.length > 0 ? (
+                    filteredAlbums.map((alb) => {
+                      const isSelected = selectedAlbums.includes(alb.name);
+                      return (
+                        <div
+                          key={alb.name}
+                          onClick={() => {
+                            let nextAlbums: string[];
+                            if (isSelected) {
+                              nextAlbums = selectedAlbums.filter((a) => a !== alb.name);
+                            } else {
+                              nextAlbums = [...selectedAlbums, alb.name];
+                            }
+                            setDraft({
+                              type: "album",
+                              albums: nextAlbums,
+                              album: nextAlbums[0] || undefined,
+                            });
+                          }}
+                          className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-2 min-h-[90px] ${
+                            isSelected
+                              ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                              : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="text-2xl shrink-0">💿</span>
+                              <div className="min-w-0">
+                                <h4 className="font-bold text-sm text-stone-900 dark:text-white truncate">
+                                  {alb.name}
+                                </h4>
+                                {alb.artist && (
+                                  <p className="text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                                    {alb.artist}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-end text-[11px] pt-1 border-t border-stone-200/60 dark:border-stone-800/60">
+                            <span className="font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                              {alb.songCount} เพลง
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-1 sm:col-span-2 p-8 text-center text-xs text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-950/40 rounded-2xl border border-stone-200 dark:border-stone-800">
+                      ไม่พบอัลบั้มที่ตรงกับคำค้นหา
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* TAB 6: PLAYLIST */}
           {activeTab === "playlist" && (
             <div className="space-y-4">
               {/* Sub-tab switcher: Public vs My Playlists */}

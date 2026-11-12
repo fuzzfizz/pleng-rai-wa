@@ -196,6 +196,11 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
       result.playlistId = undefined;
       result.genreId = undefined;
       result.genreIds = undefined;
+    } else if (result.songFilter.type === "album") {
+      result.playlistId = undefined;
+      result.genreId = undefined;
+      result.genreIds = undefined;
+      result.eraIds = undefined;
     } else if (result.songFilter.type === "all") {
       result.playlistId = undefined;
       result.genreId = undefined;
@@ -228,6 +233,7 @@ export function HostSettingsModal({
   const [filterMetadata, setFilterMetadata] = useState<{
     genres: { id: string; nameTh: string; songCount?: number }[];
     eras: { id: string; label: string; songCount?: number }[];
+    albums?: { name: string; artist?: string; songCount: number }[];
     totalSongs: number;
   } | null>(null);
   const [isClampedWarning, setIsClampedWarning] = useState(false);
@@ -268,6 +274,7 @@ export function HostSettingsModal({
           setFilterMetadata({
             genres: data.filters.genres || [],
             eras: data.filters.eras || [],
+            albums: data.filters.albums || [],
             totalSongs: data.filters.totalSongs || 0,
           });
         }
@@ -427,6 +434,23 @@ export function HostSettingsModal({
       }
       return 20;
     }
+    if (currentFilterConfig.type === "album") {
+      if (filterMetadata && (filterMetadata as any).albums) {
+        const albums =
+          currentFilterConfig.albums && currentFilterConfig.albums.length > 0
+            ? currentFilterConfig.albums
+            : currentFilterConfig.album
+            ? [currentFilterConfig.album]
+            : [];
+        if (albums.length > 0) {
+          const total = (filterMetadata as any).albums
+            .filter((a: any) => albums.includes(a.name))
+            .reduce((sum: number, a: any) => sum + (a.songCount || 0), 0);
+          return Math.max(1, total);
+        }
+      }
+      return 20;
+    }
     if (currentFilterConfig.type === "all") {
       if (filterMetadata && filterMetadata.totalSongs > 0) {
         return filterMetadata.totalSongs;
@@ -456,6 +480,8 @@ export function HostSettingsModal({
     currentFilterConfig.genreId,
     currentFilterConfig.genreIds,
     currentFilterConfig.eraIds,
+    currentFilterConfig.album,
+    currentFilterConfig.albums,
     draft.totalRounds,
   ]);
 
@@ -893,7 +919,7 @@ export function HostSettingsModal({
                     <span>{getSongFilterLabel(currentFilterConfig, selectedPlaylist?.title)}</span>
                   </div>
                   <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 truncate">
-                    สุ่มทั้งหมด • ตามยุค 90s, 2000s, 2010s, 2020s • ตามแนวเพลง • ตามศิลปิน • เพลย์ลิสต์
+                    สุ่มทั้งหมด • ตามยุค 90s, 2000s, 2010s, 2020s • ตามแนวเพลง • ตามศิลปิน • ตามอัลบั้ม • เพลย์ลิสต์
                   </p>
                 </div>
               </div>

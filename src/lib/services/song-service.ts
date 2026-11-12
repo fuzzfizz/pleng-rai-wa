@@ -57,6 +57,7 @@ export function mapSongFromRow(row: SongRow & { genres?: GenreRow | null }): Son
     id: row.id,
     title: row.title,
     artist: row.artist,
+    album: row.album ?? undefined,
     aliases: Array.isArray(row.aliases) ? row.aliases : [],
     releaseYear: row.release_year ?? undefined,
     genreId: row.genre_id ?? undefined,
@@ -77,10 +78,11 @@ export function mapSongFromRow(row: SongRow & { genres?: GenreRow | null }): Son
 /**
  * Maps a Song domain model or partial object to a Supabase insert row.
  */
-export function mapSongToRow(song: Partial<Song> & Record<string, unknown>): SongInsert {
-  const title = (song.title ?? song.title) as string | undefined;
-  const artist = (song.artist ?? song.artist) as string | undefined;
-  const audioUrl = (song.audioUrl ?? song.audio_url) as string | undefined;
+export function mapSongToRow(song: Partial<Song> | Record<string, any>): SongInsert {
+  const s = song as any;
+  const title = (s.title ?? s.title) as string | undefined;
+  const artist = (s.artist ?? s.artist) as string | undefined;
+  const audioUrl = (s.audioUrl ?? s.audio_url) as string | undefined;
 
   if (!title || !artist || !audioUrl) {
     throw new Error("Missing required song fields: title, artist, audioUrl");
@@ -92,37 +94,38 @@ export function mapSongToRow(song: Partial<Song> & Record<string, unknown>): Son
     audio_url: audioUrl,
   };
 
-  if (song.id !== undefined) insertData.id = song.id;
-  if (song.aliases !== undefined) insertData.aliases = song.aliases;
+  if (s.id !== undefined) insertData.id = s.id;
+  if (s.album !== undefined) insertData.album = s.album;
+  if (s.aliases !== undefined) insertData.aliases = s.aliases;
   
-  if (song.releaseYear !== undefined) insertData.release_year = song.releaseYear;
-  else if (song.release_year !== undefined) insertData.release_year = song.release_year as number;
+  if (s.releaseYear !== undefined) insertData.release_year = s.releaseYear;
+  else if (s.release_year !== undefined) insertData.release_year = s.release_year as number;
 
-  if (song.genreId !== undefined) insertData.genre_id = song.genreId;
-  else if (song.genre_id !== undefined) insertData.genre_id = song.genre_id as string;
+  if (s.genreId !== undefined) insertData.genre_id = s.genreId;
+  else if (s.genre_id !== undefined) insertData.genre_id = s.genre_id as string;
 
-  if (song.era !== undefined) insertData.era = song.era;
+  if (s.era !== undefined) insertData.era = s.era;
 
-  if (song.hookStartSec !== undefined) insertData.hook_start_sec = song.hookStartSec;
-  else if (song.hook_start_sec !== undefined) insertData.hook_start_sec = song.hook_start_sec as number;
+  if (s.hookStartSec !== undefined) insertData.hook_start_sec = s.hookStartSec;
+  else if (s.hook_start_sec !== undefined) insertData.hook_start_sec = s.hook_start_sec as number;
 
-  if (song.hookEndSec !== undefined) insertData.hook_end_sec = song.hookEndSec;
-  else if (song.hook_end_sec !== undefined) insertData.hook_end_sec = song.hook_end_sec as number;
+  if (s.hookEndSec !== undefined) insertData.hook_end_sec = s.hookEndSec;
+  else if (s.hook_end_sec !== undefined) insertData.hook_end_sec = s.hook_end_sec as number;
 
-  if (song.durationSec !== undefined) insertData.duration_sec = song.durationSec;
-  else if (song.duration_sec !== undefined) insertData.duration_sec = song.duration_sec as number;
+  if (s.durationSec !== undefined) insertData.duration_sec = s.durationSec;
+  else if (s.duration_sec !== undefined) insertData.duration_sec = s.duration_sec as number;
 
-  if (song.lyricsIntro !== undefined) insertData.lyrics_intro = song.lyricsIntro;
-  else if (song.lyrics_intro !== undefined) insertData.lyrics_intro = song.lyrics_intro as string;
+  if (s.lyricsIntro !== undefined) insertData.lyrics_intro = s.lyricsIntro;
+  else if (s.lyrics_intro !== undefined) insertData.lyrics_intro = s.lyrics_intro as string;
 
-  if (song.lyricsChorus !== undefined) insertData.lyrics_chorus = song.lyricsChorus;
-  else if (song.lyrics_chorus !== undefined) insertData.lyrics_chorus = song.lyrics_chorus as string;
+  if (s.lyricsChorus !== undefined) insertData.lyrics_chorus = s.lyricsChorus;
+  else if (s.lyrics_chorus !== undefined) insertData.lyrics_chorus = s.lyrics_chorus as string;
 
-  if (song.lyricsFull !== undefined) insertData.lyrics_full = song.lyricsFull;
-  else if (song.lyrics_full !== undefined) insertData.lyrics_full = song.lyrics_full as string;
+  if (s.lyricsFull !== undefined) insertData.lyrics_full = s.lyricsFull;
+  else if (s.lyrics_full !== undefined) insertData.lyrics_full = s.lyrics_full as string;
 
-  if (song.metadata !== undefined) {
-    insertData.metadata = { ...((song.metadata as Record<string, unknown>) || {}) } as SongInsert["metadata"];
+  if (s.metadata !== undefined) {
+    insertData.metadata = { ...((s.metadata as Record<string, unknown>) || {}) } as SongInsert["metadata"];
   }
 
   if (insertData.lyrics_full) {
@@ -141,6 +144,8 @@ export interface SongFilter {
   era?: string;
   artist?: string;
   artists?: string[];
+  album?: string;
+  albums?: string[];
   yearStart?: number;
   yearEnd?: number;
   searchQuery?: string;
@@ -180,6 +185,12 @@ export async function getSongs(filter?: SongFilter): Promise<Song[]> {
 
   if (filter?.era) {
     query = query.eq("era", filter.era);
+  }
+
+  if (filter?.albums && filter.albums.length > 0) {
+    query = query.in("album", filter.albums);
+  } else if (filter?.album) {
+    query = query.eq("album", filter.album);
   }
 
   if (filter?.artists && filter.artists.length > 0) {
@@ -267,6 +278,7 @@ export async function updateSong(id: string, song: Partial<Song>): Promise<Song>
 
   if (song.title !== undefined) updateData.title = song.title;
   if (song.artist !== undefined) updateData.artist = song.artist;
+  if (song.album !== undefined) updateData.album = song.album;
   if (song.aliases !== undefined) updateData.aliases = song.aliases;
   if (song.releaseYear !== undefined) updateData.release_year = song.releaseYear;
   if (song.genreId !== undefined) updateData.genre_id = song.genreId;
@@ -332,6 +344,8 @@ export interface GetRandomSongsOptions {
   eraIds?: string[];
   artist?: string;
   artists?: string[];
+  album?: string;
+  albums?: string[];
   yearStart?: number;
   yearEnd?: number;
   playlistId?: string | null;
@@ -351,6 +365,12 @@ export function songHasLyrics(s: any): boolean {
   );
 }
 
+export interface AlbumFilterOption {
+  name: string;
+  artist?: string;
+  songCount: number;
+}
+
 export interface EraFilterOption {
   id: string;
   label: string;
@@ -361,6 +381,7 @@ export interface SongFilterOptionsResponse {
   genres: Genre[];
   eras: EraFilterOption[];
   artists: string[];
+  albums?: AlbumFilterOption[];
   totalSongs: number;
 }
 
@@ -374,7 +395,7 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
     getGenres().catch(() => []),
     client
       .from("songs")
-      .select("artist, genre_id, era, release_year")
+      .select("artist, genre_id, era, release_year, album")
       .order("artist", { ascending: true }),
     client
       .from("songs")
@@ -386,6 +407,7 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
     genre_id?: string | null;
     era?: string | null;
     release_year?: number | null;
+    album?: string | null;
   }>) || [];
 
   const rawArtists = songRows
@@ -395,6 +417,29 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
   const uniqueArtists = Array.from(new Set(rawArtists)).sort((a, b) =>
     a.localeCompare(b, "th")
   );
+
+  const albumMap = new Map<string, { artist: string; count: number }>();
+  for (const song of songRows) {
+    const albumName = (song as any).album?.trim();
+    if (albumName) {
+      const existing = albumMap.get(albumName);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        albumMap.set(albumName, {
+          artist: song.artist?.trim() || "",
+          count: 1,
+        });
+      }
+    }
+  }
+  const uniqueAlbums: AlbumFilterOption[] = Array.from(albumMap.entries())
+    .map(([name, val]) => ({
+      name,
+      artist: val.artist,
+      songCount: val.count,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "th"));
 
   // Map to identify era genres (e.g. legacy '90s' or '2000s' genres)
   const eraGenreIds: Record<string, string> = {};
@@ -465,6 +510,7 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
     genres: filteredGenres,
     eras,
     artists: uniqueArtists,
+    albums: uniqueAlbums,
     totalSongs: countRes?.count ?? songRows.length,
   };
 }
@@ -520,6 +566,8 @@ export async function getRandomSongs(
         eraIds: options.eraIds,
         artist: options.artist,
         artists: options.artists,
+        album: options.album,
+        albums: options.albums,
         yearStart: options.yearStart,
         yearEnd: options.yearEnd,
         excludeIds: options.excludeIds,
@@ -571,6 +619,12 @@ export async function getRandomSongs(
     query = query.eq("era", options.era);
   }
 
+  if (options?.albums && options.albums.length > 0) {
+    query = query.in("album", options.albums);
+  } else if (options?.album) {
+    query = query.eq("album", options.album);
+  }
+
   if (options?.artists && options.artists.length > 0) {
     const orCondition = options.artists.map((a) => `artist.ilike.%${a}%`).join(",");
     query = query.or(orCondition);
@@ -607,6 +661,8 @@ export async function getRandomSongs(
     options?.era ||
     (options?.artists && options.artists.length > 0) ||
     options?.artist ||
+    (options?.albums && options.albums.length > 0) ||
+    Boolean(options?.album) ||
     options?.yearStart !== undefined ||
     options?.yearEnd !== undefined
   );

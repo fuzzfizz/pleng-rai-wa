@@ -168,6 +168,8 @@ export async function POST(
     let filterEraIds: string[] | undefined = undefined;
     let filterArtist: string | undefined = undefined;
     let filterArtists: string[] | undefined = undefined;
+    let filterAlbum: string | undefined = undefined;
+    let filterAlbums: string[] | undefined = undefined;
     let filterYearStart: number | undefined = undefined;
     let filterYearEnd: number | undefined = undefined;
     let filterPlaylistId: string | null | undefined = undefined;
@@ -197,6 +199,14 @@ export async function POST(
             : songFilter.artist
             ? [songFilter.artist]
             : undefined;
+      } else if (songFilter.type === "album") {
+        filterAlbum = songFilter.album;
+        filterAlbums =
+          songFilter.albums && songFilter.albums.length > 0
+            ? songFilter.albums
+            : songFilter.album
+            ? [songFilter.album]
+            : undefined;
       } else if (songFilter.type === "playlist") {
         filterPlaylistId = songFilter.playlistId;
       }
@@ -225,6 +235,8 @@ export async function POST(
       eraIds: filterEraIds,
       artist: filterArtist,
       artists: filterArtists,
+      album: filterAlbum,
+      albums: filterAlbums,
       yearStart: filterYearStart,
       yearEnd: filterYearEnd,
       playlistId: filterPlaylistId,
@@ -434,6 +446,8 @@ export async function POST(
             genreIds: filterGenreIds,
             era: filterEra,
             playlistId: filterPlaylistId,
+            album: filterAlbum,
+            albums: filterAlbums,
             excludeIds,
           });
         } catch (err) {
