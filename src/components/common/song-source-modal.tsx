@@ -36,6 +36,8 @@ export interface SongSourceModalProps {
   onSelectFilter: (filter: SongFilterConfig) => void | Promise<void>;
   playlists?: Playlist[];
   initialPlaylistSubTab?: "public" | "my";
+  genres?: Genre[];
+  eraCounts?: Record<string, number>;
 }
 
 export const FALLBACK_GENRES: Genre[] = [
@@ -125,6 +127,8 @@ export function SongSourceModal({
   onSelectFilter,
   playlists: propPlaylists,
   initialPlaylistSubTab,
+  genres: propGenres,
+  eraCounts: propEraCounts,
 }: SongSourceModalProps): React.JSX.Element | null {
   const { user, isGuest } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -154,12 +158,20 @@ export function SongSourceModal({
   );
 
   // Loaded metadata from API
-  const [genres, setGenres] = useState<Genre[]>(FALLBACK_GENRES);
-  const [eraCounts, setEraCounts] = useState<Record<string, number>>({});
+  const [genres, setGenres] = useState<Genre[]>(propGenres || FALLBACK_GENRES);
+  const [eraCounts, setEraCounts] = useState<Record<string, number>>(propEraCounts || {});
   const [artists, setArtists] = useState<string[]>([]);
   const [albums, setAlbums] = useState<AlbumFilterOption[]>([]);
   const [totalSongsCount, setTotalSongsCount] = useState<number>(0);
   const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (propGenres) setGenres(propGenres);
+  }, [propGenres]);
+
+  useEffect(() => {
+    if (propEraCounts) setEraCounts(propEraCounts);
+  }, [propEraCounts]);
 
   // Internal playlists fallback if propPlaylists is not provided
   const [internalPlaylists, setInternalPlaylists] = useState<Playlist[]>([]);
@@ -176,9 +188,14 @@ export function SongSourceModal({
       (g) =>
         g.slug !== "90s" &&
         g.slug !== "2000s" &&
-        !g.nameTh.includes("ยุค")
+        !g.nameTh.includes("ยุค") &&
+        (g.songCount || 0) > 0
     );
   }, [genres]);
+
+  const displayEras = useMemo(() => {
+    return ERA_OPTIONS.filter((e) => (eraCounts[e.id] ?? 0) > 0);
+  }, [eraCounts]);
 
   // Load playlists fallback if propPlaylists not provided
   useEffect(() => {
@@ -253,7 +270,7 @@ export function SongSourceModal({
 
   // Load Filter Options from API
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || (propGenres !== undefined && propEraCounts !== undefined)) return;
 
     let isMounted = true;
     setIsLoadingFilters(true);
@@ -488,17 +505,30 @@ export function SongSourceModal({
             type="button"
             onClick={() => {
               setActiveTab("era");
-              if (
-                draft.type !== "era" ||
-                (!draft.era && (!draft.eraIds || draft.eraIds.length === 0))
-              ) {
-                setDraft({
-                  type: "era",
-                  era: "2000s",
-                  eraIds: ["2000s"],
-                  yearStart: 2000,
-                  yearEnd: 2009,
-                });
+              const currentEra =
+                draft.type === "era" ? (draft.era || draft.eraIds?.[0]) : undefined;
+              const isSelectedInDisplay = Boolean(
+                currentEra && displayEras.some((e) => e.id === currentEra)
+              );
+              if (!isSelectedInDisplay) {
+                const firstEra = displayEras[0];
+                if (firstEra) {
+                  setDraft({
+                    type: "era",
+                    era: firstEra.id,
+                    eraIds: [firstEra.id],
+                    yearStart: firstEra.yearStart,
+                    yearEnd: firstEra.yearEnd,
+                  });
+                } else {
+                  setDraft({
+                    type: "era",
+                    era: undefined,
+                    eraIds: [],
+                    yearStart: undefined,
+                    yearEnd: undefined,
+                  });
+                }
               }
             }}
             className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px] ${
@@ -516,11 +546,13 @@ export function SongSourceModal({
             type="button"
             onClick={() => {
               setActiveTab("genre");
-              if (
-                draft.type !== "genre" ||
-                (!draft.genreId && (!draft.genreIds || draft.genreIds.length === 0))
-              ) {
-                const first = displayGenres[0] || genres[0];
+              const currentGenre =
+                draft.type === "genre" ? (draft.genreId || draft.genreIds?.[0]) : undefined;
+              const isSelectedInDisplay = Boolean(
+                currentGenre && displayGenres.some((g) => g.id === currentGenre)
+              );
+              if (!isSelectedInDisplay) {
+                const first = displayGenres[0];
                 if (first) {
                   setDraft({
                     type: "genre",
@@ -528,6 +560,14 @@ export function SongSourceModal({
                     genreName: first.nameTh,
                     genreIds: [first.id],
                     genreNames: [first.nameTh],
+                  });
+                } else {
+                  setDraft({
+                    type: "genre",
+                    genreId: undefined,
+                    genreName: undefined,
+                    genreIds: [],
+                    genreNames: [],
                   });
                 }
               }
@@ -667,7 +707,7 @@ export function SongSourceModal({
                   ? [draft.era]
                   : []
                 : [];
-            const totalEraSongs = ERA_OPTIONS
+            const totalEraSongs = displayEras
               .filter((e) => selectedEraIds.includes(e.id))
               .reduce((sum, e) => sum + (eraCounts[e.id] ?? 0), 0);
 
@@ -686,10 +726,10 @@ export function SongSourceModal({
                     <button
                       type="button"
                       onClick={() => {
-                        const allEraIds = ERA_OPTIONS.map((e) => e.id);
+                        const allEraIds = displayEras.map((e) => e.id);
                         setDraft({
                           type: "era",
-                          era: allEraIds[0],
+                          era: allEraIds[0] || undefined,
                           eraIds: allEraIds,
                         });
                       }}
@@ -713,64 +753,70 @@ export function SongSourceModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {ERA_OPTIONS.map((era) => {
-                    const isSelected = selectedEraIds.includes(era.id);
-                    const count = eraCounts[era.id] ?? 0;
-                    return (
-                      <div
-                        key={era.id}
-                        onClick={() => {
-                          let newEraIds: string[];
-                          if (isSelected) {
-                            newEraIds = selectedEraIds.filter((id) => id !== era.id);
-                          } else {
-                            newEraIds = [...selectedEraIds, era.id];
-                          }
-                          const singleEra =
-                            newEraIds.length === 1
-                              ? ERA_OPTIONS.find((e) => e.id === newEraIds[0])
-                              : undefined;
+                {displayEras.length === 0 ? (
+                  <div className="p-8 text-center text-xs sm:text-sm text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-950/40 rounded-2xl border border-stone-200 dark:border-stone-800">
+                    ยังไม่มีเพลงในยุคสมัยใดในฐานข้อมูลขณะนี้
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {displayEras.map((era) => {
+                      const isSelected = selectedEraIds.includes(era.id);
+                      const count = eraCounts[era.id] ?? 0;
+                      return (
+                        <div
+                          key={era.id}
+                          onClick={() => {
+                            let newEraIds: string[];
+                            if (isSelected) {
+                              newEraIds = selectedEraIds.filter((id) => id !== era.id);
+                            } else {
+                              newEraIds = [...selectedEraIds, era.id];
+                            }
+                            const singleEra =
+                              newEraIds.length === 1
+                                ? displayEras.find((e) => e.id === newEraIds[0])
+                                : undefined;
 
-                          setDraft({
-                            type: "era",
-                            eraIds: newEraIds,
-                            era: newEraIds[0] || undefined,
-                            yearStart: singleEra ? singleEra.yearStart : undefined,
-                            yearEnd: singleEra ? singleEra.yearEnd : undefined,
-                          });
-                        }}
-                        className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-2 min-h-[90px] ${
-                          isSelected
-                            ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
-                            : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-2xl">{era.icon}</span>
-                            <div>
-                              <div className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
-                                <span>{era.label}</span>
-                                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                                  {count} เพลง
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                                {era.subtitle}
+                            setDraft({
+                              type: "era",
+                              eraIds: newEraIds,
+                              era: newEraIds[0] || undefined,
+                              yearStart: singleEra ? singleEra.yearStart : undefined,
+                              yearEnd: singleEra ? singleEra.yearEnd : undefined,
+                            });
+                          }}
+                          className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-2 min-h-[90px] ${
+                            isSelected
+                              ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                              : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-2xl">{era.icon}</span>
+                              <div>
+                                <div className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
+                                  <span>{era.label}</span>
+                                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                                    {count} เพลง
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                                  {era.subtitle}
+                                </div>
                               </div>
                             </div>
+                            {isSelected && (
+                              <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </div>
+                            )}
                           </div>
-                          {isSelected && (
-                            <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -841,60 +887,66 @@ export function SongSourceModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {displayGenres.map((g) => {
-                    const isSelected = selectedGenreIds.includes(g.id);
-                    return (
-                      <div
-                        key={g.id}
-                        onClick={() => {
-                          let newIds: string[];
-                          if (isSelected) {
-                            newIds = selectedGenreIds.filter((id) => id !== g.id);
-                          } else {
-                            newIds = [...selectedGenreIds, g.id];
-                          }
-                          const newNames = displayGenres
-                            .filter((gen) => newIds.includes(gen.id))
-                            .map((gen) => gen.nameTh);
+                {displayGenres.length === 0 ? (
+                  <div className="p-8 text-center text-xs sm:text-sm text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-950/40 rounded-2xl border border-stone-200 dark:border-stone-800">
+                    ยังไม่มีแนวเพลงที่มีเพลงในฐานข้อมูลขณะนี้
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {displayGenres.map((g) => {
+                      const isSelected = selectedGenreIds.includes(g.id);
+                      return (
+                        <div
+                          key={g.id}
+                          onClick={() => {
+                            let newIds: string[];
+                            if (isSelected) {
+                              newIds = selectedGenreIds.filter((id) => id !== g.id);
+                            } else {
+                              newIds = [...selectedGenreIds, g.id];
+                            }
+                            const newNames = displayGenres
+                              .filter((gen) => newIds.includes(gen.id))
+                              .map((gen) => gen.nameTh);
 
-                          setDraft({
-                            type: "genre",
-                            genreIds: newIds,
-                            genreNames: newNames,
-                            genreId: newIds[0] || undefined,
-                            genreName: newNames[0] || undefined,
-                          });
-                        }}
-                        className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-1.5 min-h-[80px] ${
-                          isSelected
-                            ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
-                            : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-2xl">{g.icon || "🎵"}</span>
-                          {isSelected && (
-                            <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            setDraft({
+                              type: "genre",
+                              genreIds: newIds,
+                              genreNames: newNames,
+                              genreId: newIds[0] || undefined,
+                              genreName: newNames[0] || undefined,
+                            });
+                          }}
+                          className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-1.5 min-h-[80px] ${
+                            isSelected
+                              ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                              : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-amber-400/50 hover:bg-stone-100/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl">{g.icon || "🎵"}</span>
+                            {isSelected && (
+                              <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-bold text-sm text-stone-900 dark:text-white">
+                              {g.nameTh}
                             </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-bold text-sm text-stone-900 dark:text-white">
-                            {g.nameTh}
-                          </div>
-                          <div className="text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between mt-0.5">
-                            <span>{g.nameEn}</span>
-                            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
-                              {g.songCount || 0} เพลง
-                            </span>
+                            <div className="text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between mt-0.5">
+                              <span>{g.nameEn}</span>
+                              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
+                                {g.songCount || 0} เพลง
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })()}

@@ -487,12 +487,12 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
     }
   }
 
-  // Filter out any genres where slug === '90s' || slug === '2000s' or nameTh.includes('ยุค')
+  // Filter out any genres where slug === '90s' || slug === '2000s' or nameTh.includes('ยุค'), and only keep genres with songs
   const filteredGenres: Genre[] = genresRes
     .filter((g) => {
       if (g.slug === "90s" || g.slug === "2000s") return false;
       if (g.nameTh && g.nameTh.includes("ยุค")) return false;
-      return true;
+      return (genreCountMap[g.id] || 0) > 0;
     })
     .map((g) => ({
       ...g,
@@ -504,7 +504,7 @@ export async function getSongFilterOptions(): Promise<SongFilterOptionsResponse>
     { id: "2000s", label: "ยุค 2000s (มิลเลนเนียม)", songCount: eraCountMap["2000s"] || 0 },
     { id: "2010s", label: "ยุค 2010s (สตรีมมิ่ง & อินดี้)", songCount: eraCountMap["2010s"] || 0 },
     { id: "2020s", label: "ยุค 2020s (ฮิตติดกระแส)", songCount: eraCountMap["2020s"] || 0 },
-  ];
+  ].filter((e) => (e.songCount || 0) > 0);
 
   return {
     genres: filteredGenres,

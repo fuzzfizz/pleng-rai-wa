@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.2.2] - 2026-11-12
+
+### Changed
+- **Database-Driven Genre & Era Filter Display**:
+  - Filtered `SongService.getSongFilterOptions()` to only return genres and eras with `songCount > 0`, removing empty categories from `/api/songs/filters`.
+  - Updated `SongSourceModal` to dynamically hide genres and eras that have 0 songs in the database, preventing players from selecting empty categories.
+  - Added clean empty state messages when no genres or eras with songs exist in the database.
+  - Aligned "✓ เลือกทั้งหมด" and "✓ เลือกทุกยุค" action buttons and tab-switching default selection to only target available items with songs.
+  - Added comprehensive unit tests in `src/components/common/__tests__/song-source-modal-empty-filters.test.ts`.
+
+---
+
 ## [v1.2.1] - 2026-11-12
 
 ### Added
