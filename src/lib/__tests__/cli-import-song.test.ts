@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseCliArgs } from "../../../scripts/import-song.mjs";
+import { extractIntroLyrics } from "@/lib/lyrics-cleaner";
 
 describe("CLI import-song argument parser and logic", () => {
   describe("parseCliArgs", () => {
@@ -44,6 +45,32 @@ describe("CLI import-song argument parser and logic", () => {
       const res2 = parseCliArgs(["--lyrics=ท่อนฮุกตรงนี้", "วัดใจ"]);
       expect(res2.query).toBe("วัดใจ");
       expect(res2.flags.lyrics).toBe("ท่อนฮุกตรงนี้");
+    });
+
+    it("parses --lyrics-intro and --intro flags with space and with equal sign", () => {
+      const res1 = parseCliArgs(["วัดใจ", "--lyrics-intro", "ท่อนเปิดบรรทัดหนึ่ง\nบรรทัดสอง"]);
+      expect(res1.query).toBe("วัดใจ");
+      expect(res1.flags.lyricsIntro).toBe("ท่อนเปิดบรรทัดหนึ่ง\nบรรทัดสอง");
+
+      const res2 = parseCliArgs(["--lyrics-intro=ท่อนเปิดตรงนี้", "วัดใจ"]);
+      expect(res2.query).toBe("วัดใจ");
+      expect(res2.flags.lyricsIntro).toBe("ท่อนเปิดตรงนี้");
+
+      const res3 = parseCliArgs(["วัดใจ", "--intro", "ท่อนเปิดสั้นๆ"]);
+      expect(res3.flags.lyricsIntro).toBe("ท่อนเปิดสั้นๆ");
+
+      const res4 = parseCliArgs(["--intro=ท่อนเปิดแบบสั้น", "วัดใจ"]);
+      expect(res4.flags.lyricsIntro).toBe("ท่อนเปิดแบบสั้น");
+    });
+
+    it("parses --album flag with space and with equal sign", () => {
+      const res1 = parseCliArgs(["ยาพิษ", "--album", "Save My Life"]);
+      expect(res1.query).toBe("ยาพิษ");
+      expect(res1.flags.album).toBe("Save My Life");
+
+      const res2 = parseCliArgs(["--album=คราม", "แสงสุดท้าย"]);
+      expect(res2.query).toBe("แสงสุดท้าย");
+      expect(res2.flags.album).toBe("คราม");
     });
 
     it("parses --hook-start and --hook-end flags", () => {
@@ -239,6 +266,29 @@ describe("CLI import-song argument parser and logic", () => {
       const customLyrics = flags.lyrics;
       const lyricsFull = customLyrics ?? metadata.lyricsFull ?? null;
       expect(lyricsFull).toBeNull();
+    });
+
+    it("resolves lyrics_intro using priority: custom flag > metadata.lyricsIntro > extractIntroLyrics(lyricsFull)", () => {
+      // Case 1: Custom flag takes highest precedence
+      const flags1 = { lyricsIntro: "ท่อนเปิดกำหนดเอง" };
+      const metadata1 = { lyricsIntro: "ท่อนเปิดจาก AI", lyricsFull: "บรรทัด 1\nบรรทัด 2" };
+      const rawIntro1 = flags1.lyricsIntro || metadata1.lyricsIntro || extractIntroLyrics(metadata1.lyricsFull);
+      expect(rawIntro1).toBe("ท่อนเปิดกำหนดเอง");
+
+      // Case 2: Uses metadata.lyricsIntro when no custom flag is passed
+      const flags2 = { lyricsIntro: undefined };
+      const metadata2 = { lyricsIntro: "ท่อนเปิดจาก AI", lyricsFull: "บรรทัด 1\nบรรทัด 2" };
+      const rawIntro2 = flags2.lyricsIntro || metadata2.lyricsIntro || extractIntroLyrics(metadata2.lyricsFull);
+      expect(rawIntro2).toBe("ท่อนเปิดจาก AI");
+
+      // Case 3: Auto-extracts from lyricsFull when lyricsIntro is missing
+      const flags3 = { lyricsIntro: undefined };
+      const metadata3 = {
+        lyricsIntro: undefined,
+        lyricsFull: "คำง่ายง่ายแต่ความหมายสุดลึกล้ำ\nคำง่ายง่ายที่เธอใช้ประจำ\nซ้ำไปซ้ำมา\nคิดจะพูดแต่ก็พูดอย่างไม่คิด\nรู้ไหมว่าหนึ่งชีวิตของใคร\nต้องเกิดปัญหา"
+      };
+      const rawIntro3 = flags3.lyricsIntro || metadata3.lyricsIntro || extractIntroLyrics(metadata3.lyricsFull);
+      expect(rawIntro3).toBe("คำง่ายง่ายแต่ความหมายสุดลึกล้ำ\nคำง่ายง่ายที่เธอใช้ประจำ\nซ้ำไปซ้ำมา\nคิดจะพูดแต่ก็พูดอย่างไม่คิด");
     });
   });
 });

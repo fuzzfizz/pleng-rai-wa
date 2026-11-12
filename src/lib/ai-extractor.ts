@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { extractIntroLyrics } from "./lyrics-cleaner";
 
 // ==========================================
 // เพลงไรวะ (Pleng-Rai-Wa) - AI Metadata & Lyrics Extractor
@@ -16,6 +17,8 @@ export interface ExtractedSongMetadata {
   title: string;
   /** Singer or Band name */
   artist: string;
+  /** Official album or EP name if applicable, or undefined if single/unknown */
+  album?: string;
   /** Alternative spellings, common typos, and colloquial titles */
   aliases: string[];
   /** Original release year (e.g. 2004) */
@@ -173,14 +176,76 @@ export const KNOWN_THAI_SONGS: ExtractedSongMetadata[] = [
   {
     title: "แสงสุดท้าย",
     artist: "Bodyslam",
-    aliases: ["saeng sood thai", "บอดี้สแลม แสงสุดท้าย", "จะไปให้ถึงแสงสุดท้าย"],
+    aliases: [
+      "saeng sood thai",
+      "saeng soot thai",
+      "saengsutthai",
+      "sang sood tai",
+      "bodyslam แสงสุดท้าย",
+      "แสงสุดท้าย bodyslam",
+      "บอดี้สแลม แสงสุดท้าย",
+      "แสงสุดท้าย บอดี้สแลม",
+      "แสงสุดทาย",
+      "เเสงสุดท้าย",
+      "จะไปจนถึงแสงสุดท้าย",
+      "ในค่ำคืนที่ฟ้านั้นไม่มีดาวอยู่ตรงนี้",
+      "ในค่ำคืนที่ฟ้านั้นไม่มีดาว",
+      "ตราบใดที่ปลายท้องฟ้ามีแสงรำไร",
+      "จะสู้เพื่อไปให้ถึงแสงสุดท้าย",
+    ],
     releaseYear: 2010,
     genreSlug: "rock",
     era: "2010s",
-    hookStartSec: 70,
-    hookEndSec: 98,
-    lyricsIntro: "รอนแรมมาไกลจนเหนื่อยล้า หนทางข้างหน้ายังมืดมน",
-    lyricsChorus: "ตราบใดที่แสงตะวันยังมี ตราบใดที่ลมหายใจยังอยู่ จะสู้เพื่อไปให้ถึงแสงสุดท้าย",
+    hookStartSec: 108,
+    hookEndSec: 142,
+    lyricsIntro: "รอนแรมมาเนิ่นนานเพียงหนึ่งใจ กับทางที่โรยเอาไว้ด้วยขวากหนาม ถูกแหลมคมทิ่มแทง จนมันแทบจะทนไม่ไหว",
+    lyricsChorus: "ในค่ำคืนที่ฟ้านั้นไม่มีดาวอยู่ตรงนี้ ฉันยังคงก้าวไป ยังคงมีรักแท้เป็นแสงนำไป ในคืนที่หลงทาง นาทีที่ความฝันนั้นพร้อมเป็นเพื่อนตาย เส้นทางนี้ ฉันยังมีจุดหมาย ตราบใดที่ปลายท้องฟ้ามีแสงรำไร จะไปจนถึงแสงสุดท้าย",
+    lyricsFull: `รอนแรมมาเนิ่นนานเพียงหนึ่งใจ
+กับทางที่โรยเอาไว้ด้วยขวากหนาม
+ถูกแหลมคมทิ่มแทง
+จนมันแทบจะทนไม่ไหว
+ชีวิตทำไมยากเย็นขนาดนั้น
+สองมือจะมีเรี่ยวแรงขนาดไหน
+แต่หัวใจ ของคน ยังยืนยันจะไม่ถอดใจ
+
+ในค่ำคืนที่ฟ้านั้นไม่มีดาวอยู่ตรงนี้
+ฉันยังคงก้าวไป
+ยังคงมีรักแท้เป็นแสงนำไป
+ในคืนที่หลงทาง
+
+วันเวลาไม่เคยจะหยุดเดิน
+อย่างไรเราคงต้องเดินไปกับมัน
+เก็บทุกความผิดพลั้ง เป็นคำเตือนให้เราเข้าใจ
+ชีวิตเริ่มตรงที่คำว่าฝ่าฟัน
+ขอเพียงใจเราเท่านั้นไม่หวั่นไหว
+บทชีวิตของเรา เราจะทำให้มีความหมาย
+
+ในค่ำคืนที่ฟ้านั้นไม่มีดาวอยู่ตรงนี้
+ฉันยังคงก้าวไป
+ยังคงมีรักแท้เป็นแสงนำไป
+ในคืนที่หลงทาง
+นาทีที่ความฝันนั้นพร้อมเป็นเพื่อนตาย
+เส้นทางนี้ ฉันยังมีจุดหมาย
+ตราบใดที่ปลายท้องฟ้ามีแสงรำไร
+จะไปจนถึงแสงสุดท้าย
+
+ความเดียวดายในคืนเหน็บหนาว
+แหงนมองฟ้ายังนึกถึงวันเก่า
+มันคงจริงที่ทางยาวไกล กร่อนหัวใจ
+ภาวนากับความมืดมิด
+ขอให้รักยังคุ้มครองเราอยู่
+เติมพลังให้ใจดวงนี้ ไม่ยอมแพ้
+
+ในค่ำคืนที่ฟ้าท้าทายใจคนอยู่ตรงนี้
+และฉันยังคงก้าวไป
+ยังคงมีรักแท้เป็นแสงนำไปในคืนที่หลงทาง
+นาทีที่ความฝันนั้นพร้อมเป็นเพื่อนตาย
+เส้นทางนี้ ฉันยังมีจุดหมาย
+ตราบใดที่ปลายท้องฟ้ามีแสงรำไร
+จะไปจนถึงแสงสุดท้าย
+จนถึงแสงสุดท้าย
+ตราบใดที่ปลายท้องฟ้า
+ตราบใดที่ปลายท้องฟ้า`,
     youtubeSearchQuery: "แสงสุดท้าย Bodyslam",
   },
   {
@@ -692,6 +757,10 @@ const SONG_METADATA_GEMINI_SCHEMA = {
       type: Type.STRING,
       description: "Primary artist, singer, or band name. If unknown, return empty string ''.",
     },
+    album: {
+      type: Type.STRING,
+      description: "Official album or EP name if the track belongs to a studio album or EP. If the song is a standalone single, soundtrack, or album is unknown, return empty string ''.",
+    },
     aliases: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
@@ -771,6 +840,7 @@ export const BATCH_DISCOGRAPHY_GEMINI_SCHEMA = {
         properties: {
           title: { type: Type.STRING, description: "Official song title" },
           artist: { type: Type.STRING, description: "Artist name" },
+          album: { type: Type.STRING, description: "Name of the album or EP this track belongs to, or empty string '' if single/unknown" },
           aliases: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
@@ -1234,10 +1304,15 @@ function sanitizeExtractedMetadata(
 
   // If lyricsConfidence is not_found or song wasn't found, strictly blank out lyrics (zero fabrication)
   // For lyricsChorus: keep it if detected, but if empty or uncertain, it's totally okay because lyricsFull is present.
-  const lyricsIntro =
+  let lyricsIntro =
     songFound && lyricsConfidence === "verified" && typeof parsed.lyricsIntro === "string"
       ? parsed.lyricsIntro.trim()
       : "";
+
+  // Auto-extract 2-4 opening lines from lyricsFull if intro is blank but full lyrics is verified
+  if (songFound && lyricsConfidence === "verified" && !lyricsIntro && lyricsFull) {
+    lyricsIntro = extractIntroLyrics(lyricsFull);
+  }
   const lyricsChorus =
     songFound && lyricsConfidence === "verified" && typeof parsed.lyricsChorus === "string"
       ? parsed.lyricsChorus.trim()
@@ -1259,12 +1334,18 @@ function sanitizeExtractedMetadata(
       ? parsed.youtubeSearchQuery.trim()
       : `${title} ${artist}`.trim();
 
+  const album =
+    typeof parsed.album === "string" && parsed.album.trim().length > 0
+      ? parsed.album.trim()
+      : undefined;
+
   return {
     songFound: true,
     notFoundReason: undefined,
     lyricsConfidence,
     title,
     artist,
+    album,
     aliases,
     releaseYear,
     genreSlug,
@@ -1570,19 +1651,26 @@ export async function extractBatchDiscography(
             : getEraFromYear(releaseYear);
         const hookStartSec = typeof s.hookStartSec === "number" ? Math.max(0, s.hookStartSec) : 45;
         const hookEndSec = typeof s.hookEndSec === "number" && s.hookEndSec > hookStartSec ? s.hookEndSec : hookStartSec + 25;
-        const lyricsIntro = typeof s.lyricsIntro === "string" ? s.lyricsIntro.trim() : "";
+        const rawIntro = typeof s.lyricsIntro === "string" ? s.lyricsIntro.trim() : "";
         const lyricsChorus = typeof s.lyricsChorus === "string" ? s.lyricsChorus.trim() : "";
         const lyricsFull = typeof s.lyricsFull === "string" && s.lyricsFull.trim().length > 0 ? s.lyricsFull.trim() : undefined;
+        const lyricsIntro = rawIntro || (lyricsFull ? extractIntroLyrics(lyricsFull) : "");
         const youtubeSearchQuery =
           typeof s.youtubeSearchQuery === "string" && s.youtubeSearchQuery.trim()
             ? s.youtubeSearchQuery.trim()
             : `${title} ${songArtist}`.trim();
+
+        const songAlbum =
+          typeof s.album === "string" && s.album.trim().length > 0
+            ? s.album.trim()
+            : (albumOrCollection || undefined);
 
         return {
           songFound: true,
           lyricsConfidence: lyricsIntro || lyricsChorus || lyricsFull ? "verified" : "not_found",
           title,
           artist: songArtist,
+          album: songAlbum,
           aliases,
           releaseYear,
           genreSlug,

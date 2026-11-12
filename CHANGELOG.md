@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.2.0] - 2026-11-12
+
+### Added
+- **Album Ingestion & Filtering Pipeline Support**:
+  - Added `--album <name>` CLI option to `scripts/import-song.mjs` for manual album overrides.
+  - Updated Gemini AI metadata extractor in `src/lib/ai-extractor.ts` to automatically extract album names for single tracks and batch discographies.
+  - Added `album` column and index to Supabase `songs` table with full type safety across `src/types/database.ts` and `src/types/index.ts`.
+  - Added album documentation and standards to `.agents/skills/add-song/SKILL.md`.
+- **A La Carte Hint Selection Modal (`HintSelectModal`)**:
+  - Replaced linear hint button with a dedicated "💡 ขอคำใบ้" pop-up modal allowing players to choose specific hints a la carte:
+    - 🎸 แนวเพลง (Genre): -15 pts
+    - 📅 ปีที่ปล่อย & ยุค (Year / Era): -20 pts
+    - 💿 อัลบั้ม (Album): -20 pts (dynamically disabled with badge when song has no album)
+    - 🎤 ศิลปิน / วง (Artist): -35 pts
+  - Implemented instant modal dismissal on hint selection with automatic focus restoration to the answer input box for zero-friction answering.
+  - Added guaranteed score floor of 20 points for correct answers.
+
+### Changed
+- **Autocomplete Limit Expansion & Scrollable Dropdown**:
+  - Expanded autocomplete search result limit from 5 to 20 items in `searchSongAutocomplete`.
+  - Added `max-h-60 sm:max-h-72 overflow-y-auto` scrollable container across Solo Mode, Game View, and Answer Modal, allowing smooth browsing of complete artist discographies without viewport clipping.
+- **Solo Mode Score Streamlining**:
+  - Purged all score banners, point deductions, and score floor messages from Solo Mode (`isSolo={true}` in `HintSelectModal`).
+  - Solo players can explore hints freely without scoring pressure in casual/practice sessions.
+
+---
+
 ## [v1.1.4] - 2026-11-11
 
 ### Added

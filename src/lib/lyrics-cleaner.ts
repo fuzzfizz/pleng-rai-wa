@@ -45,3 +45,25 @@ export function cleanLyricsForGame(lyrics: string | null | undefined): string {
   const trimmedEdges = joined.replace(/^\s*[\r\n]+/, "").replace(/[\r\n]+\s*$/, "");
   return trimmedEdges.replace(/\n{3,}/g, "\n\n").trim();
 }
+
+/**
+ * Extracts the opening 2-4 lines of a song as the intro lyrics.
+ * Cleans metadata headers and trims leading/trailing whitespace.
+ */
+export function extractIntroLyrics(lyrics: string | null | undefined, maxLines: number = 4): string {
+  if (!lyrics || typeof lyrics !== "string") {
+    return "";
+  }
+
+  const cleaned = cleanLyricsForGame(lyrics);
+  const lines = cleaned
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return "";
+
+  const limit = Math.max(1, maxLines);
+  const introLines = lines.slice(0, Math.min(limit, lines.length));
+  return introLines.join("\n");
+}

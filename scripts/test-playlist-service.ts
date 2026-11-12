@@ -179,6 +179,7 @@ async function runTests() {
       id: songId,
       title: `เพลงที่ ${i}`,
       artist: `ศิลปิน ${i}`,
+      album: null,
       aliases: [`Alias ${i}`],
       release_year: 1995 + i,
       genre_id: sampleGenre.id,

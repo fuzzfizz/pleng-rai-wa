@@ -288,6 +288,6 @@ describe("Serverless Rehydration & HTTP 403 Prevention", () => {
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.level).toBe(1);
-    expect(data.pointsAvailable).toBe(75);
+    expect(data.pointsAvailable).toBe(85);
   });
 });

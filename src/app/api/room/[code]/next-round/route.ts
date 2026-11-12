@@ -513,6 +513,7 @@ export async function POST(
       durationSec,
       lyrics,
       choices,
+      hasAlbum: Boolean(song.album && song.album.trim().length > 0),
       startedAt: roundState.startedAt,
     };
 
@@ -532,6 +533,7 @@ export async function POST(
       durationSec,
       lyrics,
       choices,
+      hasAlbum: Boolean(song.album && song.album.trim().length > 0),
       startedAt: roundState.startedAt,
     });
   } catch (error) {

@@ -182,7 +182,7 @@ export function AnswerModal({
     if (!query) {
       return [];
     }
-    return searchSongAutocomplete(query, songLibrary, 6);
+    return searchSongAutocomplete(query, songLibrary, 20);
   }, [inputMode, inputValue, songLibrary]);
 
   // Submission handler
@@ -378,7 +378,7 @@ export function AnswerModal({
 
               {/* Autocomplete Dropdown List */}
               {inputMode === "autocomplete" && suggestions.length > 0 && (
-                <div className="bg-white dark:bg-stone-950/95 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
+                <div className="bg-white dark:bg-stone-950/95 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-60 sm:max-h-72 overflow-y-auto space-y-1 shadow-2xl">
                   {suggestions.map((song, idx) => {
                     const isHighlighted = idx === highlightedIndex;
                     return (

@@ -66,6 +66,7 @@ export interface Database {
           id: string;
           title: string;
           artist: string;
+          album: string | null;
           aliases: string[];
           release_year: number | null;
           genre_id: string | null;
@@ -84,6 +85,7 @@ export interface Database {
           id?: string;
           title: string;
           artist: string;
+          album?: string | null;
           aliases?: string[];
           release_year?: number | null;
           genre_id?: string | null;
@@ -102,6 +104,7 @@ export interface Database {
           id?: string;
           title?: string;
           artist?: string;
+          album?: string | null;
           aliases?: string[];
           release_year?: number | null;
           genre_id?: string | null;

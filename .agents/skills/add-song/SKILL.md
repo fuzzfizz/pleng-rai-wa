@@ -170,15 +170,18 @@ node --env-file=.env.local scripts/import-song.mjs "<ชื่อเพลง>" 
 |---|---|---|
 | `--youtube-url <url>` | บังคับใช้ลิงก์ YouTube ที่ระบุโดยตรงแทนการค้นหา | `--youtube-url "https://youtu.be/..."` |
 | `--lyrics <text>` | บังคับใช้เนื้อเพลงเต็มที่ระบุ (ข้ามการค้นหา LRCLIB/Google) | `--lyrics "ท่อนแรก..."` |
+| `--lyrics-intro <text>` | บังคับใช้เนื้อเพลงท่อนเปิด/อินโทร (หรือ `--intro`) | `--lyrics-intro "ท่อนเปิด..."` |
+| `--album <name>` | กำหนดชื่ออัลบั้ม (Studio Album / EP) | `--album "Save My Life"` |
 | `--hook-start <sec>` | ระบุจุดเริ่มต้นของท่อนฮุกเป็นวินาที | `--hook-start 70` |
 | `--hook-end <sec>` | ระบุจุดสิ้นสุดของท่อนฮุกเป็นวินาที | `--hook-end 98` |
 | `-h, --help` | แสดงคำแนะนำและตัวอย่างการใช้งาน | `-h` |
 
 ### 5.3 กระบวนการที่เกิดขึ้นภายใน Script (Execution Flow)
-1. สกัดข้อมูล Metadata ด้วย Gemini (`title`, `artist`, `releaseYear`, `genreSlug`, `era`, `hookStartSec`, `hookEndSec`)
-2. ดาวน์โหลดเสียงจาก YouTube ด้วย `yt-dlp` และแปลงเป็น MP3 128kbps ผ่าน `ffmpeg`
-3. อัปโหลดไฟล์ MP3 ขึ้น Cloudflare R2 ที่ path `songs/<uuid>/full.mp3`
-4. บันทึกข้อมูลทั้งหมดลงในตาราง `songs` บน Supabase พร้อมสถานะ `lyricsConfidence`
+1. สกัดข้อมูล Metadata ด้วย Gemini (`title`, `artist`, `releaseYear`, `genreSlug`, `era`, `hookStartSec`, `hookEndSec`, `lyricsIntro`)
+2. จัดการท่อนอินโทร (`lyrics_intro`) ตามลำดับความสำคัญ: ตัวเลือก `--lyrics-intro` -> `metadata.lyricsIntro` -> ตัด 2-4 บรรทัดแรกจาก `lyrics_full` อัตโนมัติ (Auto-extract Intro Fallback)
+3. ดาวน์โหลดเสียงจาก YouTube ด้วย `yt-dlp` และแปลงเป็น MP3 128kbps ผ่าน `ffmpeg`
+4. อัปโหลดไฟล์ MP3 ขึ้น Cloudflare R2 ที่ path `songs/<uuid>/full.mp3`
+5. บันทึกข้อมูลทั้งหมดลงในตาราง `songs` บน Supabase พร้อมสถานะ `lyricsConfidence`
 
 ---
 

@@ -48,13 +48,14 @@ describe("RoomStateStore - Hint Scoring & Deadlock Prevention", () => {
       expect(res.newScore).toBe(100);
     });
 
-    it("awards 75 points when 1 hint is revealed", () => {
+    it("awards 85 points when 1 hint (genre) is revealed (-15 pts)", () => {
       RoomStateStore.initRound(roomCode, 1, dummySong, baseSettings);
 
       const hintRes = RoomStateStore.revealNextHint(roomCode, "p1");
       expect(hintRes.success).toBe(true);
       expect(hintRes.level).toBe(1);
-      expect(hintRes.pointsAvailable).toBe(75);
+      expect(hintRes.hintType).toBe("genre");
+      expect(hintRes.pointsAvailable).toBe(85);
 
       const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "รักแท้", {
         gameMode: "audio-slice",
@@ -63,18 +64,19 @@ describe("RoomStateStore - Hint Scoring & Deadlock Prevention", () => {
 
       expect(res.success).toBe(true);
       expect(res.isCorrect).toBe(true);
-      expect(res.scoreDelta).toBe(75);
-      expect(res.newScore).toBe(75);
+      expect(res.scoreDelta).toBe(85);
+      expect(res.newScore).toBe(85);
     });
 
-    it("awards 50 points when 2 hints are revealed", () => {
+    it("awards 65 points when 2 hints (genre + year) are revealed (-15, -20 pts)", () => {
       RoomStateStore.initRound(roomCode, 1, dummySong, baseSettings);
 
       RoomStateStore.revealNextHint(roomCode, "p1");
       const hintRes2 = RoomStateStore.revealNextHint(roomCode, "p1");
       expect(hintRes2.success).toBe(true);
       expect(hintRes2.level).toBe(2);
-      expect(hintRes2.pointsAvailable).toBe(50);
+      expect(hintRes2.hintType).toBe("year");
+      expect(hintRes2.pointsAvailable).toBe(65);
 
       const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "รักแท้", {
         gameMode: "audio-slice",
@@ -83,11 +85,11 @@ describe("RoomStateStore - Hint Scoring & Deadlock Prevention", () => {
 
       expect(res.success).toBe(true);
       expect(res.isCorrect).toBe(true);
-      expect(res.scoreDelta).toBe(50);
-      expect(res.newScore).toBe(50);
+      expect(res.scoreDelta).toBe(65);
+      expect(res.newScore).toBe(65);
     });
 
-    it("awards 25 points when 3 hints are revealed", () => {
+    it("awards 30 points when 3 hints (genre + year + artist) are revealed (-15, -20, -35 pts)", () => {
       RoomStateStore.initRound(roomCode, 1, dummySong, baseSettings);
 
       RoomStateStore.revealNextHint(roomCode, "p1");
@@ -95,9 +97,10 @@ describe("RoomStateStore - Hint Scoring & Deadlock Prevention", () => {
       const hintRes3 = RoomStateStore.revealNextHint(roomCode, "p1");
       expect(hintRes3.success).toBe(true);
       expect(hintRes3.level).toBe(3);
-      expect(hintRes3.pointsAvailable).toBe(25);
+      expect(hintRes3.hintType).toBe("artist");
+      expect(hintRes3.pointsAvailable).toBe(30);
 
-      // Max hints clamped
+      // Max hints clamped (dummySong has no album)
       const hintRes4 = RoomStateStore.revealNextHint(roomCode, "p1");
       expect(hintRes4.success).toBe(false);
       expect(hintRes4.level).toBe(3);
@@ -109,8 +112,54 @@ describe("RoomStateStore - Hint Scoring & Deadlock Prevention", () => {
 
       expect(res.success).toBe(true);
       expect(res.isCorrect).toBe(true);
-      expect(res.scoreDelta).toBe(25);
-      expect(res.newScore).toBe(25);
+      expect(res.scoreDelta).toBe(30);
+      expect(res.newScore).toBe(30);
+    });
+
+    it("supports A La Carte specific hint selection and album support with 20-point minimum floor", () => {
+      const songWithAlbum: Song = {
+        ...dummySong,
+        album: "Save My Life",
+      };
+      RoomStateStore.initRound(roomCode, 1, songWithAlbum, baseSettings);
+
+      // Request Album hint directly: cost 20 -> 80 pts
+      const albumHint = RoomStateStore.revealNextHint(roomCode, "p1", "album");
+      expect(albumHint.success).toBe(true);
+      expect(albumHint.hintType).toBe("album");
+      expect(albumHint.hintText).toBe("Save My Life");
+      expect(albumHint.pointsAvailable).toBe(80);
+
+      // Request Artist hint: cost 35 -> 80 - 35 = 45 pts
+      const artistHint = RoomStateStore.revealNextHint(roomCode, "p1", "artist");
+      expect(artistHint.success).toBe(true);
+      expect(artistHint.hintType).toBe("artist");
+      expect(artistHint.pointsAvailable).toBe(45);
+
+      // Request Year hint: cost 20 -> 45 - 20 = 25 pts
+      const yearHint = RoomStateStore.revealNextHint(roomCode, "p1", "year");
+      expect(yearHint.success).toBe(true);
+      expect(yearHint.pointsAvailable).toBe(25);
+
+      // Request Genre hint: cost 15 -> 25 - 15 = 10, clamped to guaranteed 20 pts floor!
+      const genreHint = RoomStateStore.revealNextHint(roomCode, "p1", "genre");
+      expect(genreHint.success).toBe(true);
+      expect(genreHint.pointsAvailable).toBe(20);
+
+      // Attempting to reveal already opened hint returns success: false
+      const duplicateHint = RoomStateStore.revealNextHint(roomCode, "p1", "album");
+      expect(duplicateHint.success).toBe(false);
+      expect(duplicateHint.error).toBe("hint_already_revealed");
+
+      // Answering correctly awards guaranteed 20 points
+      const res = RoomStateStore.submitAnswer(roomCode, "p1", "Player 1", "รักแท้", {
+        gameMode: "audio-slice",
+        roomSettings: baseSettings,
+      });
+      expect(res.success).toBe(true);
+      expect(res.isCorrect).toBe(true);
+      expect(res.scoreDelta).toBe(20);
+      expect(res.newScore).toBe(20);
     });
 
     it("tracks hints per player independently", () => {

@@ -24,6 +24,7 @@ import {
   Lightbulb,
   Tag,
   Calendar,
+  Disc3,
   UserCheck,
   Flag,
   RotateCcw,
@@ -33,7 +34,7 @@ import {
   Users,
 } from "lucide-react";
 import type { useRoomRealtime } from "@/hooks/use-room-realtime";
-import type { Song, GameMode, Player } from "@/types";
+import type { Song, GameMode, Player, HintType } from "@/types";
 import { ttsReader } from "@/lib/tts-reader";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
 import { soundEffects } from "@/lib/sound-effects";
@@ -42,6 +43,7 @@ import { AnswerModal } from "./answer-modal";
 import { WrongGuessBanner } from "./wrong-guess-banner";
 import { RoundRevealCard } from "./round-reveal-card";
 import { TranslatedLyricsTeleprompter } from "./translated-lyrics-teleprompter";
+import { HintSelectModal } from "./hint-select-modal";
 import { getDeterministicAvatar } from "./player-card";
 import { getMasterVolume, isMasterMuted, subscribeMasterVolume } from "@/lib/audio-volume";
 import { SettingsMenu } from "@/components/common/settings-menu";
@@ -154,17 +156,28 @@ export function canSubmitAnswer(isExcludedFromBuzz: boolean): boolean {
 }
 
 /**
- * Calculates score delta available for a player based on their hint level.
- * 0 hints: 100 points
- * 1 hint:  75 points
- * 2 hints: 50 points
- * 3 hints: 25 points
+ * Calculates score delta available for a player based on their hint level or revealed hints.
+ * Progressive hints fallback: 0 = 100, 1 = 75, 2 = 50, 3 = 25.
+ * A La Carte hints: genre: -15, year: -20, album: -20, artist: -35. Guaranteed min floor: 20 pts.
  */
-export function calculatePointsAvailable(hintLevel: number): number {
-  if (hintLevel <= 0) return 100;
-  if (hintLevel === 1) return 75;
-  if (hintLevel === 2) return 50;
-  return 25;
+export function calculatePointsAvailable(
+  hintLevelOrHints: number | { genre?: any; year?: any; album?: any; artist?: any }
+): number {
+  if (typeof hintLevelOrHints === "number") {
+    if (hintLevelOrHints <= 0) return 100;
+    if (hintLevelOrHints === 1) return 75;
+    if (hintLevelOrHints === 2) return 50;
+    return 25;
+  }
+  if (hintLevelOrHints && typeof hintLevelOrHints === "object") {
+    let deduction = 0;
+    if (hintLevelOrHints.genre) deduction += 15;
+    if (hintLevelOrHints.year) deduction += 20;
+    if (hintLevelOrHints.album) deduction += 20;
+    if (hintLevelOrHints.artist) deduction += 35;
+    return Math.max(20, 100 - deduction);
+  }
+  return 100;
 }
 
 /**
@@ -185,13 +198,25 @@ export function resolvePlayerHintLevel(
 /**
  * Determines whether the hint button should be visible.
  * Visible for ANY player (host or non-host) as long as status is "question_active"
- * and the player has not yet unlocked all 3 hints.
+ * and the player has not yet unlocked all available hints.
  */
 export function shouldShowHintButton(
-  hintLevel: number,
-  status: string
+  hintLevelOrHints: number | { genre?: any; year?: any; album?: any; artist?: any },
+  status: string,
+  hasAlbum: boolean = false
 ): boolean {
-  return hintLevel < 3 && status === "question_active";
+  if (status !== "question_active") return false;
+  if (typeof hintLevelOrHints === "number") {
+    return hintLevelOrHints < 3;
+  }
+  if (hintLevelOrHints && typeof hintLevelOrHints === "object") {
+    const totalPossible = hasAlbum ? 4 : 3;
+    const count = ["genre", "year", hasAlbum ? "album" : null, "artist"]
+      .filter(Boolean)
+      .filter((k) => !!hintLevelOrHints[k as keyof typeof hintLevelOrHints]).length;
+    return count < totalPossible;
+  }
+  return true;
 }
 
 /**
@@ -368,8 +393,14 @@ export function GameView({
     playerHintLevels,
     revealedHints?.level
   );
-  const pointsAvailable = calculatePointsAvailable(myHintLevel);
   const surrenderButtonConfig = getSurrenderButtonConfig(isHost);
+
+  // Hints resolution strictly per player
+  const myPlayerHints =
+    myPlayer?.id && roomRealtime.playerHints ? roomRealtime.playerHints[myPlayer.id] : undefined;
+  const myHints = myPlayerHints || (myHintLevel > 0 ? revealedHints : undefined);
+  const pointsAvailable = calculatePointsAvailable(myHints || myHintLevel);
+  const [isHintModalOpen, setIsHintModalOpen] = useState(false);
 
   // Fallback song library fetch if not supplied by parent or if only demo songs passed
   const [internalSongs, setInternalSongs] = useState<Song[]>(
@@ -400,11 +431,6 @@ export function GameView({
       : internalSongs && internalSongs.length > 0
       ? internalSongs
       : DEMO_SONGS;
-
-  // Hints resolution strictly per player
-  const myPlayerHints =
-    myPlayer?.id && roomRealtime.playerHints ? roomRealtime.playerHints[myPlayer.id] : undefined;
-  const myHints = myPlayerHints || (myHintLevel > 0 ? revealedHints : undefined);
 
   // 15-second answer countdown timer (starts after slice audio finishes playing for the first time)
   const answerTimeLimit =
@@ -773,13 +799,16 @@ export function GameView({
     return () => clearTimeout(watchdogTimer);
   }, [countdownRemaining, status, isHost, onSkipRound, skipRound, roomRealtime]);
 
-  const handleRequestHint = useCallback(async () => {
+  const handleRequestHint = useCallback(async (hintType?: HintType) => {
     if (isRequestingHint) return;
     setIsRequestingHint(true);
     try {
-      await requestHint();
+      await requestHint(hintType);
     } finally {
       setIsRequestingHint(false);
+      setTimeout(() => {
+        directInputRef.current?.focus();
+      }, 50);
     }
   }, [isRequestingHint, requestHint]);
 
@@ -985,7 +1014,7 @@ export function GameView({
     if (!query) {
       return [];
     }
-    return searchSongAutocomplete(query, effectiveSongLibrary, 5);
+    return searchSongAutocomplete(query, effectiveSongLibrary, 20);
   }, [answerInputMode, directAnswer, effectiveSongLibrary]);
 
   const handleSelectSuggestion = useCallback(
@@ -1429,21 +1458,27 @@ export function GameView({
             {/* Progressive Hint Bar & Player Actions */}
             <div className="w-full max-w-lg lg:max-w-2xl flex flex-col items-center gap-2">
               {/* Revealed Hints Badges (Isolated for this player) */}
-              {myHintLevel > 0 && (myHints?.genre || myHints?.year || myHints?.artist) && (
+              {(myHints?.genre || myHints?.year || myHints?.album || myHints?.artist) && (
                 <div className="flex flex-wrap items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-200">
-                  {myHintLevel >= 1 && myHints?.genre && (
+                  {myHints?.genre && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
                       <Tag className="w-3.5 h-3.5 text-emerald-500" />
                       <span>แนวเพลง: {myHints.genre}</span>
                     </span>
                   )}
-                  {myHintLevel >= 2 && myHints?.year && (
+                  {myHints?.year && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/15 border border-blue-500/30 text-blue-800 dark:text-blue-300">
                       <Calendar className="w-3.5 h-3.5 text-blue-500" />
                       <span>{myHints.year}</span>
                     </span>
                   )}
-                  {myHintLevel >= 3 && myHints?.artist && (
+                  {myHints?.album && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300">
+                      <Disc3 className="w-3.5 h-3.5 text-amber-500" />
+                      <span>อัลบั้ม: {myHints.album}</span>
+                    </span>
+                  )}
+                  {myHints?.artist && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-300">
                       <UserCheck className="w-3.5 h-3.5 text-purple-500" />
                       <span>ศิลปิน: {myHints.artist}</span>
@@ -1461,19 +1496,23 @@ export function GameView({
                   </span>
                 </span>
 
-                {shouldShowHintButton(myHintLevel, status) && (
+                {shouldShowHintButton(
+                  myHints || myHintLevel,
+                  status,
+                  Boolean(activeQuestion?.hasAlbum || myHints?.album)
+                ) && (
                   <button
                     type="button"
-                    onClick={handleRequestHint}
+                    onClick={() => setIsHintModalOpen(true)}
                     disabled={isRequestingHint}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 transition cursor-pointer disabled:opacity-50 touch-manipulation"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 transition cursor-pointer disabled:opacity-50 touch-manipulation shadow-sm"
                   >
                     {isRequestingHint ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
                     )}
-                    <span>ขอคำใบ้ (ขั้นที่ {myHintLevel + 1}/3)</span>
+                    <span>💡 ขอคำใบ้</span>
                   </button>
                 )}
 
@@ -1686,7 +1725,7 @@ export function GameView({
 
                       {/* Autocomplete Dropdown List (anchored directly under input) */}
                       {answerInputMode === "autocomplete" && showSuggestions && directSuggestions.length > 0 && !isExcludedFromBuzz && (
-                        <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
+                        <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 max-h-60 sm:max-h-72 overflow-y-auto space-y-1 shadow-2xl">
                           {directSuggestions.map((song, idx) => {
                             const isHighlighted = idx === highlightedIndex;
                             return (
@@ -1844,6 +1883,25 @@ export function GameView({
           </div>
         )}
       </main>
+
+      {/* ==================================================== */}
+      {/* HINT SELECT MODAL: A La Carte hint selection popup   */}
+      {/* ==================================================== */}
+      <HintSelectModal
+        isOpen={Boolean(isHintModalOpen && status === "question_active")}
+        onClose={() => {
+          setIsHintModalOpen(false);
+          setTimeout(() => {
+            directInputRef.current?.focus();
+          }, 50);
+        }}
+        currentSong={revealedSong ? revealedSong : undefined}
+        hasAlbum={Boolean(activeQuestion?.hasAlbum || myHints?.album)}
+        revealedHints={myHints}
+        pointsAvailable={pointsAvailable}
+        onRequestHint={handleRequestHint}
+        isLoading={isRequestingHint}
+      />
 
       {/* ==================================================== */}
       {/* ANSWER MODAL: Opened when current player buzzes      */}

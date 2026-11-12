@@ -9,23 +9,27 @@ import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { extractSongMetadata } from "../src/lib/ai-extractor.ts";
 import { downloadAndProcessYoutube, cleanupTempAudio } from "../src/lib/audio-downloader.ts";
-import { cleanLyricsForGame } from "../src/lib/lyrics-cleaner.ts";
+import { cleanLyricsForGame, extractIntroLyrics } from "../src/lib/lyrics-cleaner.ts";
 import { uploadAudioToR2 } from "../src/lib/r2.ts";
 
 /**
  * Parses command-line arguments and flags for song importer.
  *
  * Supported flags:
- *   --youtube-url <url> : Override YouTube source URL
- *   --lyrics <text>     : Override/provide complete lyrics
- *   --hook-start <sec>  : Override hook start time in seconds
- *   --hook-end <sec>    : Override hook end time in seconds
- *   -h, --help          : Display help and usage information
+ *   --youtube-url <url>   : Override YouTube source URL
+ *   --lyrics <text>       : Override/provide complete lyrics
+ *   --lyrics-intro <text> : Override/provide intro lyrics (alias: --intro)
+ *   --album <name>        : Override/provide album name
+ *   --hook-start <sec>    : Override hook start time in seconds
+ *   --hook-end <sec>      : Override hook end time in seconds
+ *   -h, --help            : Display help and usage information
  */
 export function parseCliArgs(args = process.argv.slice(2)) {
   const flags = {
     youtubeUrl: undefined,
     lyrics: undefined,
+    lyricsIntro: undefined,
+    album: undefined,
     hookStart: undefined,
     hookEnd: undefined,
     help: false,
@@ -45,6 +49,16 @@ export function parseCliArgs(args = process.argv.slice(2)) {
       flags.lyrics = args[++i];
     } else if (arg.startsWith("--lyrics=")) {
       flags.lyrics = arg.slice("--lyrics=".length);
+    } else if (arg === "--lyrics-intro" || arg === "--intro") {
+      flags.lyricsIntro = args[++i];
+    } else if (arg.startsWith("--lyrics-intro=")) {
+      flags.lyricsIntro = arg.slice("--lyrics-intro=".length);
+    } else if (arg.startsWith("--intro=")) {
+      flags.lyricsIntro = arg.slice("--intro=".length);
+    } else if (arg === "--album") {
+      flags.album = args[++i];
+    } else if (arg.startsWith("--album=")) {
+      flags.album = arg.slice("--album=".length);
     } else if (arg === "--hook-start") {
       flags.hookStart = args[++i];
     } else if (arg.startsWith("--hook-start=")) {
@@ -72,16 +86,18 @@ Usage:
   node --env-file=.env.local scripts/import-song.mjs "<song name or URL>" [options]
 
 Options:
-  --youtube-url <url>   Override the YouTube audio source URL directly
-  --lyrics <text>       Override/provide the full song lyrics
-  --hook-start <sec>    Override hook start time in seconds (e.g. 65)
-  --hook-end <sec>      Override hook end time in seconds (e.g. 95)
-  -h, --help            Show this help message
+  --youtube-url <url>     Override the YouTube audio source URL directly
+  --lyrics <text>         Override/provide the full song lyrics
+  --lyrics-intro <text>   Override/provide intro lyrics (or --intro <text>)
+  --album <name>          Override/provide album name (e.g. "Save My Life")
+  --hook-start <sec>      Override hook start time in seconds (e.g. 65)
+  --hook-end <sec>        Override hook end time in seconds (e.g. 95)
+  -h, --help              Show this help message
 
 Examples:
   node --env-file=.env.local scripts/import-song.mjs "วัดใจ Silly Fools"
   node --env-file=.env.local scripts/import-song.mjs "https://www.youtube.com/watch?v=..."
-  node --env-file=.env.local scripts/import-song.mjs "วัดใจ Silly Fools" --youtube-url "https://youtu.be/..." --hook-start 68 --hook-end 94
+  node --env-file=.env.local scripts/import-song.mjs "วัดใจ Silly Fools" --youtube-url "https://youtu.be/..." --hook-start 68 --hook-end 94 --intro "แม้ทั้งชีวิตพังทลาย..."
 `);
 }
 
@@ -135,10 +151,23 @@ export async function main() {
     console.log(`  - คำค้นหา YouTube: "${ytTarget}"`);
   }
 
+  if (flags.lyricsIntro) {
+    console.log(`  - เนื้อเพลงท่อนอินโทร: กำหนดเอง (${flags.lyricsIntro.length} ตัวอักษร)`);
+  } else if (metadata.lyricsIntro) {
+    console.log(`  - เนื้อเพลงท่อนอินโทร: สกัดได้อัตโนมัติ (${metadata.lyricsIntro.length} ตัวอักษร)`);
+  }
+
   if (flags.lyrics) {
     console.log(`  - เนื้อเพลงเต็ม: กำหนดเอง (${flags.lyrics.length} ตัวอักษร)`);
   } else if (metadata.lyricsFull) {
     console.log(`  - เนื้อเพลงเต็ม: สกัดได้อัตโนมัติ (${metadata.lyricsFull.length} ตัวอักษร)`);
+  }
+
+  const album = (flags.album?.trim() || metadata.album?.trim()) || null;
+  if (album) {
+    console.log(`  - อัลบั้ม: "${album}"${flags.album ? " (กำหนดเอง)" : " (สกัดได้อัตโนมัติ)"}`);
+  } else {
+    console.log(`  - อัลบั้ม: ไม่ระบุ / ซิงเกิลเดี่ยว`);
   }
 
   // 2. Resolve genre ID from Supabase
@@ -187,7 +216,18 @@ export async function main() {
   const customLyrics = flags.lyrics?.trim();
   const rawLyricsFull = customLyrics || metadata.lyricsFull || null;
   const lyricsFull = rawLyricsFull ? (cleanLyricsForGame(rawLyricsFull) || null) : null;
-  const lyricsIntro = metadata.lyricsIntro ? (cleanLyricsForGame(metadata.lyricsIntro) || null) : null;
+
+  // Intro resolution:
+  // 1. Explicit CLI override (--lyrics-intro / --intro)
+  // 2. Extracted metadata.lyricsIntro
+  // 3. Fallback: Auto-extract 2-4 opening lines from lyricsFull
+  const customIntro = flags.lyricsIntro?.trim();
+  const rawIntro =
+    customIntro ||
+    metadata.lyricsIntro ||
+    (lyricsFull ? extractIntroLyrics(lyricsFull) : null);
+  const lyricsIntro = rawIntro ? (cleanLyricsForGame(rawIntro) || null) : null;
+
   const lyricsChorus = metadata.lyricsChorus ? (cleanLyricsForGame(metadata.lyricsChorus) || null) : null;
   const lyricsConfidence = customLyrics ? "verified" : (metadata.lyricsConfidence || "not_found");
 
@@ -195,6 +235,7 @@ export async function main() {
     id: songId,
     title: metadata.title,
     artist: metadata.artist,
+    album: album,
     aliases: metadata.aliases || [metadata.title],
     release_year: metadata.releaseYear ? Number(metadata.releaseYear) : null,
     genre_id: genreId || null,
@@ -232,6 +273,9 @@ export async function main() {
   console.log(`   Song ID: ${inserted.id}`);
   console.log(`   Audio URL: ${inserted.audio_url}`);
   console.log(`   Hook: ${inserted.hook_start_sec}s - ${inserted.hook_end_sec}s (${inserted.duration_sec}s total)`);
+  if (inserted.lyrics_intro) {
+    console.log(`   Intro Preview: "${inserted.lyrics_intro?.split('\n')[0]}..."`);
+  }
   if (inserted.lyrics_chorus) {
     console.log(`   Chorus Preview: "${inserted.lyrics_chorus?.split('\n')[0]}..."`);
   }

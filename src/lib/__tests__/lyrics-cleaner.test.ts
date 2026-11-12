@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanLyricsForGame } from "@/lib/lyrics-cleaner";
+import { cleanLyricsForGame, extractIntroLyrics } from "@/lib/lyrics-cleaner";
 
 describe("cleanLyricsForGame utility", () => {
   it("handles null, undefined, or empty string gracefully", () => {
@@ -114,5 +114,51 @@ Arranged by: Silly Fools
 
     const cleaned = cleanLyricsForGame(raw);
     expect(cleaned).toBe("");
+  });
+});
+
+describe("extractIntroLyrics utility", () => {
+  it("handles null, undefined, or empty string gracefully", () => {
+    expect(extractIntroLyrics(null)).toBe("");
+    expect(extractIntroLyrics(undefined)).toBe("");
+    expect(extractIntroLyrics("")).toBe("");
+    expect(extractIntroLyrics("   \n\n  ")).toBe("");
+  });
+
+  it("extracts the first 4 non-empty lines from lyrics after cleaning headers", () => {
+    const raw = `
+เพลง: ยาพิษ
+ศิลปิน: Bodyslam
+
+คำง่ายง่ายแต่ความหมายสุดลึกล้ำ
+คำง่ายง่ายที่เธอใช้ประจำ
+ซ้ำไปซ้ำมา
+คิดจะพูดแต่ก็พูดอย่างไม่คิด
+รู้ไหมว่าหนึ่งชีวิตของใคร
+ต้องเกิดปัญหา
+`;
+    const intro = extractIntroLyrics(raw, 4);
+    expect(intro).toBe(
+      "คำง่ายง่ายแต่ความหมายสุดลึกล้ำ\nคำง่ายง่ายที่เธอใช้ประจำ\nซ้ำไปซ้ำมา\nคิดจะพูดแต่ก็พูดอย่างไม่คิด"
+    );
+  });
+
+  it("respects maxLines parameter", () => {
+    const raw = `
+บรรทัดที่ 1
+บรรทัดที่ 2
+บรรทัดที่ 3
+บรรทัดที่ 4
+`;
+    expect(extractIntroLyrics(raw, 2)).toBe("บรรทัดที่ 1\nบรรทัดที่ 2");
+    expect(extractIntroLyrics(raw, 1)).toBe("บรรทัดที่ 1");
+  });
+
+  it("returns all lines if total lines are fewer than maxLines", () => {
+    const raw = `
+บรรทัดหนึ่ง
+บรรทัดสอง
+`;
+    expect(extractIntroLyrics(raw, 4)).toBe("บรรทัดหนึ่ง\nบรรทัดสอง");
   });
 });

@@ -3,7 +3,8 @@
 // Authoritative active round manager, FCFS buzzer arbitration & scoring
 // ==========================================
 
-import type { Song, RoomSettings, GameMode, ChoiceOption } from "@/types";
+import type { Song, RoomSettings, GameMode, ChoiceOption, HintType } from "@/types";
+import { HINT_COSTS } from "@/types";
 import { checkAnswer } from "@/lib/answer-checker";
 import { SongService, mapGenreFromRow } from "@/lib/services/song-service";
 
@@ -63,9 +64,9 @@ export interface RoomRoundState {
     answerText?: string;
   }>;
   revealedHintLevel?: number; // 0 = none, 1 = genre, 2 = year, 3 = artist
-  revealedHints?: { genre?: string; year?: string; artist?: string };
+  revealedHints?: { genre?: string; year?: string; album?: string; artist?: string };
   playerHintLevels?: Record<string, number>;
-  playerHints?: Record<string, { genre?: string; year?: string; artist?: string }>;
+  playerHints?: Record<string, { genre?: string; year?: string; album?: string; artist?: string }>;
   startedAt?: string;
 }
 
@@ -637,17 +638,13 @@ export class RoomStateStore {
 
     // Direct answer mode with 'wait_all' setting
     if (isDirectAnswer && resolutionMode === "wait_all") {
+      const playerHints = playerId
+        ? state.playerHints?.[playerId]
+        : state.revealedHints;
       const playerHintLevel = playerId
         ? (state.playerHintLevels?.[playerId] ?? 0)
         : (state.revealedHintLevel ?? 0);
-      const points =
-        playerHintLevel === 1
-          ? 75
-          : playerHintLevel === 2
-          ? 50
-          : playerHintLevel === 3
-          ? 25
-          : 100;
+      const points = RoomStateStore.calculatePointsForHints(playerHints, playerHintLevel);
 
       const scoreDelta = check.isCorrect ? points : 0;
       const currentScore = state.scores[playerId] || 0;
@@ -793,18 +790,14 @@ export class RoomStateStore {
     }
 
     if (check.isCorrect) {
-      // Points scaled by hint level: 0 hints = 100, 1 hint = 75, 2 hints = 50, 3 hints = 25
+      // Points scaled by revealed hints (A La Carte deductions or progressive level fallback)
+      const playerHints = playerId
+        ? state.playerHints?.[playerId]
+        : state.revealedHints;
       const playerHintLevel = playerId
         ? (state.playerHintLevels?.[playerId] ?? 0)
         : (state.revealedHintLevel ?? 0);
-      const points =
-        playerHintLevel === 1
-          ? 75
-          : playerHintLevel === 2
-          ? 50
-          : playerHintLevel === 3
-          ? 25
-          : 100;
+      const points = RoomStateStore.calculatePointsForHints(playerHints, playerHintLevel);
       const currentScore = state.scores[playerId] || 0;
       const newScore = currentScore + points;
       state.scores[playerId] = newScore;
@@ -1064,90 +1057,145 @@ export class RoomStateStore {
   }
 
   /**
-   * Reveals the next progressive hint for the active question:
-   * Level 1: Genre (แนวเพลง)
-   * Level 2: Release Year & Era (ปีที่ปล่อยเพลง / ยุค)
-   * Level 3: Artist (ศิลปิน / วง)
+   * Calculates score available based on revealed hints or legacy hint level.
+   * A La Carte costs: genre: -15, year: -20, album: -20, artist: -35.
+   * Guaranteed minimum score floor: 20 points.
    */
-  static revealNextHint(code: string, playerId?: string): {
+  static calculatePointsForHints(
+    hints?: { genre?: string; year?: string; album?: string; artist?: string } | null,
+    fallbackLevel?: number
+  ): number {
+    if (hints && Object.keys(hints).length > 0) {
+      let deduction = 0;
+      if (hints.genre) deduction += HINT_COSTS.genre;
+      if (hints.year) deduction += HINT_COSTS.year;
+      if (hints.album) deduction += HINT_COSTS.album;
+      if (hints.artist) deduction += HINT_COSTS.artist;
+      return Math.max(20, 100 - deduction);
+    }
+    if (typeof fallbackLevel === "number") {
+      if (fallbackLevel <= 0) return 100;
+      if (fallbackLevel === 1) return 75;
+      if (fallbackLevel === 2) return 50;
+      return 25;
+    }
+    return 100;
+  }
+
+  /**
+   * Reveals a hint for the active question:
+   * Can be requested A La Carte (by requestedHintType) or progressively (next available).
+   * Categories:
+   * - genre (-15 pts)
+   * - year (-20 pts)
+   * - album (-20 pts) [Hidden/disabled if song has no album]
+   * - artist (-35 pts)
+   */
+  static revealNextHint(
+    code: string,
+    playerId?: string,
+    requestedHintType?: HintType
+  ): {
     success: boolean;
     level: number;
-    hintType?: "genre" | "year" | "artist";
+    hintType?: HintType;
     hintText?: string;
     pointsAvailable: number;
     playerId?: string;
+    error?: string;
   } {
     const cleanCode = code.trim().toUpperCase();
     const state = roomRoundStates.get(cleanCode);
     if (!state || !state.currentSong) {
-      return { success: false, level: 0, pointsAvailable: 100, playerId };
+      return { success: false, level: 0, pointsAvailable: 100, playerId, error: "no_active_round" };
     }
 
     if (!state.playerHintLevels) {
       state.playerHintLevels = {};
     }
-
-    const currentLevel = playerId
-      ? state.playerHintLevels[playerId] || 0
-      : state.revealedHintLevel || 0;
-
-    if (currentLevel >= 3) {
-      return { success: false, level: 3, pointsAvailable: 25, playerId };
+    if (!state.playerHints) {
+      state.playerHints = {};
     }
-
-    const nextLevel = currentLevel + 1;
-
-    if (playerId) {
-      state.playerHintLevels[playerId] = nextLevel;
-      state.revealedHintLevel = Math.max(state.revealedHintLevel || 0, nextLevel);
-      if (!state.playerHints) {
-        state.playerHints = {};
-      }
-      if (!state.playerHints[playerId]) {
-        state.playerHints[playerId] = {};
-      }
-    } else {
-      state.revealedHintLevel = nextLevel;
-    }
-
     if (!state.revealedHints) {
       state.revealedHints = {};
     }
 
-    let hintType: "genre" | "year" | "artist" = "genre";
-    let hintText = "";
+    const currentHints = playerId
+      ? (state.playerHints[playerId] ||= {})
+      : state.revealedHints;
 
-    if (nextLevel === 1) {
-      hintType = "genre";
-      hintText = state.currentSong.genre?.nameTh || "เพลงไทยยอดนิยม";
-      state.revealedHints.genre = hintText;
-      if (playerId && state.playerHints?.[playerId]) {
-        state.playerHints[playerId]!.genre = hintText;
+    const hasAlbum = Boolean(state.currentSong.album && state.currentSong.album.trim().length > 0);
+
+    // Determine target hintType
+    let targetType: HintType | undefined = requestedHintType;
+
+    if (targetType) {
+      if (targetType === "album" && !hasAlbum) {
+        return {
+          success: false,
+          level: Object.keys(currentHints).length,
+          pointsAvailable: this.calculatePointsForHints(currentHints),
+          playerId,
+          error: "no_album_available",
+        };
       }
-    } else if (nextLevel === 2) {
-      hintType = "year";
-      const year = state.currentSong.releaseYear;
-      const era = state.currentSong.era;
-      hintText = year ? `ปี ${year}${era ? ` (ยุค ${era})` : ""}` : `ยุค ${era || "ไม่ระบุ"}`;
-      state.revealedHints.year = hintText;
-      if (playerId && state.playerHints?.[playerId]) {
-        state.playerHints[playerId]!.year = hintText;
+      if (currentHints[targetType]) {
+        return {
+          success: false,
+          level: Object.keys(currentHints).length,
+          pointsAvailable: this.calculatePointsForHints(currentHints),
+          playerId,
+          error: "hint_already_revealed",
+        };
       }
-    } else if (nextLevel === 3) {
-      hintType = "artist";
-      hintText = state.currentSong.artist || "ศิลปินไม่ระบุ";
-      state.revealedHints.artist = hintText;
-      if (playerId && state.playerHints?.[playerId]) {
-        state.playerHints[playerId]!.artist = hintText;
+    } else {
+      // Linear fallback
+      const candidates: HintType[] = ["genre", "year", ...(hasAlbum ? ["album" as const] : []), "artist"];
+      targetType = candidates.find((t) => !currentHints[t]);
+      if (!targetType) {
+        return {
+          success: false,
+          level: Object.keys(currentHints).length,
+          pointsAvailable: this.calculatePointsForHints(currentHints),
+          playerId,
+          error: "all_hints_revealed",
+        };
       }
     }
 
-    const pointsAvailable = nextLevel === 1 ? 75 : nextLevel === 2 ? 50 : 25;
+    // Resolve hint text
+    let hintText = "";
+    if (targetType === "genre") {
+      hintText = state.currentSong.genre?.nameTh || "เพลงไทยยอดนิยม";
+    } else if (targetType === "year") {
+      const year = state.currentSong.releaseYear;
+      const era = state.currentSong.era;
+      hintText = year ? `ปี ${year}${era ? ` (ยุค ${era})` : ""}` : `ยุค ${era || "ไม่ระบุ"}`;
+    } else if (targetType === "album") {
+      hintText = state.currentSong.album || "";
+    } else if (targetType === "artist") {
+      hintText = state.currentSong.artist || "ศิลปินไม่ระบุ";
+    }
+
+    // Save hint
+    currentHints[targetType] = hintText;
+    state.revealedHints[targetType] = hintText;
+
+    const currentCount = Object.keys(currentHints).length;
+
+    if (playerId) {
+      state.playerHintLevels[playerId] = currentCount;
+      state.revealedHintLevel = Math.max(state.revealedHintLevel || 0, currentCount);
+    } else {
+      state.revealedHintLevel = currentCount;
+    }
+
+    const pointsAvailable = this.calculatePointsForHints(currentHints, currentCount);
 
     return {
       success: true,
-      level: nextLevel,
-      hintType,
+      level: currentCount,
+      hintType: targetType,
       hintText,
       pointsAvailable,
       playerId,

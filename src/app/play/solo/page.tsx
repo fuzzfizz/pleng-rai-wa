@@ -28,7 +28,8 @@ import {
   Languages,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { Song, GameMode, AnswerInputMode, Playlist, SongFilterConfig } from "@/types";
+import { Song, GameMode, AnswerInputMode, Playlist, SongFilterConfig, HintType } from "@/types";
+import { HintSelectModal } from "@/components/room/hint-select-modal";
 import {
   playBuzzerSound,
   playCorrectSound,
@@ -90,6 +91,9 @@ function SoloPlayContent() {
 
   // Gameplay State
   const [hintLevel, setHintLevel] = useState<number>(0);
+  const [revealedHints, setRevealedHints] = useState<{ genre?: string; year?: string; album?: string; artist?: string }>({});
+  const [isHintModalOpen, setIsHintModalOpen] = useState(false);
+  const answerInputRef = useRef<HTMLInputElement | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [userGuess, setUserGuess] = useState("");
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Song[]>([]);
@@ -146,6 +150,8 @@ function SoloPlayContent() {
     setRevealCurrentTime(0);
     setRevealDuration(0);
     setHintLevel(0);
+    setRevealedHints({});
+    setIsHintModalOpen(false);
     setUserGuess("");
     setFeedback(null);
     setAutocompleteSuggestions([]);
@@ -695,7 +701,7 @@ function SoloPlayContent() {
   const handleInputChange = (text: string) => {
     setUserGuess(text);
     if (inputMode === "autocomplete" && text.trim().length > 0) {
-      const results = searchSongAutocomplete(text, songsPool, 5);
+      const results = searchSongAutocomplete(text, songsPool, 20);
       setAutocompleteSuggestions(results);
     } else {
       setAutocompleteSuggestions([]);
@@ -730,6 +736,30 @@ function SoloPlayContent() {
     }
   };
 
+  // A La Carte Hint handler
+  const handleRequestHint = (type: HintType) => {
+    if (!currentSong) return;
+    playClickSound();
+    let text = "";
+    if (type === "genre") {
+      text = currentSong.genre?.nameTh || "เพลงไทยยอดนิยม";
+    } else if (type === "year") {
+      const year = currentSong.releaseYear;
+      const era = currentSong.era;
+      text = year ? `ปี ${year}${era ? ` (${era})` : ""}` : `ยุค ${era || "ไม่ระบุ"}`;
+    } else if (type === "album") {
+      text = currentSong.album || "";
+    } else if (type === "artist") {
+      text = currentSong.artist || "ศิลปินไม่ระบุ";
+    }
+
+    setRevealedHints((prev) => ({ ...prev, [type]: text }));
+    setHintLevel((l) => Math.min(4, l + 1));
+    setTimeout(() => {
+      answerInputRef.current?.focus();
+    }, 50);
+  };
+
   // Next Question
   const handleNextSong = () => {
     playClickSound();
@@ -744,6 +774,8 @@ function SoloPlayContent() {
     setRevealCurrentTime(0);
     setRevealDuration(0);
     setHintLevel(0);
+    setRevealedHints({});
+    setIsHintModalOpen(false);
     setUserGuess("");
     setFeedback(null);
     setAutocompleteSuggestions([]);
@@ -1330,49 +1362,46 @@ function SoloPlayContent() {
                 <span className="text-xs font-bold text-stone-500 dark:text-stone-400">
                   คำใบ้:
                 </span>
-                {hintLevel === 0 && (
+                {!revealedHints.genre && !revealedHints.year && !revealedHints.album && !revealedHints.artist && (
                   <span className="text-xs text-stone-400 dark:text-stone-500 italic">
                     ยังไม่มีการเปิดคำใบ้
                   </span>
                 )}
-                {hintLevel >= 1 && (
+                {revealedHints.genre && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 animate-in fade-in">
                     <Tag className="w-3 h-3 text-emerald-500" />
-                    <span>แนวเพลง: {currentSong.genre?.nameTh || "เพลงไทยยอดนิยม"}</span>
+                    <span>แนวเพลง: {revealedHints.genre}</span>
                   </span>
                 )}
-                {hintLevel >= 2 && (
+                {revealedHints.year && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 border border-blue-500/30 text-blue-800 dark:text-blue-300 animate-in fade-in">
                     <Calendar className="w-3 h-3 text-blue-500" />
-                    <span>
-                      {currentSong.releaseYear
-                        ? `ปี ${currentSong.releaseYear}${currentSong.era ? ` (${currentSong.era})` : ""}`
-                        : `ยุค ${currentSong.era || "ไม่ระบุ"}`}
-                    </span>
+                    <span>{revealedHints.year}</span>
                   </span>
                 )}
-                {hintLevel >= 3 && (
+                {revealedHints.album && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 animate-in fade-in">
+                    <Disc3 className="w-3 h-3 text-amber-500" />
+                    <span>อัลบั้ม: {revealedHints.album}</span>
+                  </span>
+                )}
+                {revealedHints.artist && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-300 animate-in fade-in">
                     <UserCheck className="w-3 h-3 text-purple-500" />
-                    <span>ศิลปิน: {currentSong.artist}</span>
+                    <span>ศิลปิน: {revealedHints.artist}</span>
                   </span>
                 )}
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                {hintLevel < 3 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playClickSound();
-                      setHintLevel((l) => Math.min(3, l + 1));
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 transition cursor-pointer touch-manipulation"
-                  >
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                    <span>ขอคำใบ้ (ขั้นที่ {hintLevel + 1}/3)</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setIsHintModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 transition cursor-pointer touch-manipulation"
+                >
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+                  <span>💡 ขอคำใบ้</span>
+                </button>
               </div>
             </div>
 
@@ -1403,6 +1432,7 @@ function SoloPlayContent() {
             <div className="relative">
               <div className="flex gap-2">
                 <input
+                  ref={answerInputRef}
                   type="text"
                   placeholder="พิมพ์ชื่อเพลงที่คิดว่าเป็น..."
                   value={userGuess}
@@ -1421,7 +1451,7 @@ function SoloPlayContent() {
 
               {/* Autocomplete Dropdown List */}
               {inputMode === "autocomplete" && autocompleteSuggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 shadow-2xl z-20 space-y-1">
+                <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-1.5 shadow-2xl z-20 space-y-1 max-h-60 sm:max-h-72 overflow-y-auto">
                   {autocompleteSuggestions.map((song) => (
                     <button
                       key={song.id}
@@ -1468,6 +1498,21 @@ function SoloPlayContent() {
           </div>
         )}
       </main>
+
+      {/* Hint Select Modal (A La Carte) */}
+      <HintSelectModal
+        isOpen={isHintModalOpen}
+        onClose={() => {
+          setIsHintModalOpen(false);
+          setTimeout(() => {
+            answerInputRef.current?.focus();
+          }, 50);
+        }}
+        currentSong={currentSong}
+        revealedHints={revealedHints}
+        onRequestHint={handleRequestHint}
+        isSolo={true}
+      />
 
       {/* Song Source & Multi-filtering Modal */}
       <SongSourceModal

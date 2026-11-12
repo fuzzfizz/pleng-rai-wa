@@ -133,7 +133,7 @@ describe("Phase 2 should fix.md Core Fixes", () => {
       expect(resB.isCorrect).toBe(true);
       expect(resB.scoreDelta).toBe(100);
 
-      // Reset round to test Player A scoring (2 hints -> 50 pts)
+      // Reset round to test Player A scoring (2 hints: genre -15, year -20 -> 65 pts)
       RoomStateStore.initRound(
         ROOM_CODE,
         2,
@@ -151,7 +151,7 @@ describe("Phase 2 should fix.md Core Fixes", () => {
         "วัดใจ"
       );
       expect(resA.isCorrect).toBe(true);
-      expect(resA.scoreDelta).toBe(50);
+      expect(resA.scoreDelta).toBe(65);
     });
   });
 

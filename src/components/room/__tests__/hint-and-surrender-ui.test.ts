@@ -34,6 +34,23 @@ describe("Hint and Surrender UI & State Logic", () => {
       expect(calculatePointsAvailable(-1)).toBe(100);
       expect(calculatePointsAvailable(4)).toBe(25);
     });
+
+    it("calculates A La Carte points deductions correctly with 20-point minimum floor", () => {
+      // Base: 100
+      expect(calculatePointsAvailable({})).toBe(100);
+      // Genre: -15 -> 85
+      expect(calculatePointsAvailable({ genre: "Rock" })).toBe(85);
+      // Year: -20 -> 80
+      expect(calculatePointsAvailable({ year: "2007" })).toBe(80);
+      // Album: -20 -> 80
+      expect(calculatePointsAvailable({ album: "Save My Life" })).toBe(80);
+      // Artist: -35 -> 65
+      expect(calculatePointsAvailable({ artist: "Bodyslam" })).toBe(65);
+      // Genre + Year + Album: 100 - (15 + 20 + 20) = 45
+      expect(calculatePointsAvailable({ genre: "Rock", year: "2007", album: "Save My Life" })).toBe(45);
+      // All 4 hints: 100 - (15 + 20 + 20 + 35) = 10 -> Floor is 20!
+      expect(calculatePointsAvailable({ genre: "Rock", year: "2007", album: "Save My Life", artist: "Bodyslam" })).toBe(20);
+    });
   });
 
   describe("resolvePlayerHintLevel", () => {
@@ -70,6 +87,41 @@ describe("Hint and Surrender UI & State Logic", () => {
       expect(shouldShowHintButton(0, "buzzed")).toBe(false);
       expect(shouldShowHintButton(0, "revealing")).toBe(false);
       expect(shouldShowHintButton(0, "game_over")).toBe(false);
+    });
+
+    it("evaluates hint button visibility for A La Carte hint objects", () => {
+      // Song with album: 4 possible hints
+      expect(shouldShowHintButton({ genre: "Rock" }, "question_active", true)).toBe(true);
+      expect(
+        shouldShowHintButton(
+          { genre: "Rock", year: "2007", album: "Save My Life" },
+          "question_active",
+          true
+        )
+      ).toBe(true);
+      expect(
+        shouldShowHintButton(
+          { genre: "Rock", year: "2007", album: "Save My Life", artist: "Bodyslam" },
+          "question_active",
+          true
+        )
+      ).toBe(false);
+
+      // Song without album: 3 possible hints (genre, year, artist)
+      expect(
+        shouldShowHintButton(
+          { genre: "Rock", year: "2007" },
+          "question_active",
+          false
+        )
+      ).toBe(true);
+      expect(
+        shouldShowHintButton(
+          { genre: "Rock", year: "2007", artist: "Bodyslam" },
+          "question_active",
+          false
+        )
+      ).toBe(false);
     });
   });
 
@@ -167,6 +219,21 @@ describe("Hint and Surrender UI & State Logic", () => {
       expect(stateWithHint2.revealedHints.level).toBe(1);
       expect(stateWithHint2.revealedHints.year).toBeUndefined();
       expect(stateWithHint2.playerHints?.["player-2"]?.year).toBe("2015");
+
+      // Player 1 reveals album hint
+      const stateWithAlbum = reduceRoomRealtimeEvent(stateWithHint2, {
+        type: "broadcast",
+        event: "hint_revealed",
+        payload: {
+          playerId: "player-1",
+          level: 2,
+          hintType: "album",
+          hintText: "Save My Life",
+        },
+      });
+
+      expect(stateWithAlbum.revealedHints.album).toBe("Save My Life");
+      expect(stateWithAlbum.playerHints?.["player-1"]?.album).toBe("Save My Life");
     });
 
     it("resets playerHintLevels on round_start", () => {

@@ -34,7 +34,7 @@ export async function POST(
       );
     }
 
-    const { playerId } = body as { playerId?: string };
+    const { playerId, hintType } = body as { playerId?: string; hintType?: "genre" | "year" | "album" | "artist" };
     const cleanCode = code.trim().toUpperCase();
 
     const room = await RoomService.getRoomByCode(cleanCode);
@@ -53,15 +53,21 @@ export async function POST(
     // Ensure round state is rehydrated if running on a fresh serverless instance
     await RoomStateStore.ensureRoundState(cleanCode, room);
 
-    const result = RoomStateStore.revealNextHint(cleanCode, cleanPlayerId);
+    const result = RoomStateStore.revealNextHint(cleanCode, cleanPlayerId, hintType);
     if (!result.success) {
+      const errorMsg =
+        result.error === "hint_already_revealed"
+          ? "คำใบ้นี้ถูกเปิดไปแล้ว"
+          : result.error === "no_album_available"
+          ? "เพลงนี้ไม่มีข้อมูลอัลบั้ม"
+          : result.error === "all_hints_revealed"
+          ? "เปิดคำใบ้ครบทุกหมวดแล้ว"
+          : "ไม่สามารถเปิดคำใบ้ได้ในขณะนี้";
+
       return NextResponse.json(
         {
           success: false,
-          error:
-            result.level >= 3
-              ? "เปิดคำใบ้ครบทั้ง 3 ระดับแล้ว"
-              : "ไม่สามารถเปิดคำใบ้ได้ในขณะนี้",
+          error: errorMsg,
         },
         { status: 400 }
       );

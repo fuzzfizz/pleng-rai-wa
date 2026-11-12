@@ -21,6 +21,7 @@ export interface ActiveQuestion {
   lyrics?: string;
   startedAt?: string;
   choices?: ChoiceOption[];
+  hasAlbum?: boolean;
 }
 
 export type LyricsType = "chorus" | "full" | "intro";
@@ -39,6 +40,7 @@ export interface Song {
   id: string;
   title: string;
   artist: string;
+  album?: string | null;
   aliases: string[];
   releaseYear?: number;
   genreId?: string;
@@ -61,6 +63,7 @@ export interface ExtractedSongMetadata {
   lyricsConfidence?: "verified" | "not_found";
   title: string;
   artist: string;
+  album?: string;
   aliases: string[];
   releaseYear: number;
   genreSlug: string;
@@ -109,7 +112,7 @@ export interface Player {
 
 export type AIVoiceGender = "male" | "female" | "random";
 
-export type SongFilterType = "all" | "era" | "genre" | "artist" | "playlist";
+export type SongFilterType = "all" | "era" | "genre" | "artist" | "playlist" | "album";
 
 export interface SongFilterConfig {
   type: SongFilterType;
@@ -121,10 +124,21 @@ export interface SongFilterConfig {
   eraIds?: string[];
   artist?: string;
   artists?: string[];
+  album?: string;
+  albums?: string[];
   yearStart?: number;
   yearEnd?: number;
   playlistId?: string;
 }
+
+export type HintType = "genre" | "year" | "album" | "artist";
+
+export const HINT_COSTS: Record<HintType, number> = {
+  genre: 15,
+  year: 20,
+  album: 20,
+  artist: 35,
+};
 
 export interface RoomSettings {
   gameMode: GameMode;

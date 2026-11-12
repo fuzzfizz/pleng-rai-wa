@@ -19,7 +19,7 @@ import {
   loadPlayerSession,
   savePlayerSession,
 } from "@/lib/session-storage";
-import type { Player, RoomSettings, Song, GameMode, ChoiceOption } from "@/types";
+import type { Player, RoomSettings, Song, GameMode, ChoiceOption, HintType } from "@/types";
 
 export interface ActiveQuestion {
   id?: string;
@@ -28,6 +28,7 @@ export interface ActiveQuestion {
   lyrics?: string;
   startedAt?: string;
   choices?: ChoiceOption[];
+  hasAlbum?: boolean;
 }
 
 export interface BuzzedPlayer {
@@ -81,9 +82,9 @@ export interface RoomRealtimeState {
   lastWrongGuess: WrongGuessRecord | null;
   wrongGuesses: WrongGuessRecord[];
   scores: Record<string, number>;
-  revealedHints: { genre?: string; year?: string; artist?: string; level: number };
+  revealedHints: { genre?: string; year?: string; album?: string; artist?: string; level: number };
   playerHintLevels?: Record<string, number>;
-  playerHints?: Record<string, { genre?: string; year?: string; artist?: string }>;
+  playerHints?: Record<string, { genre?: string; year?: string; album?: string; artist?: string }>;
   excludedPlayerIds?: string[];
   isConnected: boolean;
   isAudioPlaying: boolean;
@@ -256,6 +257,7 @@ export function reduceRoomRealtimeEvent(
           lyrics: rs.lyrics,
           startedAt: rs.startedAt || new Date().toISOString(),
           choices: rs.choices,
+          hasAlbum: typeof rs.hasAlbum === "boolean" ? rs.hasAlbum : Boolean(rs.currentSong?.album),
         };
       }
       break;
@@ -387,6 +389,7 @@ export function reduceRoomRealtimeEvent(
             lyrics: payload?.lyrics,
             startedAt: payload?.startedAt || new Date().toISOString(),
             choices: payload?.choices,
+            hasAlbum: typeof payload?.hasAlbum === "boolean" ? payload.hasAlbum : undefined,
           };
           nextState.buzzedPlayer = null;
           nextState.buzzDeadline = null;
@@ -1527,9 +1530,12 @@ export function useRoomRealtime(
   }, [cleanCode, refetchState, state.myPlayer]);
 
   // Action: requestHint
-  const requestHint = useCallback(async (): Promise<{
+  const requestHint = useCallback(async (hintType?: HintType): Promise<{
     success: boolean;
     level?: number;
+    hintType?: HintType;
+    hintText?: string;
+    pointsAvailable?: number;
     error?: string;
   }> => {
     if (!state.myPlayer) return { success: false, error: "no_player" };
@@ -1537,13 +1543,22 @@ export function useRoomRealtime(
       const res = await fetch(`/api/room/${cleanCode}/hint`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId: state.myPlayer.id }),
+        body: JSON.stringify({
+          playerId: state.myPlayer.id,
+          hintType,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         return { success: false, error: data.error || "Failed to reveal hint" };
       }
-      return { success: true, level: data.level };
+      return {
+        success: true,
+        level: data.level,
+        hintType: data.hintType,
+        hintText: data.hintText,
+        pointsAvailable: data.pointsAvailable,
+      };
     } catch (err: any) {
       return { success: false, error: err?.message || "network_error" };
     }

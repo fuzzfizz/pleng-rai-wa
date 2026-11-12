@@ -272,7 +272,7 @@ export function checkAnswer(
 export function searchSongAutocomplete(
   query: string,
   songPool: Song[],
-  limit = 6
+  limit = 20
 ): Song[] {
   if (!songPool || songPool.length === 0) {
     return [];
