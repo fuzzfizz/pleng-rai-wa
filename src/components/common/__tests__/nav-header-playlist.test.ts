@@ -10,7 +10,7 @@ import {
   handlePlaylistCreateNavigation,
   FREEMIUM_GATE_TEXTS,
 } from "@/app/playlists/page";
-import { ListMusic, Disc3, Sparkles, LogIn } from "lucide-react";
+import { ListMusic, Disc3, Sparkles, LogIn, Calendar } from "lucide-react";
 import { soundEffects } from "@/lib/sound-effects";
 
 describe("Playlist Navigation & Freemium Auth Gate Integration", () => {
@@ -35,9 +35,14 @@ describe("Playlist Navigation & Freemium Auth Gate Integration", () => {
     });
 
     it("has complete and correctly ordered NAV_LINKS for desktop and mobile navigation", () => {
-      expect(NAV_LINKS).toHaveLength(2);
+      expect(NAV_LINKS).toHaveLength(3);
       expect(NAV_LINKS[0]).toEqual({ label: "หน้าแรก", href: "/" });
       expect(NAV_LINKS[1]).toEqual({
+        label: "เพลงรายวัน",
+        href: "/daily",
+        icon: Calendar,
+      });
+      expect(NAV_LINKS[2]).toEqual({
         label: "เพลย์ลิสต์",
         href: "/playlists",
         icon: ListMusic,
@@ -72,6 +77,12 @@ describe("Playlist Navigation & Freemium Auth Gate Integration", () => {
       it("marks /playlists as active when pathname is a subpath like /playlists/new or /playlists/123", () => {
         expect(isLinkActive("/playlists", "/playlists/new")).toBe(true);
         expect(isLinkActive("/playlists", "/playlists/custom-id-123")).toBe(true);
+      });
+
+      it("marks /daily as active when pathname is /daily or a subpath", () => {
+        expect(isLinkActive("/daily", "/daily")).toBe(true);
+        expect(isLinkActive("/daily", "/daily?date=2026-11-13")).toBe(true);
+        expect(isLinkActive("/daily", "/playlists")).toBe(false);
       });
 
       it("marks / as active only when pathname is exactly /", () => {

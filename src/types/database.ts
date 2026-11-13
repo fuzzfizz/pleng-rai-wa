@@ -233,6 +233,42 @@ export interface Database {
           }
         ];
       };
+      user_daily_attempts: {
+        Row: {
+          id?: string;
+          user_id: string;
+          date: string;
+          is_correct: boolean;
+          step: number;
+          score: number;
+          guesses: Json;
+          completed_at: string;
+          created_at?: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          date: string;
+          is_correct: boolean;
+          step: number;
+          score: number;
+          guesses?: Json;
+          completed_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          date?: string;
+          is_correct?: boolean;
+          step?: number;
+          score?: number;
+          guesses?: Json;
+          completed_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -263,4 +299,8 @@ export type PlaylistSongUpdate = Database["public"]["Tables"]["playlist_songs"][
 export type RoomRow = Database["public"]["Tables"]["rooms"]["Row"];
 export type RoomInsert = Database["public"]["Tables"]["rooms"]["Insert"];
 export type RoomUpdate = Database["public"]["Tables"]["rooms"]["Update"];
+
+export type DailyAttemptRow = Database["public"]["Tables"]["user_daily_attempts"]["Row"];
+export type DailyAttemptInsert = Database["public"]["Tables"]["user_daily_attempts"]["Insert"];
+export type DailyAttemptUpdate = Database["public"]["Tables"]["user_daily_attempts"]["Update"];
 

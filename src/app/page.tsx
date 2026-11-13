@@ -50,6 +50,8 @@ import { NavHeader } from "@/components/common/nav-header";
 import { useAuth } from "@/hooks/use-auth";
 import { AvatarPicker, PRESET_AVATARS } from "@/components/common/avatar-picker";
 import { ActiveRoomsTable } from "@/components/home/active-rooms-table";
+import { DailyChallengeCard } from "@/components/home/daily-challenge-card";
+import { AuthModal } from "@/components/auth/auth-modal";
 
 export const CREATE_MAX_PLAYERS_OPTIONS: { value: number; label: string }[] = [
   { value: 4, label: "4 คน" },
@@ -82,6 +84,9 @@ export default function HomePage() {
   const [isSoloRoom, setIsSoloRoom] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Auth Modal State for Homepage (e.g. Daily Challenge guest CTA)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Recent visited room shortcut
   const [lastRoomCode, setLastRoomCode] = useState<string | null>(null);
@@ -322,6 +327,11 @@ export default function HomePage() {
                   <span>เล่นคนเดียว (Solo Room)</span>
                 </button>
               </div>
+            </div>
+
+            {/* Daily Challenge Card (Prominent Hero Placement) */}
+            <div className="w-full max-w-md lg:max-w-xl mx-auto lg:mx-0 mt-4 sm:mt-5">
+              <DailyChallengeCard onOpenAuth={() => setIsAuthModalOpen(true)} />
             </div>
           </div>
 
@@ -660,6 +670,14 @@ export default function HomePage() {
         </div>,
         document.body
       )}
+
+      {/* Auth Modal for Homepage actions (e.g. Daily Challenge CTA) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialTab="signin"
+        onSuccess={() => setIsAuthModalOpen(false)}
+      />
     </main>
   );
 }

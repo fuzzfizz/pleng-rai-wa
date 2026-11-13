@@ -203,4 +203,22 @@ export interface RoomState {
   sliceStep?: number;
 }
 
+export interface DailyAttempt {
+  userId: string;
+  date: string; // YYYY-MM-DD
+  isCorrect: boolean;
+  step: number; // 1..5
+  score: number;
+  guesses: string[];
+  completedAt: string;
+}
+
+export interface DailyUserStats {
+  currentStreak: number;
+  maxStreak: number;
+  totalPlayed: number;
+  totalWon: number;
+  winRate: number;
+}
+
 export * from "./database";

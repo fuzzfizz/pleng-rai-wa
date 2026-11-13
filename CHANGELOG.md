@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.4.0] - 2026-11-13
+
+### Added
+- **โหมดเพลงรายวัน (Daily Challenge Mode & Streak System)**:
+  - **Deterministic Seeded Song Picker**: ใช้อัลกอริทึม FNV-1a Hash วันที่ สุ่มเลือกเพลงประจำวันจากฐานข้อมูลเพลงอย่างแม่นยำ ไม่ซ้ำ และคงที่เหมือนกันสำหรับผู้เล่นทุกคนในแต่ละวัน
+  - **Member-Exclusive Auth Gate**: กำหนดสิทธิ์ให้เฉพาะสมาชิกเท่านั้น โดยมีหน้า landing สวยงามและเปิด `AuthModal` ให้เข้าสู่ระบบหรือสมัครสมาชิกได้ทันที
+  - **Dedicated Gameplay Screen (`/daily`)**:
+    - รองรับการเล่นด้วย Progressive Audio Slice 5 สเต็ป (`0.1s ➔ 0.5s ➔ 1.0s ➔ 2.0s ➔ 4.0s`)
+    - ระบบ Autocomplete ค้นหาชื่อเพลง/ศิลปินอย่างรวดเร็ว
+    - แสดงป้ายเฉลยแผ่นเสียงไวนิลหมุน พร้อมเครื่องเล่นเพลงเต็มท่อน
+    - Wordle/Heardle Style Share Box คัดลอกผลลัพธ์เป็น Emoji Grid (`🟩⬛⬛⬛⬛`) เพื่อแชร์ลงโซเชียลมีเดีย
+  - **Daily Archive Modal (เล่นย้อนหลังได้ 30 วัน)**:
+    - ผู้เล่นสามารถเปิดปฏิทินย้อนหลังเพื่อเลือกทำเพลงของวันก่อนๆ ได้อย่างอิสระ
+    - แสดงสถานะกำกับชัดเจน: 🟢 ชนะ (สเต็ป/คะแนน), 🔴 ไม่สำเร็จ, ⚪ ยังไม่ได้เล่น
+  - **Homepage Integration & Navigation Header**:
+    - เพิ่มการ์ด `DailyChallengeCard` โดดเด่นบนหน้าหลัก ([src/app/page.tsx](file:///D:/pleng-rai-wa/src/app/page.tsx)) แสดงสถานะของวัน สถิติสตรีค (🔥) และปุ่มเริ่มเล่น
+    - เพิ่มลิงก์ "📅 เพลงรายวัน" ลงในแถบนำทางหลัก `NAV_LINKS` บน [src/components/common/nav-header.tsx](file:///D:/pleng-rai-wa/src/components/common/nav-header.tsx)
+  - **API Endpoints**:
+    - `GET /api/daily`: ดึงข้อมูลเพลงประจำวันพร้อมระบบ Anti-Cheat ซ่อนชื่อเพลงจนกว่าจะเล่นเสร็จ
+    - `POST /api/daily/attempt`: ประเมินผลคำตอบ บันทึกคะแนน และคำนวณสตรีคสะสมต่อเนื่อง
+
+---
+
 ## [v1.3.0] - 2026-11-13
 
 ### Added

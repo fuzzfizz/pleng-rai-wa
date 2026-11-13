@@ -18,6 +18,7 @@ import {
   X,
   Disc3,
   ListMusic,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth/auth-modal";
@@ -38,6 +39,7 @@ export interface NavLinkItem {
 
 export const NAV_LINKS: NavLinkItem[] = [
   { label: "หน้าแรก", href: "/" },
+  { label: "เพลงรายวัน", href: "/daily", icon: Calendar },
   { label: "เพลย์ลิสต์", href: "/playlists", icon: ListMusic },
 ];
 
