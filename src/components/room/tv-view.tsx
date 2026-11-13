@@ -33,6 +33,7 @@ import type { Player, Song } from "@/types";
 import { ttsReader } from "@/lib/tts-reader";
 import { getDeterministicAvatar } from "./player-card";
 import { buildRoomJoinUrl } from "./qr-code-modal";
+import { PROGRESSIVE_SLICE_STEPS } from "@/lib/audio-slice-utils";
 import { formatWrongGuessMessage, RESUME_AUDIO_CUE } from "./wrong-guess-banner";
 import { PodiumView, getSortedPodiumPlayers } from "./podium-view";
 import { TranslatedLyricsTeleprompter } from "./translated-lyrics-teleprompter";
@@ -128,7 +129,12 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
   const roundWinners = roomRealtime.roundWinners || (roundWinner ? [roundWinner] : []);
   const hasMultipleWinners = roundWinners.length > 1;
 
-  const tvSliceDuration = activeQuestion?.durationSec || roomRealtime.room?.settings?.sliceDurationSec || 2.0;
+  const settings = roomRealtime.room?.settings;
+  const isProgressiveSlice =
+    gameMode === "audio-slice" &&
+    (settings?.sliceType === "progressive" || !settings?.sliceType);
+
+  const tvSliceDuration = activeQuestion?.durationSec || settings?.sliceDurationSec || 2.0;
   const tvSliceRemaining = calculateSliceRemainingTime(tvAudioTime, tvSliceDuration);
   const tvSliceProgressPercent = Math.min(100, Math.max(0, (tvAudioTime / tvSliceDuration) * 100));
 
@@ -355,7 +361,11 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   ? "โหมด แย่งกดกริ่ง"
                   : gameMode === "ai-lyrics"
                   ? "โหมด AI อ่านเนื้อเพลง"
-                  : "โหมด ตัดเสียงเสี้ยววินาที"}
+                  : gameMode === "translated-lyrics"
+                  ? "โหมด แปลไทย-อังกฤษ"
+                  : isProgressiveSlice
+                  ? "โหมด ตัดเสียงเสี้ยววินาที • ไต่ระดับ (0.1s - 4.0s)"
+                  : `โหมด ตัดเสียงเสี้ยววินาที (${tvSliceDuration.toFixed(1)}s)`}
               </p>
             </div>
           </div>
@@ -617,7 +627,9 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   {isMultipleChoice
                     ? "ปรนัย 4 ตัวเลือก: เลือกคำตอบบนมือถือ!"
                     : gameMode === "audio-slice"
-                    ? "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
+                    ? isProgressiveSlice
+                      ? "⚡ เสี้ยววินาทีไต่ระดับ: ขยายเวลาและพิมพ์ตอบบนมือถือ!"
+                      : "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
                     : gameMode === "translated-lyrics"
                     ? "🌐 อ่านเนื้อแปลแล้วพิมพ์ตอบบนมือถือ!"
                     : gameMode === "ai-lyrics"
@@ -628,11 +640,42 @@ export function TVView({ roomRealtime, onLeaveRoom }: TVViewProps): React.JSX.El
                   {isMultipleChoice
                     ? "เลือกตัวเลือกที่ถูกต้องบนมือถือของคุณ ใครตอบถูกก่อนชนะ!"
                     : gameMode === "audio-slice"
-                    ? "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
+                    ? isProgressiveSlice
+                      ? "เริ่มจาก 0.1s (100 แต้ม) ขยายเวลาฟังเพิ่มได้สูงสุด 4.0s (20 แต้ม)"
+                      : "กำลังเล่นเสียงเสี้ยววินาที... ผู้เล่นพิมพ์ตอบได้ทันที!"
                     : gameMode === "translated-lyrics" || gameMode === "ai-lyrics"
                     ? "ตอบได้ทันทีโดยไม่ต้องแย่งกดกริ่ง ยิ่งตอบไวยิ่งได้คะแนนเยอะ!"
                     : "ใครกดกริ่งคนแรก จะได้สิทธิ์ตอบคำถามและรับคะแนนทันที!"}
                 </p>
+
+                {/* Progressive Ladder Indicator on TV */}
+                {isProgressiveSlice && (
+                  <div className="mt-6 flex flex-col items-center gap-3 max-w-2xl mx-auto">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 font-bold text-xs sm:text-sm shadow-sm">
+                      <span>⚡ ไต่ระดับ (0.1s - 4.0s)</span>
+                      <span className="text-stone-500">•</span>
+                      <span>5 สเต็ป (100 ➔ 20 คะแนน)</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      {PROGRESSIVE_SLICE_STEPS.map((s) => (
+                        <div
+                          key={s.step}
+                          className="px-3.5 py-1.5 rounded-xl bg-stone-900/90 border border-stone-800 text-center shadow-xs"
+                        >
+                          <span className="block text-[10px] font-mono text-stone-400">
+                            ขั้น {s.step}
+                          </span>
+                          <span className="block text-xs sm:text-sm font-black font-mono text-amber-400">
+                            {s.label}
+                          </span>
+                          <span className="block text-[10px] font-semibold text-stone-300">
+                            {s.points}p
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Mode Indicator / Resolution cue & Wait for All player badges */}
                 {gameMode !== "buzzer" ? (

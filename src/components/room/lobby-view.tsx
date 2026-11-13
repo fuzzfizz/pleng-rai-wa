@@ -82,7 +82,9 @@ export function formatSettingsSummary(settings: RoomSettings): string {
         : settings.lyricsType === "intro"
         ? "ท่อนเปิด"
         : "ท่อนฮุก"
-      : `${Number(settings.sliceDurationSec || 2.0).toFixed(1)} วินาที`;
+      : settings.sliceType === "progressive" || !settings.sliceType
+      ? "เสี้ยววินาที: ไต่ระดับ (0.1s - 4.0s)"
+      : `${settings.sliceDurationSec || 2.0} วินาที`;
 
   const inputLabel =
     settings.answerInputMode === "autocomplete"

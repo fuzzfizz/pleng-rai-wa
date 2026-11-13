@@ -4,6 +4,15 @@
 
 export type GameMode = "audio-slice" | "buzzer" | "ai-lyrics" | "translated-lyrics";
 
+export type AudioSliceType = "progressive" | "fixed";
+
+export interface ProgressiveSliceStep {
+  step: number;
+  durationSec: number;
+  points: number;
+  label: string;
+}
+
 export type AnswerInputMode = "autocomplete" | "free-text" | "multiple-choice";
 
 export type AnswerResolutionMode = "race" | "wait_all";
@@ -22,6 +31,8 @@ export interface ActiveQuestion {
   startedAt?: string;
   choices?: ChoiceOption[];
   hasAlbum?: boolean;
+  sliceType?: AudioSliceType;
+  sliceStep?: number;
 }
 
 export type LyricsType = "chorus" | "full" | "intro";
@@ -142,6 +153,7 @@ export const HINT_COSTS: Record<HintType, number> = {
 
 export interface RoomSettings {
   gameMode: GameMode;
+  sliceType?: AudioSliceType;
   answerInputMode: AnswerInputMode;
   answerResolutionMode?: AnswerResolutionMode; // "race" = first correct answers reveals [default], "wait_all" = everyone gets to answer, reveal together
   maxWrongGuesses?: number; // 0 = unlimited, 1 = 1 time [default], 2 = 2 times, etc.
@@ -187,6 +199,8 @@ export interface RoomState {
   players: Player[];
   playedSongIds: string[];
   roundStartTime?: string;
+  sliceType?: AudioSliceType;
+  sliceStep?: number;
 }
 
 export * from "./database";

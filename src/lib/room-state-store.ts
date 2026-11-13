@@ -7,6 +7,12 @@ import type { Song, RoomSettings, GameMode, ChoiceOption, HintType } from "@/typ
 import { HINT_COSTS } from "@/types";
 import { checkAnswer } from "@/lib/answer-checker";
 import { SongService, mapGenreFromRow } from "@/lib/services/song-service";
+import {
+  calculatePointsForSliceStep,
+  getNextSliceStep,
+  getProgressiveStep,
+  PROGRESSIVE_SLICE_STEPS,
+} from "@/lib/audio-slice-utils";
 
 export type RoundStatus =
   | "idle"
@@ -46,6 +52,8 @@ export interface RoomRoundState {
   sliceDurationSec?: number;
   lyrics?: string;
   choices?: ChoiceOption[];
+  playerSliceSteps?: Record<string, number>;
+  roomSliceStep?: number;
   playerWrongCounts: Record<string, number>;
   buzzedPlayerId?: string | null;
   buzzedPlayerName?: string | null;
@@ -120,6 +128,30 @@ const roomRoundStates =
 globalForRoomState.__roomRoundStates = roomRoundStates;
 
 /**
+ * Calculates total deduction from hints used.
+ */
+export function calculateHintDeduction(
+  hints?: { genre?: string; year?: string; album?: string; artist?: string } | null,
+  fallbackLevel?: number
+): number {
+  if (hints && Object.keys(hints).length > 0) {
+    let deduction = 0;
+    if (hints.genre) deduction += HINT_COSTS.genre;
+    if (hints.year) deduction += HINT_COSTS.year;
+    if (hints.album) deduction += HINT_COSTS.album;
+    if (hints.artist) deduction += HINT_COSTS.artist;
+    return deduction;
+  }
+  if (typeof fallbackLevel === "number") {
+    if (fallbackLevel <= 0) return 0;
+    if (fallbackLevel === 1) return 25;
+    if (fallbackLevel === 2) return 50;
+    return 75;
+  }
+  return 0;
+}
+
+/**
  * Safely converts a raw DB song row or partial object to domain Song.
  */
 export function toSongDomain(raw: any): Song {
@@ -189,6 +221,8 @@ export class RoomStateStore {
       lyrics: state.lyrics,
       choices: state.choices,
       startedAt: state.startedAt,
+      playerSliceSteps: state.playerSliceSteps ? { ...state.playerSliceSteps } : {},
+      roomSliceStep: state.roomSliceStep ?? 1,
     };
   }
 
@@ -267,6 +301,12 @@ export class RoomStateStore {
         }
         if (dbRoundState?.revealedHints) {
           existing.revealedHints = { ...existing.revealedHints, ...dbRoundState.revealedHints };
+        }
+        if (dbRoundState?.playerSliceSteps && Object.keys(dbRoundState.playerSliceSteps).length > 0) {
+          existing.playerSliceSteps = { ...(existing.playerSliceSteps || {}), ...dbRoundState.playerSliceSteps };
+        }
+        if (typeof dbRoundState?.roomSliceStep === "number") {
+          existing.roomSliceStep = dbRoundState.roomSliceStep;
         }
       }
       return existing;
@@ -371,6 +411,14 @@ export class RoomStateStore {
       revealedHints: dbRoundState?.revealedHints || {},
       playerHintLevels: dbRoundState?.playerHintLevels || {},
       playerHints: dbRoundState?.playerHints || {},
+      playerSliceSteps:
+        typeof dbRoundState?.playerSliceSteps === "object" && dbRoundState?.playerSliceSteps !== null
+          ? { ...dbRoundState.playerSliceSteps }
+          : {},
+      roomSliceStep:
+        typeof dbRoundState?.roomSliceStep === "number"
+          ? dbRoundState.roomSliceStep
+          : 1,
       startedAt: dbRoundState?.startedAt || new Date().toISOString(),
     };
 
@@ -431,6 +479,8 @@ export class RoomStateStore {
       revealedHints: {},
       playerHintLevels: {},
       playerHints: {},
+      playerSliceSteps: {},
+      roomSliceStep: 1,
       startedAt: new Date().toISOString(),
     };
 
@@ -644,7 +694,21 @@ export class RoomStateStore {
       const playerHintLevel = playerId
         ? (state.playerHintLevels?.[playerId] ?? 0)
         : (state.revealedHintLevel ?? 0);
-      const points = RoomStateStore.calculatePointsForHints(playerHints, playerHintLevel);
+
+      const effectiveSliceType =
+        options?.roomSettings?.sliceType ??
+        state.settings?.sliceType;
+
+      const isProgressiveSlice =
+        (gameMode === "audio-slice" || state.settings?.gameMode === "audio-slice") &&
+        (effectiveSliceType === "progressive" || !effectiveSliceType);
+
+      const points = isProgressiveSlice
+        ? calculatePointsForSliceStep(
+            (playerId ? (state.playerSliceSteps?.[playerId] ?? 1) : (state.roomSliceStep ?? 1)),
+            calculateHintDeduction(playerHints, playerHintLevel)
+          )
+        : RoomStateStore.calculatePointsForHints(playerHints, playerHintLevel);
 
       const scoreDelta = check.isCorrect ? points : 0;
       const currentScore = state.scores[playerId] || 0;
@@ -797,7 +861,21 @@ export class RoomStateStore {
       const playerHintLevel = playerId
         ? (state.playerHintLevels?.[playerId] ?? 0)
         : (state.revealedHintLevel ?? 0);
-      const points = RoomStateStore.calculatePointsForHints(playerHints, playerHintLevel);
+
+      const effectiveSliceType =
+        options?.roomSettings?.sliceType ??
+        state.settings?.sliceType;
+
+      const isProgressiveSlice =
+        (gameMode === "audio-slice" || state.settings?.gameMode === "audio-slice") &&
+        (effectiveSliceType === "progressive" || !effectiveSliceType);
+
+      const points = isProgressiveSlice
+        ? calculatePointsForSliceStep(
+            (playerId ? (state.playerSliceSteps?.[playerId] ?? 1) : (state.roomSliceStep ?? 1)),
+            calculateHintDeduction(playerHints, playerHintLevel)
+          )
+        : RoomStateStore.calculatePointsForHints(playerHints, playerHintLevel);
       const currentScore = state.scores[playerId] || 0;
       const newScore = currentScore + points;
       state.scores[playerId] = newScore;
@@ -1057,29 +1135,75 @@ export class RoomStateStore {
   }
 
   /**
+   * Advances the progressive audio slice step (1..5) for a given player in progressive audio slice mode.
+   * Also tracks the common roomSliceStep.
+   * Returns whether advancing succeeded and the new step details.
+   */
+  static advancePlayerSliceStep(
+    roomCode: string,
+    playerId: string
+  ): {
+    success: boolean;
+    step: number;
+    durationSec: number;
+    points: number;
+  } {
+    const cleanCode = roomCode.trim().toUpperCase();
+    const state = roomRoundStates.get(cleanCode);
+    if (!state) {
+      const fallback = PROGRESSIVE_SLICE_STEPS[0];
+      return {
+        success: false,
+        step: fallback.step,
+        durationSec: fallback.durationSec,
+        points: fallback.points,
+      };
+    }
+
+    if (!state.playerSliceSteps) {
+      state.playerSliceSteps = {};
+    }
+
+    const currentStep = playerId
+      ? (state.playerSliceSteps[playerId] ?? 1)
+      : (state.roomSliceStep ?? 1);
+    const nextStep = getNextSliceStep(currentStep);
+
+    if (!nextStep) {
+      const currentConfig = getProgressiveStep(currentStep);
+      return {
+        success: false,
+        step: currentConfig.step,
+        durationSec: currentConfig.durationSec,
+        points: currentConfig.points,
+      };
+    }
+
+    if (playerId) {
+      state.playerSliceSteps[playerId] = nextStep.step;
+    }
+    state.roomSliceStep = Math.max(state.roomSliceStep ?? 1, nextStep.step);
+
+    return {
+      success: true,
+      step: nextStep.step,
+      durationSec: nextStep.durationSec,
+      points: nextStep.points,
+    };
+  }
+
+  /**
    * Calculates score available based on revealed hints or legacy hint level.
    * A La Carte costs: genre: -15, year: -20, album: -20, artist: -35.
    * Guaranteed minimum score floor: 20 points.
    */
   static calculatePointsForHints(
     hints?: { genre?: string; year?: string; album?: string; artist?: string } | null,
-    fallbackLevel?: number
+    fallbackLevel?: number,
+    basePoints: number = 100
   ): number {
-    if (hints && Object.keys(hints).length > 0) {
-      let deduction = 0;
-      if (hints.genre) deduction += HINT_COSTS.genre;
-      if (hints.year) deduction += HINT_COSTS.year;
-      if (hints.album) deduction += HINT_COSTS.album;
-      if (hints.artist) deduction += HINT_COSTS.artist;
-      return Math.max(20, 100 - deduction);
-    }
-    if (typeof fallbackLevel === "number") {
-      if (fallbackLevel <= 0) return 100;
-      if (fallbackLevel === 1) return 75;
-      if (fallbackLevel === 2) return 50;
-      return 25;
-    }
-    return 100;
+    const deduction = calculateHintDeduction(hints, fallbackLevel);
+    return Math.max(20, basePoints - deduction);
   }
 
   /**

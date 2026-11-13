@@ -26,9 +26,19 @@ import {
   Calendar,
   UserCheck,
   Languages,
+  FastForward,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { Song, GameMode, AnswerInputMode, Playlist, SongFilterConfig, HintType } from "@/types";
+import {
+  Song,
+  GameMode,
+  AnswerInputMode,
+  Playlist,
+  SongFilterConfig,
+  HintType,
+  AudioSliceType,
+  HINT_COSTS,
+} from "@/types";
 import { HintSelectModal } from "@/components/room/hint-select-modal";
 import {
   playBuzzerSound,
@@ -58,10 +68,24 @@ import {
   clampSeekTime,
   getVinylAnimationClass,
 } from "@/components/room/round-reveal-card";
-import { calculateSliceStart } from "@/lib/audio-slice-utils";
+import {
+  PROGRESSIVE_SLICE_STEPS,
+  getProgressiveStep,
+  calculatePointsForSliceStep,
+  calculateSliceStart,
+} from "@/lib/audio-slice-utils";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
 import { loadPublicSongLibrary, invalidateSongLibraryCache } from "@/lib/services/song-library-cache";
 import { cleanLyricsForGame } from "@/lib/lyrics-cleaner";
+
+function computeHintDeduction(hints: { genre?: string; year?: string; album?: string; artist?: string }): number {
+  let deduction = 0;
+  if (hints.genre) deduction += HINT_COSTS.genre;
+  if (hints.year) deduction += HINT_COSTS.year;
+  if (hints.album) deduction += HINT_COSTS.album;
+  if (hints.artist) deduction += HINT_COSTS.artist;
+  return deduction;
+}
 
 function SoloPlayContent() {
   const searchParams = useSearchParams();
@@ -84,14 +108,28 @@ function SoloPlayContent() {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [gameMode, setGameMode] = useState<GameMode>("audio-slice");
   const [inputMode, setInputMode] = useState<AnswerInputMode>("autocomplete");
+  const [sliceType, setSliceType] = useState<AudioSliceType>("progressive");
+  const [sliceStep, setSliceStep] = useState<number>(1);
+  const [totalScore, setTotalScore] = useState<number>(0);
   const [sliceDuration, setSliceDuration] = useState<number>(1.0);
   const [lyricsType, setLyricsType] = useState<"chorus" | "full" | "intro">("chorus");
   const [voiceGender, setVoiceGender] = useState<AIVoiceGender>("female");
   const [roundSliceStartSec, setRoundSliceStartSec] = useState<number>(0);
 
+  // Effective slice duration based on sliceType (progressive Heardle ladder vs fixed)
+  const effectiveSliceDuration =
+    sliceType === "progressive"
+      ? (PROGRESSIVE_SLICE_STEPS[sliceStep - 1]?.durationSec ?? 0.1)
+      : sliceDuration;
+
   // Gameplay State
   const [hintLevel, setHintLevel] = useState<number>(0);
   const [revealedHints, setRevealedHints] = useState<{ genre?: string; year?: string; album?: string; artist?: string }>({});
+
+  const currentStepConfig =
+    PROGRESSIVE_SLICE_STEPS[sliceStep - 1] || PROGRESSIVE_SLICE_STEPS[0];
+  const currentHintDeduction = computeHintDeduction(revealedHints ?? {});
+  const potentialPoints = calculatePointsForSliceStep(sliceStep, currentHintDeduction);
   const [isHintModalOpen, setIsHintModalOpen] = useState(false);
   const answerInputRef = useRef<HTMLInputElement | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -134,9 +172,15 @@ function SoloPlayContent() {
   // Recalculate randomized slice start whenever the current song/round changes
   useEffect(() => {
     if (currentSong) {
-      setRoundSliceStartSec(calculateSliceStart(currentSong, sliceDuration));
+      const maxDur = sliceType === "progressive" ? 4.0 : sliceDuration;
+      setRoundSliceStartSec(calculateSliceStart(currentSong, maxDur));
     }
-  }, [currentSongIndex, currentSong?.id, sliceDuration]);
+  }, [currentSongIndex, currentSong?.id, sliceType, sliceDuration]);
+
+  // Reset slice step when advancing to next song
+  useEffect(() => {
+    setSliceStep(1);
+  }, [currentSongIndex]);
 
   // Helper to reset round sounds & answers
   const resetRoundState = () => {
@@ -158,6 +202,7 @@ function SoloPlayContent() {
     setIsAITalking(false);
     setTranslatedLyrics("");
     setIsLoadingTranslation(false);
+    setSliceStep(1);
   };
 
   // Initial load: library songs + playlists + optional query param playlist
@@ -518,15 +563,20 @@ function SoloPlayContent() {
   };
 
   // Play Audio Slice
-  const handlePlaySlice = async () => {
+  const handlePlaySlice = async (customDuration?: number) => {
     if (!currentSong) return;
     hasInteractedRef.current = true;
     playClickSound();
     audioRef.current?.pause();
 
+    const duration =
+      typeof customDuration === "number" && customDuration > 0
+        ? customDuration
+        : effectiveSliceDuration;
+
     // Use randomized slice start calculated for this round
     const startSec = roundSliceStartSec;
-    const sliceUrl = `/api/audio/slice?id=${currentSong.id}&start=${startSec}&duration=${sliceDuration}`;
+    const sliceUrl = `/api/audio/slice?id=${currentSong.id}&start=${startSec}&duration=${duration}`;
 
     const audio = new Audio(sliceUrl);
     audio.volume = getMasterVolume();
@@ -551,7 +601,7 @@ function SoloPlayContent() {
               setTimeout(() => {
                 fallbackAudio.pause();
                 setIsPlayingAudio(false);
-              }, sliceDuration * 1000);
+              }, duration * 1000);
             })
             .catch(() => {
               setIsPlayingAudio(false);
@@ -571,6 +621,17 @@ function SoloPlayContent() {
       await audio.play();
     } catch {
       setIsPlayingAudio(false);
+    }
+  };
+
+  // Advance progressive slice step to reveal longer audio snippet and play immediately
+  const handleAdvanceStep = () => {
+    if (sliceStep >= 5) return;
+    const nextStepNum = sliceStep + 1;
+    setSliceStep(nextStepNum);
+    const nextStepConfig = PROGRESSIVE_SLICE_STEPS[nextStepNum - 1];
+    if (nextStepConfig) {
+      handlePlaySlice(nextStepConfig.durationSec);
     }
   };
 
@@ -730,9 +791,21 @@ function SoloPlayContent() {
     if (result.isCorrect) {
       playCorrectSound();
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+
+      let pointsAwarded: number | null = null;
+      if (gameMode === "audio-slice" && sliceType === "progressive") {
+        const hintDeduction = computeHintDeduction(revealedHints);
+        const pts = calculatePointsForSliceStep(sliceStep, hintDeduction);
+        pointsAwarded = pts;
+        setTotalScore((prev) => prev + pts);
+      }
+
       setFeedback({
         isCorrect: true,
-        message: `ถูกต้อง! เพลง "${currentSong.title}" โดย ${currentSong.artist} (ตรงกับ: ${result.matchedAs})`,
+        message:
+          pointsAwarded !== null
+            ? `ถูกต้อง! เพลง "${currentSong.title}" โดย ${currentSong.artist} (+${pointsAwarded} คะแนน)`
+            : `ถูกต้อง! เพลง "${currentSong.title}" โดย ${currentSong.artist} (ตรงกับ: ${result.matchedAs})`,
       });
       setIsRevealed(true);
     } else {
@@ -788,6 +861,7 @@ function SoloPlayContent() {
     setFeedback(null);
     setAutocompleteSuggestions([]);
     setIsAITalking(false);
+    setSliceStep(1);
 
     // Pick next random song
     if (songsPool.length === 0) return;
@@ -795,7 +869,8 @@ function SoloPlayContent() {
     setCurrentSongIndex(nextIdx);
     const nextSong = songsPool[nextIdx];
     if (nextSong) {
-      setRoundSliceStartSec(calculateSliceStart(nextSong, sliceDuration));
+      const maxDur = sliceType === "progressive" ? 4.0 : sliceDuration;
+      setRoundSliceStartSec(calculateSliceStart(nextSong, maxDur));
     }
   };
 
@@ -816,6 +891,11 @@ function SoloPlayContent() {
               <span className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
                 Solo Play
               </span>
+              {gameMode === "audio-slice" && sliceType === "progressive" && (
+                <span className="text-[11px] sm:text-xs bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold ml-1">
+                  ⭐ {totalScore} แต้ม
+                </span>
+              )}
             </h1>
           </div>
         </div>
@@ -993,71 +1073,172 @@ function SoloPlayContent() {
           {gameMode === "audio-slice" && (
             <div className="flex flex-col items-center text-center py-4 space-y-6">
               <div>
-                <h3 className="text-xl lg:text-2xl font-bold font-serif text-stone-900 dark:text-white mb-1">ทายเสี้ยววินาที</h3>
-                <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400">เลือกระยะเวลาที่ต้องการฟัง แล้วกดปุ่มเพื่อฟังเสียงสั้นๆ</p>
+                <h3 className="text-xl lg:text-2xl font-bold font-serif text-stone-900 dark:text-white mb-1">
+                  ทายเสี้ยววินาที {sliceType === "progressive" ? "(Heardle ไต่ระดับ)" : "(เวลาคงที่)"}
+                </h3>
+                <p className="text-xs lg:text-sm text-stone-500 dark:text-stone-400">
+                  {sliceType === "progressive"
+                    ? "ฟังเสียงตัวอย่างสั้นๆ เริ่มต้นที่ 0.1 วินาที ยิ่งฟังน้อย ยิ่งได้คะแนนเยอะ!"
+                    : "เลือกระยะเวลาที่ต้องการฟัง แล้วกดปุ่มเพื่อฟังเสียงสั้นๆ"}
+                </p>
               </div>
 
-              {/* Duration Pills & Slider (Up to 20.0s) */}
-              <div className="w-full max-w-md flex flex-col items-center gap-3">
-                <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
-                  {[1.0, 2.0, 5.0, 10.0, 15.0, 20.0].map((dur) => (
-                    <button
-                      key={dur}
-                      type="button"
-                      onClick={() => setSliceDuration(dur)}
-                      className={`min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center ${
-                        sliceDuration === dur
-                          ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
-                          : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
-                      }`}
-                    >
-                      {dur.toFixed(0)} วินาที
-                    </button>
-                  ))}
-                </div>
-
-                {/* Slider for custom duration up to 20s */}
-                <div className="w-full flex items-center gap-3 px-2">
-                  <span className="text-[11px] font-mono text-stone-500">0.5s</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="20.0"
-                    step="0.5"
-                    value={sliceDuration}
-                    onChange={(e) => setSliceDuration(parseFloat(e.target.value))}
-                    className="flex-1 accent-amber-500 cursor-pointer"
-                  />
-                  <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 w-12 text-right">
-                    {sliceDuration.toFixed(1)}s
-                  </span>
-                </div>
+              {/* Mode Type Selector (Progressive is FIRST and DEFAULT!) */}
+              <div className="flex items-center justify-center gap-1.5 p-1 bg-stone-100 dark:bg-stone-950/80 rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full">
+                <button
+                  type="button"
+                  onClick={() => setSliceType("progressive")}
+                  className={`flex-1 py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    sliceType === "progressive"
+                      ? "bg-amber-500 text-stone-950 shadow-sm"
+                      : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span>⚡ ไต่ระดับ (0.1s - 4.0s)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSliceType("fixed")}
+                  className={`flex-1 py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    sliceType === "fixed"
+                      ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                      : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span>⏱️ กำหนดเวลาคงที่</span>
+                </button>
               </div>
 
-              {/* Big Play Button */}
-              <button
-                type="button"
-                onClick={handlePlaySlice}
-                disabled={isPlayingAudio}
-                aria-label="ฟังเสียงตัวอย่างเสี้ยววินาที"
-                className={`w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
-                  isPlayingAudio
-                    ? "bg-amber-500 text-stone-950 scale-105 shadow-2xl shadow-amber-500/40 animate-pulse"
-                    : "bg-amber-500 hover:bg-amber-400 hover:scale-105 text-stone-950 shadow-lg shadow-amber-500/25"
-                }`}
-              >
-                {isPlayingAudio ? (
-                  <>
-                    <Volume2 className="w-8 h-8 lg:w-10 lg:h-10 animate-bounce text-stone-950" />
-                    <span className="text-[11px] lg:text-xs font-bold">กำลังเล่น...</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-8 h-8 lg:w-10 lg:h-10 ml-1 text-stone-950" />
-                    <span className="text-[11px] lg:text-xs font-bold">ฟังเสี้ยววิ</span>
-                  </>
+              {/* Option 1: Progressive Mode UI */}
+              {sliceType === "progressive" ? (
+                <div className="w-full max-w-lg flex flex-col items-center gap-3">
+                  {/* Heardle-style 5-step ladder / Segmented Progress Bar */}
+                  <div className="w-full grid grid-cols-5 gap-1.5 sm:gap-2">
+                    {PROGRESSIVE_SLICE_STEPS.map((stepItem) => {
+                      const isCurrent = stepItem.step === sliceStep;
+                      const isPassed = stepItem.step < sliceStep;
+                      return (
+                        <div
+                          key={stepItem.step}
+                          className={`flex flex-col items-center justify-center py-2 px-1 sm:px-2 rounded-xl border text-center transition-all ${
+                            isCurrent
+                              ? "bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/40 shadow-sm font-bold scale-[1.02]"
+                              : isPassed
+                              ? "bg-stone-200/80 dark:bg-stone-800/80 border-stone-300 dark:border-stone-700 text-stone-500 dark:text-stone-400 font-medium"
+                              : "bg-stone-100/60 dark:bg-stone-900/40 border-stone-200/60 dark:border-stone-800/60 text-stone-400 dark:text-stone-600 opacity-60"
+                          }`}
+                        >
+                          <span className="text-xs sm:text-sm font-mono font-bold">{stepItem.label}</span>
+                          <span className="text-[10px] sm:text-[11px] opacity-80">{stepItem.points} แต้ม</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Step status and Available Points */}
+                  <div className="w-full flex items-center justify-between px-1 text-xs sm:text-sm text-stone-600 dark:text-stone-400">
+                    <span>
+                      สเต็ป <strong className="text-amber-600 dark:text-amber-400">{sliceStep}/5</strong>: {currentStepConfig.durationSec}s
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
+                      ⭐ คะแนนที่จะได้รับ: {potentialPoints} แต้ม
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                /* Option 2: Fixed Duration UI */
+                <div className="w-full max-w-md flex flex-col items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+                    {[1.0, 2.0, 5.0, 10.0, 15.0, 20.0].map((dur) => (
+                      <button
+                        key={dur}
+                        type="button"
+                        onClick={() => setSliceDuration(dur)}
+                        className={`min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                          sliceDuration === dur
+                            ? "bg-amber-500 text-stone-950 shadow-sm font-bold"
+                            : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                        }`}
+                      >
+                        {dur.toFixed(0)} วินาที
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Slider for custom duration up to 20s */}
+                  <div className="w-full flex items-center gap-3 px-2">
+                    <span className="text-[11px] font-mono text-stone-500">0.5s</span>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="20.0"
+                      step="0.5"
+                      value={sliceDuration}
+                      onChange={(e) => setSliceDuration(parseFloat(e.target.value))}
+                      className="flex-1 accent-amber-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 w-12 text-right">
+                      {sliceDuration.toFixed(1)}s
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Big Play Button & Advance Step Button Container */}
+              <div className="flex flex-col items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => handlePlaySlice()}
+                  disabled={isPlayingAudio}
+                  aria-label="ฟังเสียงตัวอย่างเสี้ยววินาที"
+                  className={`w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-full flex flex-col items-center justify-center gap-1 transition-transform duration-75 active:scale-95 touch-manipulation [touch-action:manipulation] cursor-pointer ${
+                    isPlayingAudio
+                      ? "bg-amber-500 text-stone-950 scale-105 shadow-2xl shadow-amber-500/40 animate-pulse"
+                      : "bg-amber-500 hover:bg-amber-400 hover:scale-105 text-stone-950 shadow-lg shadow-amber-500/25"
+                  }`}
+                >
+                  {isPlayingAudio ? (
+                    <>
+                      <Volume2 className="w-8 h-8 lg:w-10 lg:h-10 animate-bounce text-stone-950" />
+                      <span className="text-[11px] lg:text-xs font-bold">
+                        กำลังเล่น... ({effectiveSliceDuration.toFixed(1)}s)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-8 h-8 lg:w-10 lg:h-10 ml-1 text-stone-950" />
+                      <span className="text-[11px] lg:text-xs font-bold">
+                        {sliceType === "progressive"
+                          ? `ฟัง ${currentStepConfig.durationSec}s`
+                          : "ฟังเสี้ยววิ"}
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                {/* Advance Step Button for Progressive Audio Slice */}
+                {sliceType === "progressive" && (
+                  <div className="flex flex-col items-center gap-2">
+                    {sliceStep < 5 ? (
+                      <button
+                        type="button"
+                        onClick={handleAdvanceStep}
+                        disabled={isPlayingAudio}
+                        className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 text-stone-800 dark:text-stone-200 text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                      >
+                        <FastForward className="w-4 h-4 text-amber-500" />
+                        <span>
+                          ฟังเพิ่ม (+วิ) ➔ {PROGRESSIVE_SLICE_STEPS[sliceStep].durationSec}s (-20 แต้ม)
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="px-4 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800/50 text-stone-400 dark:text-stone-500 text-xs font-medium">
+                        ความยาวสูงสุดแล้ว (4.0s)
+                      </div>
+                    )}
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
           )}
 
@@ -1249,18 +1430,32 @@ function SoloPlayContent() {
           {/* Feedback & Song Reveal Banner */}
           {feedback && (
             <div
-              className={`mt-4 p-4 lg:p-5 rounded-2xl flex items-center gap-3 border ${
+              className={`mt-4 p-4 lg:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border ${
                 feedback.isCorrect
                   ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200"
                   : "bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200"
               }`}
             >
-              {feedback.isCorrect ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              ) : (
-                <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              <div className="flex items-center gap-3">
+                {feedback.isCorrect ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                )}
+                <p className="text-sm lg:text-base font-medium">{feedback.message}</p>
+              </div>
+
+              {!feedback.isCorrect && !isRevealed && gameMode === "audio-slice" && sliceType === "progressive" && sliceStep < 5 && (
+                <button
+                  type="button"
+                  onClick={handleAdvanceStep}
+                  disabled={isPlayingAudio}
+                  className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1.5 transition shadow-sm cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  <FastForward className="w-3.5 h-3.5" />
+                  <span>ฟังเพิ่ม ({PROGRESSIVE_SLICE_STEPS[sliceStep].durationSec}s)</span>
+                </button>
               )}
-              <p className="text-sm lg:text-base font-medium">{feedback.message}</p>
             </div>
           )}
 

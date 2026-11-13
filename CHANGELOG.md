@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.3.0] - 2026-11-13
+
+### Added
+- **Progressive Audio Slice Mode (Heardle / Songless Style Time Ladder)**:
+  - Added new `sliceType: "progressive" | "fixed"` setting to `RoomSettings`, set as the **first & primary default choice** when Audio Slice mode is selected across Solo and Multiplayer rooms.
+  - Implemented 5-step progressive duration ladder:
+    - Step 1: `0.1s` (100 คะแนน)
+    - Step 2: `0.5s` (80 คะแนน)
+    - Step 3: `1.0s` (60 คะแนน)
+    - Step 4: `2.0s` (40 คะแนน)
+    - Step 5: `4.0s` (20 คะแนน)
+  - **Solo Play (`/play/solo`)**:
+    - Heardle-style 5-block Segmented Progress Bar with active step glow, step duration labels, and live score badge.
+    - Quick "ฟังเพิ่ม (+วิ)" button that advances step and immediately triggers audio playback with the expanded snippet.
+    - Wrong-guess retry prompt allowing one-click duration expansion to listen longer.
+  - **Multiplayer Room (`/room/[code]`)**:
+    - New API endpoint `POST /api/room/[code]/slice-step` for players to independently expand snippet durations.
+    - `HostSettingsModal`: Audio Slice mode defaults to "⚡ ไต่ระดับ (0.1s - 4.0s)" as the first option, with "⏱️ กำหนดเวลาคงที่" as secondary option.
+    - `GameView`: Independent player slice step progression with Heardle-style segmented timeline and custom scoring in `RoomStateStore.submitAnswer`.
+    - `TVView`: Displays eye-catching progressive slice ladder indicator on the host/big screen.
+    - `LobbyView`: Displays "เสี้ยววินาที: ไต่ระดับ (0.1s - 4.0s)" badge in lobby settings summary.
+  - **Comprehensive Test Coverage**:
+    - Added unit test suites for API, state store scoring, host settings modal, and solo play (`src/lib/__tests__/progressive-audio-slice.test.ts`, `src/app/api/room/__tests__/slice-step-endpoint.test.ts`, `src/components/room/__tests__/host-settings-progressive-slice.test.ts`, `src/app/play/solo/__tests__/solo-progressive-audio-slice.test.tsx`), bringing full test suite to 758 tests across 68 files (100% passing).
+
+---
+
 ## [v1.2.2] - 2026-11-12
 
 ### Changed

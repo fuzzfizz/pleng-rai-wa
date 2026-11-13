@@ -17,6 +17,7 @@ export interface CreateRoomResult {
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   gameMode: "audio-slice",
+  sliceType: "progressive",
   answerInputMode: "autocomplete",
   answerResolutionMode: "race",
   lyricsType: "intro",

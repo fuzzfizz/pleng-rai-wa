@@ -1,7 +1,52 @@
 // ==========================================
 // เพลงไรวะ (Pleng-Rai-Wa) - Audio Slice Utilities
-// Dynamic Chorus Slice Randomization
+// Dynamic Chorus Slice Randomization & Progressive Slice Step Progression
 // ==========================================
+
+import type { ProgressiveSliceStep } from "@/types";
+
+export const PROGRESSIVE_SLICE_STEPS: readonly ProgressiveSliceStep[] = [
+  { step: 1, durationSec: 0.1, points: 100, label: "0.1s" },
+  { step: 2, durationSec: 0.5, points: 80, label: "0.5s" },
+  { step: 3, durationSec: 1.0, points: 60, label: "1.0s" },
+  { step: 4, durationSec: 2.0, points: 40, label: "2.0s" },
+  { step: 5, durationSec: 4.0, points: 20, label: "4.0s" },
+] as const;
+
+/**
+ * Returns the ProgressiveSliceStep configuration for a given step number (1..5).
+ * Clamps step to valid range [1, 5]. Fallbacks safely if step is invalid or NaN.
+ */
+export function getProgressiveStep(step: number): ProgressiveSliceStep {
+  const safeStep = typeof step === "number" && !isNaN(step) ? Math.round(step) : 1;
+  const clampedStep = Math.max(1, Math.min(PROGRESSIVE_SLICE_STEPS.length, safeStep));
+  return PROGRESSIVE_SLICE_STEPS[clampedStep - 1];
+}
+
+/**
+ * Calculates points awarded for guessing correctly at a given progressive slice step,
+ * factoring in any hint deductions. Minimum guaranteed points floor is 20.
+ */
+export function calculatePointsForSliceStep(step: number, hintDeduction?: number): number {
+  const stepConfig = getProgressiveStep(step);
+  const deduction =
+    typeof hintDeduction === "number" && !isNaN(hintDeduction) && hintDeduction > 0
+      ? hintDeduction
+      : 0;
+  return Math.max(20, stepConfig.points - deduction);
+}
+
+/**
+ * Returns the next ProgressiveSliceStep or null if already at the max step (step 5).
+ */
+export function getNextSliceStep(currentStep: number): ProgressiveSliceStep | null {
+  const safeStep = typeof currentStep === "number" && !isNaN(currentStep) ? Math.round(currentStep) : 1;
+  const clampedStep = Math.max(1, safeStep);
+  if (clampedStep >= PROGRESSIVE_SLICE_STEPS.length) {
+    return null;
+  }
+  return PROGRESSIVE_SLICE_STEPS[clampedStep];
+}
 
 export interface SongHookMetadata {
   hookStartSec?: number | null;

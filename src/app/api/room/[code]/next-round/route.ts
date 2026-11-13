@@ -11,7 +11,7 @@ import { RealtimeBroadcastService } from "@/lib/services/realtime-broadcast";
 import { RedisService } from "@/lib/services/redis-service";
 import { isValidRoomCode } from "@/lib/room-code";
 import { translateThaiToEnglishLiteral } from "@/lib/translate";
-import { calculateSliceStart } from "@/lib/audio-slice-utils";
+import { calculateSliceStart, PROGRESSIVE_SLICE_STEPS } from "@/lib/audio-slice-utils";
 import { cleanLyricsForGame } from "@/lib/lyrics-cleaner";
 import { DEMO_SONGS } from "@/lib/constants/demo-songs";
 import type { RoomSettings, Song, ChoiceOption } from "@/types";
@@ -352,6 +352,18 @@ export async function POST(
         startSec = song.hookStartSec && song.hookStartSec > 0 ? song.hookStartSec : 0;
       }
       durationSec = typeof song.durationSec === "number" && song.durationSec > 0 ? song.durationSec : 300;
+    } else if (settings.gameMode === "audio-slice") {
+      if (settings.sliceType === "progressive" || !settings.sliceType) {
+        durationSec = PROGRESSIVE_SLICE_STEPS[0].durationSec;
+      } else {
+        durationSec = settings.sliceDurationSec || 2.0;
+      }
+      startSec = calculateSliceStart(
+        song,
+        durationSec,
+        Math.random,
+        settings.sliceRandomRegion || "hook"
+      );
     } else {
       durationSec = settings.sliceDurationSec || 2.0;
       startSec = calculateSliceStart(
@@ -523,6 +535,8 @@ export async function POST(
       round: nextRound,
       totalRounds: settings.totalRounds || 0,
       gameMode: settings.gameMode,
+      sliceType: settings.gameMode === "audio-slice" ? (settings.sliceType || "progressive") : undefined,
+      sliceStep: 1,
       sliceUrl,
       durationSec,
       lyrics,
@@ -543,6 +557,8 @@ export async function POST(
       round: nextRound,
       totalRounds: settings.totalRounds || 0,
       gameMode: settings.gameMode,
+      sliceType: settings.gameMode === "audio-slice" ? (settings.sliceType || "progressive") : undefined,
+      sliceStep: 1,
       sliceUrl,
       durationSec,
       lyrics,

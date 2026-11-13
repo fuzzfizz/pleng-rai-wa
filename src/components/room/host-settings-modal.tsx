@@ -23,6 +23,7 @@ import {
   Disc3,
 } from "lucide-react";
 import { soundEffects } from "@/lib/sound-effects";
+import { PROGRESSIVE_SLICE_STEPS } from "@/lib/audio-slice-utils";
 import { PlaylistService } from "@/lib/services/playlist-service";
 import { isPlaylistPlayable } from "@/components/playlist/playlist-utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -75,6 +76,14 @@ export function prepareSettingsPayload(draft: Partial<RoomSettings>): Partial<Ro
 
   if (result.gameMode && !["audio-slice", "buzzer", "ai-lyrics", "translated-lyrics"].includes(result.gameMode)) {
     result.gameMode = "audio-slice";
+  }
+
+  if (result.sliceType !== undefined) {
+    if (!["progressive", "fixed"].includes(result.sliceType)) {
+      result.sliceType = "progressive";
+    }
+  } else if (result.gameMode === "audio-slice") {
+    result.sliceType = "progressive";
   }
 
   if (result.gameMode === "ai-lyrics") {
@@ -245,6 +254,7 @@ export function HostSettingsModal({
     if (isOpen && !prevIsOpenRef.current) {
       setDraft({
         ...settings,
+        sliceType: settings.gameMode === "audio-slice" ? (settings.sliceType || "progressive") : settings.sliceType,
         buzzerPlayRegion: settings.gameMode === "buzzer" ? "entire_song" : settings.buzzerPlayRegion,
         roundTimeoutSec:
           settings.answerInputMode === "multiple-choice" && (!settings.roundTimeoutSec || settings.roundTimeoutSec <= 0)
@@ -535,6 +545,7 @@ export function HostSettingsModal({
 
       const payload = prepareSettingsPayload({
         ...draft,
+        sliceType: draft.gameMode === "audio-slice" ? (draft.sliceType || "progressive") : draft.sliceType,
         buzzerPlayRegion: draft.gameMode === "buzzer" ? "entire_song" : draft.buzzerPlayRegion,
         songFilter: effectiveFilter,
         playlistId: effectivePlaylistId,
@@ -615,7 +626,7 @@ export function HostSettingsModal({
               {/* Audio Slice */}
               <button
                 type="button"
-                onClick={() => setDraft((prev) => ({ ...prev, gameMode: "audio-slice" }))}
+                onClick={() => setDraft((prev) => ({ ...prev, gameMode: "audio-slice", sliceType: prev.sliceType || "progressive" }))}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                   draft.gameMode === "audio-slice"
                     ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
@@ -705,55 +716,146 @@ export function HostSettingsModal({
             </div>
           </div>
 
-          {/* 2. Audio Slice Duration (Shown ONLY for audio-slice, up to 20 seconds) */}
+          {/* 2. Audio Slice Settings (Shown ONLY for audio-slice) */}
           {draft.gameMode === "audio-slice" && (
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-                  ⏱️ ความยาวท่อนเสียงที่ตัดมาให้ฟัง (สูงสุด 20 วิ)
+              {/* Slice Type Selection: Progressive Ladder vs Fixed */}
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-2 uppercase tracking-wider">
+                  📈 รูปแบบการตัดเสียง (Slice Mode)
                 </label>
-                <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
-                  {draft.sliceDurationSec.toFixed(1)} วินาที
-                </span>
-              </div>
-
-              {/* Slider up to 20 seconds */}
-              <div className="flex items-center gap-3 px-1 mb-3">
-                <span className="text-[11px] font-mono text-stone-500">0.5s</span>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="20.0"
-                  step="0.5"
-                  value={draft.sliceDurationSec}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      sliceDurationSec: parseFloat(e.target.value),
-                    }))
-                  }
-                  className="flex-1 accent-amber-500 cursor-pointer"
-                />
-                <span className="text-[11px] font-mono text-stone-500">20.0s</span>
-              </div>
-
-              {/* Quick Preset Buttons */}
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {SLICE_DURATION_OPTIONS.map((opt) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Option 1 (First & Primary): Progressive Ladder */}
                   <button
-                    key={opt.value}
                     type="button"
-                    onClick={() => setDraft((prev) => ({ ...prev, sliceDurationSec: opt.value }))}
-                    className={`min-h-[40px] py-2 px-2 rounded-xl border text-center transition-all cursor-pointer text-xs font-medium flex items-center justify-center ${
-                      draft.sliceDurationSec === opt.value
-                        ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
-                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                    onClick={() => setDraft((prev) => ({ ...prev, sliceType: "progressive" }))}
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                      (draft.sliceType || "progressive") === "progressive"
+                        ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
                     }`}
                   >
-                    {opt.label}
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm text-stone-900 dark:text-white flex items-center gap-1.5">
+                        <span>⚡</span>
+                        <span>ไต่ระดับ (0.1s - 4.0s)</span>
+                      </span>
+                      {(draft.sliceType || "progressive") === "progressive" && (
+                        <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                      สไตล์ Heardle เริ่มจาก 0.1s ขยายเวลาได้ 5 สเต็ป คะแนนลดหลั่นตามเวลา
+                    </span>
                   </button>
-                ))}
+
+                  {/* Option 2: Fixed Duration */}
+                  <button
+                    type="button"
+                    onClick={() => setDraft((prev) => ({ ...prev, sliceType: "fixed" }))}
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                      draft.sliceType === "fixed"
+                        ? "bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-stone-900 dark:text-white shadow-sm"
+                        : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700 hover:text-stone-900 dark:hover:text-stone-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm text-stone-900 dark:text-white flex items-center gap-1.5">
+                        <span>⏱️</span>
+                        <span>กำหนดเวลาคงที่</span>
+                      </span>
+                      {draft.sliceType === "fixed" && (
+                        <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                      ตัดเสียงความยาวคงที่ตามที่กำหนด (1.0s, 2.0s, 5.0s เป็นต้น)
+                    </span>
+                  </button>
+                </div>
               </div>
+
+              {/* Ladder Preview or Fixed Duration Selector */}
+              {(draft.sliceType || "progressive") === "progressive" ? (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                      <span>🪜</span>
+                      <span>ขั้นบันไดเวลา 5 สเต็ป (0.1s ➔ 0.5s ➔ 1.0s ➔ 2.0s ➔ 4.0s)</span>
+                    </span>
+                    <span className="text-[11px] font-mono text-stone-500 dark:text-stone-400">
+                      100 ➔ 20 แต้ม
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5 text-center">
+                    {PROGRESSIVE_SLICE_STEPS.map((step) => (
+                      <div
+                        key={step.step}
+                        className="p-2 rounded-xl bg-white dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700/60 shadow-xs flex flex-col items-center justify-center gap-0.5"
+                      >
+                        <span className="text-[10px] font-mono text-stone-400">
+                          สเต็ป {step.step}
+                        </span>
+                        <span className="text-xs font-bold text-stone-900 dark:text-white font-mono">
+                          {step.label}
+                        </span>
+                        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                          {step.points} แต้ม
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+                      ⏱️ ความยาวท่อนเสียงที่ตัดมาให้ฟัง (สูงสุด 20 วิ)
+                    </label>
+                    <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
+                      {draft.sliceDurationSec.toFixed(1)} วินาที
+                    </span>
+                  </div>
+
+                  {/* Slider up to 20 seconds */}
+                  <div className="flex items-center gap-3 px-1 mb-3">
+                    <span className="text-[11px] font-mono text-stone-500">0.5s</span>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="20.0"
+                      step="0.5"
+                      value={draft.sliceDurationSec}
+                      onChange={(e) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          sliceDurationSec: parseFloat(e.target.value),
+                        }))
+                      }
+                      className="flex-1 accent-amber-500 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-mono text-stone-500">20.0s</span>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {SLICE_DURATION_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setDraft((prev) => ({ ...prev, sliceDurationSec: opt.value }))}
+                        className={`min-h-[40px] py-2 px-2 rounded-xl border text-center transition-all cursor-pointer text-xs font-medium flex items-center justify-center ${
+                          draft.sliceDurationSec === opt.value
+                            ? "bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-1 ring-amber-500/30 font-semibold"
+                            : "bg-stone-50 dark:bg-stone-950/60 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-700"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Slice Region Selection */}
               <div className="mt-4 pt-3 border-t border-stone-200 dark:border-stone-800/80">

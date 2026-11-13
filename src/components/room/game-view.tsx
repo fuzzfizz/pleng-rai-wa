@@ -38,6 +38,11 @@ import type { Song, GameMode, Player, HintType } from "@/types";
 import { ttsReader } from "@/lib/tts-reader";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
 import { soundEffects } from "@/lib/sound-effects";
+import {
+  PROGRESSIVE_SLICE_STEPS,
+  getProgressiveStep,
+  calculatePointsForSliceStep,
+} from "@/lib/audio-slice-utils";
 import { BuzzerButton, resolveBuzzerStatus } from "./buzzer-button";
 import { AnswerModal } from "./answer-modal";
 import { WrongGuessBanner } from "./wrong-guess-banner";
@@ -388,6 +393,8 @@ export function GameView({
     pauseAudio,
   } = roomRealtime;
 
+  const cleanCode = (roomCode || "").trim().toUpperCase();
+
   const myHintLevel = resolvePlayerHintLevel(
     myPlayer?.id,
     playerHintLevels,
@@ -399,7 +406,36 @@ export function GameView({
   const myPlayerHints =
     myPlayer?.id && roomRealtime.playerHints ? roomRealtime.playerHints[myPlayer.id] : undefined;
   const myHints = myPlayerHints || (myHintLevel > 0 ? revealedHints : undefined);
-  const pointsAvailable = calculatePointsAvailable(myHints || myHintLevel);
+
+  // Progressive Audio Slice Mode: step tracking & custom URL override
+  const isProgressiveSlice =
+    gameMode === "audio-slice" &&
+    (room?.settings?.sliceType === "progressive" ||
+      roomRealtime.room?.settings?.sliceType === "progressive" ||
+      !room?.settings?.sliceType);
+
+  const [mySliceStep, setMySliceStep] = useState<number>(1);
+  const [customSliceUrl, setCustomSliceUrl] = useState<string | null>(null);
+  const [isExpandingSlice, setIsExpandingSlice] = useState<boolean>(false);
+
+  const currentStepConfig = getProgressiveStep(mySliceStep);
+  const effectiveSliceUrl = customSliceUrl || activeQuestion?.sliceUrl;
+
+  const hintDeduction = useMemo(() => {
+    let deduction = 0;
+    if (myHints && typeof myHints === "object") {
+      if (myHints.genre) deduction += 15;
+      if (myHints.year) deduction += 20;
+      if (myHints.album) deduction += 20;
+      if (myHints.artist) deduction += 35;
+    }
+    return deduction;
+  }, [myHints]);
+
+  const pointsAvailable = isProgressiveSlice
+    ? calculatePointsForSliceStep(mySliceStep, hintDeduction)
+    : calculatePointsAvailable(myHints || myHintLevel);
+
   const [isHintModalOpen, setIsHintModalOpen] = useState(false);
 
   // Fallback song library fetch if not supplied by parent or if only demo songs passed
@@ -463,10 +499,9 @@ export function GameView({
     [players, excludedPlayerIds, myPlayer?.id, myExclusionReason]
   );
 
-  const sliceDurationSec =
-    activeQuestion?.durationSec ||
-    room?.settings?.sliceDurationSec ||
-    2.0;
+  const sliceDurationSec = isProgressiveSlice
+    ? currentStepConfig.durationSec
+    : activeQuestion?.durationSec || room?.settings?.sliceDurationSec || 2.0;
   const sliceSecondsRemaining = calculateSliceRemainingTime(
     sliceCurrentTime,
     sliceDurationSec
@@ -476,13 +511,15 @@ export function GameView({
     Math.max(0, (sliceCurrentTime / sliceDurationSec) * 100)
   );
 
-  // Reset countdown and exclusion reason on new round or status change
+  // Reset countdown, slice step, and exclusion reason on new round or status change
   useEffect(() => {
     setHasPlayedOnce(false);
     setCountdownRemaining(null);
     setSliceCurrentTime(0);
     setMyExclusionReason(null);
     setPlayerAttemptResult(null);
+    setMySliceStep(1);
+    setCustomSliceUrl(null);
   }, [currentRound, status]);
 
   // Safety timer to start countdown if audio autoplay is delayed or for AI lyrics modes
@@ -532,6 +569,46 @@ export function GameView({
     setHasPlayedOnce(true);
     setSliceCurrentTime(0);
   }, [handleSetIsAudioPlaying]);
+
+  const handleExpandSliceStep = useCallback(async () => {
+    if (isExpandingSlice || mySliceStep >= 5 || status !== "question_active") return;
+    try {
+      setIsExpandingSlice(true);
+      try {
+        soundEffects.click();
+      } catch {}
+
+      const res = await fetch(`/api/room/${cleanCode}/slice-step`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: myPlayer?.id }),
+      });
+
+      const data = await res.json();
+      if (data.success && typeof data.step === "number") {
+        setMySliceStep(data.step);
+        if (data.sliceUrl) {
+          setCustomSliceUrl(data.sliceUrl);
+          if (audioRef.current) {
+            audioRef.current.src = data.sliceUrl;
+            audioRef.current.currentTime = 0;
+            audioRef.current.load();
+            handleSetIsAudioPlaying(true);
+            const playPromise = audioRef.current.play();
+            if (playPromise && typeof playPromise.catch === "function") {
+              playPromise.catch((err) =>
+                console.warn("[GameView] Audio play error on expand slice:", err)
+              );
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to advance slice step:", err);
+    } finally {
+      setIsExpandingSlice(false);
+    }
+  }, [cleanCode, isExpandingSlice, mySliceStep, status, myPlayer?.id, handleSetIsAudioPlaying]);
 
   const handleToggleOrReplayAudio = useCallback(() => {
     setSliceCurrentTime(0);
@@ -864,13 +941,13 @@ export function GameView({
       return;
     }
 
-    if (!activeQuestion?.sliceUrl) {
+    if (!effectiveSliceUrl) {
       audio.pause();
       return;
     }
 
     // Question is active and sliceUrl is present:
-    const currentSliceKey = `${currentRound}:${activeQuestion.sliceUrl}`;
+    const currentSliceKey = `${currentRound}:${effectiveSliceUrl}`;
     const isNewSlice = prevSliceKeyRef.current !== currentSliceKey;
 
     if (isNewSlice) {
@@ -919,7 +996,7 @@ export function GameView({
     status,
     gameMode,
     currentRound,
-    activeQuestion?.sliceUrl,
+    effectiveSliceUrl,
     activeQuestion?.lyrics,
     isAudioPlaying,
     handleSetIsAudioPlaying,
@@ -1132,7 +1209,7 @@ export function GameView({
       />
 
       {/* Hidden Audio Player for question slice */}
-      {activeQuestion?.sliceUrl && (
+      {effectiveSliceUrl && (
         <audio
           ref={(el) => {
             audioRef.current = el;
@@ -1141,7 +1218,7 @@ export function GameView({
               el.muted = isMasterMuted() || el.volume === 0;
             }
           }}
-          src={activeQuestion.sliceUrl}
+          src={effectiveSliceUrl}
           preload="auto"
           loop={shouldLoopAudio(gameMode)}
           onTimeUpdate={(e) => {
@@ -1549,6 +1626,82 @@ export function GameView({
                   </span>
                 </p>
 
+                {/* Progressive Audio Slice 5-step Segmented Bar & Controls */}
+                {isProgressiveSlice && (status === "question_active" || status === "buzzed") && (
+                  <div className="w-full bg-amber-500/5 dark:bg-stone-950/60 border border-amber-500/25 rounded-2xl p-3 sm:p-4 flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-amber-500 font-bold">⚡</span>
+                        <span className="text-xs sm:text-sm font-extrabold text-stone-900 dark:text-white">
+                          สเต็ป {mySliceStep}/5 (สูงสุด {pointsAvailable} แต้ม)
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono font-semibold text-amber-700 dark:text-amber-300">
+                        {currentStepConfig.label}
+                      </span>
+                    </div>
+
+                    {/* Heardle-style 5-block Segmented Bar */}
+                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                      {PROGRESSIVE_SLICE_STEPS.map((s) => {
+                        const isCurrent = s.step === mySliceStep;
+                        const isPassed = s.step < mySliceStep;
+                        return (
+                          <div
+                            key={s.step}
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-center transition-all ${
+                              isCurrent
+                                ? "bg-amber-500 text-stone-950 border-amber-400 ring-2 ring-amber-500/40 shadow-sm font-bold scale-[1.02]"
+                                : isPassed
+                                ? "bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-500/35 font-semibold"
+                                : "bg-stone-100 dark:bg-stone-800/50 text-stone-400 dark:text-stone-500 border-stone-200 dark:border-stone-800"
+                            }`}
+                          >
+                            <span className="text-[10px] font-mono leading-none opacity-80">
+                              ขั้น {s.step}
+                            </span>
+                            <span className="text-xs sm:text-sm font-extrabold font-mono mt-0.5">
+                              {s.label}
+                            </span>
+                            <span className="text-[10px] opacity-75">
+                              {s.points}p
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Expand duration button */}
+                    <div className="flex items-center justify-between pt-1 border-t border-amber-500/15">
+                      <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                        {mySliceStep < 5
+                          ? `ถัดไป: ${PROGRESSIVE_SLICE_STEPS[mySliceStep].label} (รับ ${PROGRESSIVE_SLICE_STEPS[mySliceStep].points} แต้ม)`
+                          : "ความยาวสูงสุดแล้ว (4.0s)"}
+                      </span>
+
+                      {mySliceStep < 5 ? (
+                        <button
+                          type="button"
+                          onClick={handleExpandSliceStep}
+                          disabled={isExpandingSlice || isExcludedFromBuzz || status !== "question_active"}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-sm active:scale-95 transition cursor-pointer disabled:opacity-50 touch-manipulation"
+                        >
+                          {isExpandingSlice ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          )}
+                          <span>ขยายเวลา (+วิ) / ฟังเพิ่ม</span>
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400">
+                          ✓ ความยาวสูงสุดแล้ว (4.0s)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Excluded feedback banner */}
                 {isExcludedFromBuzz && (
                   myExclusionReason === "timed_out" ? (
@@ -1631,8 +1784,19 @@ export function GameView({
                 )}
 
                 {!isExcludedFromBuzz && wrongAttemptFeedback && (
-                  <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-center shadow-sm animate-in fade-in">
+                  <div className="w-full p-3 lg:p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-between gap-2 shadow-sm animate-in fade-in">
                     <span>{wrongAttemptFeedback}</span>
+                    {isProgressiveSlice && mySliceStep < 5 && (
+                      <button
+                        type="button"
+                        onClick={handleExpandSliceStep}
+                        disabled={isExpandingSlice}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 shrink-0 shadow-xs active:scale-95 transition cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>ฟังเพิ่มเป็น {PROGRESSIVE_SLICE_STEPS[mySliceStep].label} (+วิ)</span>
+                      </button>
+                    )}
                   </div>
                 )}
 

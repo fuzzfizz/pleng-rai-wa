@@ -187,7 +187,7 @@ npm run dev
 
 ## 🧪 ชุดทดสอบระบบ (Automated Verification Suites)
 
-โปรเจคมีชุดทดสอบครอบคลุมทุกโมดูลด้วย **Vitest** รวม **58 ไฟล์ทดสอบ (639 tests passing 100%)**:
+โปรเจคมีชุดทดสอบครอบคลุมทุกโมดูลด้วย **Vitest** รวม **68 ไฟล์ทดสอบ (758 tests passing 100%)**:
 
 ```bash
 # รัน Unit & Integration Tests ทั้งหมดด้วย Vitest

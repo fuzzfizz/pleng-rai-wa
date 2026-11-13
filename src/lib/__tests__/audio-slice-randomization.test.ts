@@ -232,6 +232,7 @@ describe("Audio Slice Randomization Utils", () => {
         host_player_id: "host-uuid-1",
         settings: {
           gameMode: "audio-slice",
+          sliceType: "fixed",
           answerInputMode: "free-text",
           sliceDurationSec: 2.0,
           totalRounds: 5,
