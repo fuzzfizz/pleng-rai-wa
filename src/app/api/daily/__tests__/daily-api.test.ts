@@ -64,6 +64,15 @@ describe("Daily Challenge API Endpoints", () => {
       expect(data.error).toContain("cannot be in the future");
     });
 
+    it("rejects date before DAILY_CHALLENGE_START_DATE with 400", async () => {
+      const req = new Request("http://localhost:3000/api/daily?date=2026-10-31");
+      const res = await getDailyHandler(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("วันที่นี้ยังไม่เปิดให้เล่นโหมดเพลงรายวัน (เริ่มต้น 2026-11-01)");
+    });
+
     it("anti-cheat: masks song title, artist, audioUrl and revealedSong when challenge is incomplete", async () => {
       // Unauthenticated user
       setAuthUserOverride(null);
@@ -105,6 +114,7 @@ describe("Daily Challenge API Endpoints", () => {
       expect(data.userAttempt).not.toBeNull();
       expect(data.userAttempt.score).toBe(100);
       expect(data.userStats).toBeDefined();
+      expect(data.userStats.totalScore).toBe(100);
       expect(data.revealedSong).toEqual({
         id: dummySong.id,
         title: dummySong.title,
@@ -155,6 +165,26 @@ describe("Daily Challenge API Endpoints", () => {
       expect(res.status).toBe(400);
     });
 
+    it("returns 400 for date before DAILY_CHALLENGE_START_DATE", async () => {
+      setAuthUserOverride({ id: "user-123" });
+
+      const req = new Request("http://localhost:3000/api/daily/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: "2026-10-31",
+          guessTitle: "วัดใจ",
+          step: 1,
+        }),
+      });
+
+      const res = await postDailyAttemptHandler(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("วันที่นี้ยังไม่เปิดให้เล่นโหมดเพลงรายวัน (เริ่มต้น 2026-11-01)");
+    });
+
     it("evaluates correct guess on step 1: awards 100 points and completes challenge", async () => {
       setAuthUserOverride({ id: "user-correct-1" });
 
@@ -179,6 +209,7 @@ describe("Daily Challenge API Endpoints", () => {
       expect(data.revealedSong.title).toBe("วัดใจ");
       expect(data.userAttempt.score).toBe(100);
       expect(data.userStats.currentStreak).toBe(1);
+      expect(data.userStats.totalScore).toBe(100);
     });
 
     it("evaluates correct guess via alias on step 3: awards 60 points", async () => {

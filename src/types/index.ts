@@ -219,6 +219,7 @@ export interface DailyUserStats {
   totalPlayed: number;
   totalWon: number;
   winRate: number;
+  totalScore: number;
 }
 
 export * from "./database";

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   DailyChallengeService,
+  DAILY_CHALLENGE_START_DATE,
+  isDateWithinChallengeRange,
   getTodayDateString,
   isValidDateString,
   getPastDatesList,
@@ -68,9 +70,36 @@ describe("DailyChallengeService", () => {
       const past0 = getPastDatesList(0, "2026-11-13");
       expect(past0).toEqual([]);
 
-      // Across month boundary: 2026-11-02 going back 3 days
+      // Across month boundary: 2026-11-02 going back 3 days, capped at default DAILY_CHALLENGE_START_DATE (2026-11-01)
       const monthBoundary = getPastDatesList(3, "2026-11-02");
-      expect(monthBoundary).toEqual(["2026-11-02", "2026-11-01", "2026-10-31"]);
+      expect(monthBoundary).toEqual(["2026-11-02", "2026-11-01"]);
+
+      // Custom minDateStr allows going further back
+      const customMin = getPastDatesList(3, "2026-11-02", "2026-10-31");
+      expect(customMin).toEqual(["2026-11-02", "2026-11-01", "2026-10-31"]);
+    });
+
+    it("DAILY_CHALLENGE_START_DATE is defined and defaults to 2026-11-01", () => {
+      expect(DAILY_CHALLENGE_START_DATE).toBe("2026-11-01");
+    });
+
+    it("isDateWithinChallengeRange validates date is within challenge range", () => {
+      expect(isDateWithinChallengeRange("2026-11-01", "2026-11-15")).toBe(true);
+      expect(isDateWithinChallengeRange("2026-11-10", "2026-11-15")).toBe(true);
+      expect(isDateWithinChallengeRange("2026-11-15", "2026-11-15")).toBe(true);
+
+      // Before start date
+      expect(isDateWithinChallengeRange("2026-10-31", "2026-11-15")).toBe(false);
+
+      // After today
+      expect(isDateWithinChallengeRange("2026-11-16", "2026-11-15")).toBe(false);
+
+      // Invalid date
+      expect(isDateWithinChallengeRange("invalid", "2026-11-15")).toBe(false);
+
+      // Custom start date
+      expect(isDateWithinChallengeRange("2026-10-15", "2026-11-15", "2026-10-01")).toBe(true);
+      expect(isDateWithinChallengeRange("2026-09-30", "2026-11-15", "2026-10-01")).toBe(false);
     });
 
     it("daysBetween calculates exact calendar days in UTC", () => {
@@ -255,6 +284,7 @@ describe("DailyChallengeService", () => {
         totalPlayed: 0,
         totalWon: 0,
         winRate: 0,
+        totalScore: 0,
       });
     });
 
@@ -277,6 +307,7 @@ describe("DailyChallengeService", () => {
       expect(stats.totalPlayed).toBe(1);
       expect(stats.totalWon).toBe(1);
       expect(stats.winRate).toBe(100);
+      expect(stats.totalScore).toBe(100);
     });
 
     it("calculates streak 0 when user played and lost today", () => {
@@ -298,6 +329,7 @@ describe("DailyChallengeService", () => {
       expect(stats.totalPlayed).toBe(1);
       expect(stats.totalWon).toBe(0);
       expect(stats.winRate).toBe(0);
+      expect(stats.totalScore).toBe(0);
     });
 
     it("preserves active streak from yesterday when today has not been played yet", () => {
@@ -365,6 +397,7 @@ describe("DailyChallengeService", () => {
       expect(stats.totalPlayed).toBe(4);
       expect(stats.totalWon).toBe(4);
       expect(stats.winRate).toBe(100);
+      expect(stats.totalScore).toBe(340);
     });
 
     it("handles broken streak with historical maxStreak correctly", () => {
@@ -386,6 +419,7 @@ describe("DailyChallengeService", () => {
       expect(stats.totalPlayed).toBe(5);
       expect(stats.totalWon).toBe(4);
       expect(stats.winRate).toBe(80);
+      expect(stats.totalScore).toBe(400);
     });
 
     it("correctly tracks streaks across month boundaries", () => {

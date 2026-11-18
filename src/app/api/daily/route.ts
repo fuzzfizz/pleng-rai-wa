@@ -26,6 +26,13 @@ export async function GET(request: Request) {
       );
     }
 
+    if (!DailyChallengeService.isDateWithinChallengeRange(date)) {
+      return NextResponse.json(
+        { error: `วันที่นี้ยังไม่เปิดให้เล่นโหมดเพลงรายวัน (เริ่มต้น ${DailyChallengeService.DAILY_CHALLENGE_START_DATE})` },
+        { status: 400 }
+      );
+    }
+
     // 2. Fetch daily song deterministically
     const dailySong = await DailyChallengeService.getDailySongForDate(date);
     if (!dailySong) {

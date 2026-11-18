@@ -11,6 +11,8 @@ import DailyPage, {
   DailyStatsModal,
   DailyArchiveModal,
   DailySurrenderModal,
+  THAI_MONTHS_FULL,
+  DAILY_CHALLENGE_START_DATE,
 } from "../page";
 import { PROGRESSIVE_SLICE_STEPS, getProgressiveStep } from "@/lib/audio-slice-utils";
 import type { DailyAttempt, DailyUserStats, Song } from "@/types";
@@ -294,6 +296,26 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(html).toContain('placeholder="พิมพ์ชื่อเพลงที่คิดว่าเป็น..."');
       expect(html).toContain("ตอบ");
     });
+
+    it("renders SettingsMenu in header and uses responsive zero-overflow layouts", () => {
+      mockAuthState = {
+        user: { id: "test-user-1", email: "user@example.com" },
+        isLoading: false,
+        isGuest: false,
+        profile: null,
+      };
+
+      const html = renderToString(<DailyPage />);
+
+      // SettingsMenu component rendered in top navigation
+      expect(html).toContain('data-testid="settings-menu"');
+
+      // Overflow prevention classes present on header and containers
+      expect(html).toContain("overflow-x-hidden");
+
+      // Action buttons container has responsive flex-col sm:flex-row
+      expect(html).toContain("flex flex-col sm:flex-row items-center justify-center gap-2");
+    });
   });
 
   // =========================================================================
@@ -449,6 +471,94 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(html).toContain("🔴 ไม่สำเร็จ");
       expect(html).toContain("⚪ ยังไม่ได้เล่น");
     });
+
+    it("renders interactive monthly calendar grid with month/year header, days of week, tabs, shortcut and legend", () => {
+      const pastDates = ["2026-11-13", "2026-11-12"];
+      const attemptsByDate = new Map<string, DailyAttempt>();
+      attemptsByDate.set("2026-11-13", {
+        userId: "user-1",
+        date: "2026-11-13",
+        isCorrect: true,
+        step: 1,
+        score: 100,
+        guesses: ["วัดใจ"],
+        completedAt: new Date().toISOString(),
+      });
+
+      const html = renderToString(
+        <DailyArchiveModal
+          isOpen={true}
+          onClose={vi.fn()}
+          pastDates={pastDates}
+          attemptsByDate={attemptsByDate}
+          currentDate="2026-11-13"
+          onSelectDate={vi.fn()}
+        />
+      );
+
+      // View toggle tabs
+      expect(html).toContain("ปฏิทินรายเดือน");
+      expect(html).toContain("รายการย้อนหลัง");
+
+      // Month/Year header e.g. "พฤศจิกายน 2026"
+      expect(html).toContain("พฤศจิกายน 2026");
+
+      // Month navigation buttons
+      expect(html).toContain('aria-label="เดือนก่อนหน้า"');
+      expect(html).toContain('aria-label="เดือนถัดไป"');
+
+      // "ไปที่วันนี้" shortcut button
+      expect(html).toContain("ไปที่วันนี้");
+
+      // Days of the week headers (อา, จ, อ, พ, พฤ, ศ, ส)
+      for (const dayName of ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"]) {
+        expect(html).toContain(dayName);
+      }
+
+      // Legend
+      expect(html).toContain("🟢");
+      expect(html).toContain("ชนะ");
+      expect(html).toContain("🔴");
+      expect(html).toContain("ไม่สำเร็จ");
+      expect(html).toContain("⚪");
+      expect(html).toContain("รอเล่น");
+      expect(html).toContain("ล็อก (เริ่ม 1 พ.ย. 2026)");
+    });
+
+    it("locks dates before challenge start date and future dates with appropriate title and disabled state", () => {
+      // Testing with October 2026 (all dates < 2026-11-01)
+      const attemptsByDate = new Map<string, DailyAttempt>();
+      const htmlOctober = renderToString(
+        <DailyArchiveModal
+          isOpen={true}
+          onClose={vi.fn()}
+          pastDates={[]}
+          attemptsByDate={attemptsByDate}
+          currentDate="2026-10-15"
+          onSelectDate={vi.fn()}
+        />
+      );
+
+      expect(htmlOctober).toContain("ตุลาคม 2026");
+      expect(htmlOctober).toContain("ล็อก (เริ่ม 1 พ.ย. 2026)");
+
+      // Testing November 2026 with today being 2026-11-13
+      const htmlNovember = renderToString(
+        <DailyArchiveModal
+          isOpen={true}
+          onClose={vi.fn()}
+          pastDates={["2026-11-13"]}
+          attemptsByDate={attemptsByDate}
+          currentDate="2026-11-13"
+          onSelectDate={vi.fn()}
+        />
+      );
+
+      // Future dates in November (e.g. 14-30) should be locked
+      expect(htmlNovember).toContain("วันที่ในอนาคต ยังไม่เปิดให้เล่น");
+      // Current date highlighted
+      expect(htmlNovember).toContain("ring-2 ring-amber-500");
+    });
   });
 
   // =========================================================================
@@ -471,6 +581,7 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
         winRate: 80,
         currentStreak: 4,
         maxStreak: 7,
+        totalScore: 750,
       };
 
       const html = renderToString(
@@ -482,6 +593,11 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(html).toContain("80%"); // Win %
       expect(html).toContain("4"); // Current Streak
       expect(html).toContain("7"); // Max Streak
+
+      // Total Accumulated Score Banner
+      expect(html).toContain("คะแนนสะสมรวม");
+      expect(html).toContain("750");
+      expect(html).toContain("แต้ม");
     });
   });
 

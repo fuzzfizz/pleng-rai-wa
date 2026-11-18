@@ -33,6 +33,8 @@ import {
   Loader2,
   Sparkles,
   Music,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useAuth } from "@/hooks/use-auth";
@@ -47,6 +49,7 @@ import {
   getTodayDateString,
   isValidDateString,
   getPastDatesList,
+  DAILY_CHALLENGE_START_DATE,
 } from "@/lib/services/daily-challenge-service";
 import { searchSongAutocomplete } from "@/lib/answer-checker";
 import { loadPublicSongLibrary } from "@/lib/services/song-library-cache";
@@ -82,6 +85,23 @@ export const THAI_MONTHS_SHORT = [
   "พ.ย.",
   "ธ.ค.",
 ];
+
+export const THAI_MONTHS_FULL = [
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
+];
+
+export { DAILY_CHALLENGE_START_DATE };
 
 export function formatThaiDate(dateStr: string): string {
   if (!dateStr || !dateStr.includes("-")) return dateStr;
@@ -146,7 +166,7 @@ export function generateDailyShareText({
 
 export function DailyLoadingSkeleton(): React.JSX.Element {
   return (
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col">
+    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col w-full max-w-full overflow-x-hidden">
       {/* Top Bar Skeleton */}
       <header className="border-b border-stone-200 dark:border-stone-800/80 bg-white/70 dark:bg-stone-900/60 backdrop-blur-md px-4 sm:px-8 py-3 sticky top-0 z-30 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -160,7 +180,7 @@ export function DailyLoadingSkeleton(): React.JSX.Element {
       </header>
 
       {/* Main Skeleton */}
-      <main className="flex-1 max-w-2xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center items-center gap-6">
+      <main className="flex-1 max-w-2xl w-full max-w-full mx-auto p-4 sm:p-6 flex flex-col justify-center items-center gap-6 overflow-x-hidden">
         <div className="w-full h-12 rounded-2xl bg-stone-200 dark:bg-stone-800 animate-pulse" />
         <div className="w-32 h-32 rounded-full bg-stone-200 dark:bg-stone-800 animate-pulse" />
         <div className="w-full h-14 rounded-2xl bg-stone-200 dark:bg-stone-800 animate-pulse" />
@@ -180,7 +200,7 @@ export function MemberExclusiveLandingCard({
   onOpenAuth: () => void;
 }): React.JSX.Element {
   return (
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col">
+    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col w-full max-w-full overflow-x-hidden">
       {/* Top Bar */}
       <header className="border-b border-stone-200 dark:border-stone-800/80 bg-white/70 dark:bg-stone-900/60 backdrop-blur-md px-4 sm:px-8 py-3 sticky top-0 z-30 flex items-center justify-between">
         <Link
@@ -363,7 +383,7 @@ export function DailyStatsModal({
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
             <BarChart3 className="w-5 h-5" />
           </div>
@@ -372,6 +392,17 @@ export function DailyStatsModal({
               สถิติเพลงรายวัน
             </h3>
             <p className="text-xs text-stone-500">Daily Challenge Statistics</p>
+          </div>
+        </div>
+
+        {/* Total Accumulated Score Banner */}
+        <div className="mb-4 bg-gradient-to-br from-amber-500/15 via-amber-500/10 to-orange-500/15 border border-amber-500/30 rounded-2xl p-3.5 text-center shadow-xs">
+          <div className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1.5 mb-0.5">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>คะแนนสะสมรวม</span>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black font-mono text-amber-600 dark:text-amber-400">
+            {stats?.totalScore?.toLocaleString() ?? 0} <span className="text-xs sm:text-sm font-semibold">แต้ม</span>
           </div>
         </div>
 
@@ -437,10 +468,180 @@ export function DailyArchiveModal({
 }): React.JSX.Element | null {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-md animate-in fade-in duration-200">
+  // View mode tab state: calendar grid or scrollable list
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+
+  // Initial year/month derived from currentDate
+  const [viewYear, setViewYear] = useState<number>(() => {
+    if (currentDate && currentDate.includes("-")) {
+      const y = parseInt(currentDate.split("-")[0], 10);
+      if (!isNaN(y)) return y;
+    }
+    return 2026;
+  });
+
+  const [viewMonth, setViewMonth] = useState<number>(() => {
+    if (currentDate && currentDate.includes("-")) {
+      const m = parseInt(currentDate.split("-")[1], 10);
+      if (!isNaN(m)) return m - 1;
+    }
+    return 10; // November
+  });
+
+  useEffect(() => {
+    if (currentDate && currentDate.includes("-")) {
+      const parts = currentDate.split("-");
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (!isNaN(y) && !isNaN(m)) {
+        setViewYear(y);
+        setViewMonth(m - 1);
+      }
+    }
+  }, [currentDate]);
+
+  const handlePrevMonth = () => {
+    if (viewMonth === 0) {
+      setViewYear((y) => y - 1);
+      setViewMonth(11);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (viewMonth === 11) {
+      setViewYear((y) => y + 1);
+      setViewMonth(0);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  const todayStr = getTodayDateString();
+
+  const handleJumpToToday = () => {
+    const parts = todayStr.split("-");
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (!isNaN(y) && !isNaN(m)) {
+      setViewYear(y);
+      setViewMonth(m - 1);
+    }
+    onSelectDate(todayStr);
+    onClose();
+  };
+
+  // Calendar calculations
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
+  const DAYS_OF_WEEK = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+
+  // Generate calendar cells
+  const calendarCells = [];
+  // Empty leading cells
+  for (let i = 0; i < firstDayIndex; i++) {
+    calendarCells.push(
       <div
-        className="w-full max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-7 shadow-2xl relative flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+        key={`empty-${i}`}
+        className="h-10 sm:h-12 rounded-xl bg-transparent"
+        aria-hidden="true"
+      />
+    );
+  }
+
+  // Days in month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayStr = String(day).padStart(2, "0");
+    const monthStr = String(viewMonth + 1).padStart(2, "0");
+    const dateStr = `${viewYear}-${monthStr}-${dayStr}`;
+
+    const isBeforeStart = dateStr < DAILY_CHALLENGE_START_DATE;
+    const isFuture = dateStr > todayStr;
+    const isLocked = isBeforeStart || isFuture;
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === currentDate;
+    const attempt = attemptsByDate.get(dateStr);
+
+    if (isLocked) {
+      const lockReason = isBeforeStart
+        ? "ล็อก (เริ่ม 1 พ.ย. 2026)"
+        : "วันที่ในอนาคต ยังไม่เปิดให้เล่น";
+
+      calendarCells.push(
+        <button
+          key={dateStr}
+          type="button"
+          disabled
+          title={`${formatThaiDate(dateStr)}: ${lockReason}`}
+          className="h-10 sm:h-12 rounded-xl border border-stone-200/50 dark:border-stone-800/40 bg-stone-100/60 dark:bg-stone-900/30 text-stone-400 dark:text-stone-600 flex flex-col items-center justify-center p-1 cursor-not-allowed opacity-45 relative"
+        >
+          <span className="text-[11px] sm:text-xs font-mono">{day}</span>
+          <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-stone-400 dark:text-stone-600 mt-0.5" />
+        </button>
+      );
+    } else {
+      let cellStyle =
+        "border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-950/50 text-stone-800 dark:text-stone-200 hover:border-amber-500/60 hover:bg-amber-500/10";
+      let statusIndicator = (
+        <span className="text-[9px] sm:text-[10px] text-stone-400 font-mono">⚪</span>
+      );
+      let titleText = `${formatThaiDate(dateStr)} - รอเล่น`;
+
+      if (attempt) {
+        if (attempt.isCorrect) {
+          cellStyle =
+            "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25";
+          statusIndicator = (
+            <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              ✓{attempt.score}
+            </span>
+          );
+          titleText = `${formatThaiDate(dateStr)} - ชนะ (สเต็ป ${attempt.step}/5 • ${attempt.score} แต้ม)`;
+        } else {
+          cellStyle =
+            "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-400 hover:bg-rose-500/25";
+          statusIndicator = (
+            <span className="text-[9px] sm:text-[10px] font-bold text-rose-600 dark:text-rose-400">
+              ✕
+            </span>
+          );
+          titleText = `${formatThaiDate(dateStr)} - ไม่สำเร็จ`;
+        }
+      }
+
+      calendarCells.push(
+        <button
+          key={dateStr}
+          type="button"
+          onClick={() => {
+            onSelectDate(dateStr);
+            onClose();
+          }}
+          title={titleText}
+          className={`h-10 sm:h-12 rounded-xl border flex flex-col items-center justify-center p-1 transition cursor-pointer relative ${cellStyle} ${
+            isSelected
+              ? "ring-2 ring-amber-500 border-amber-500 font-bold shadow-xs"
+              : ""
+          }`}
+        >
+          <span className="text-[11px] sm:text-xs font-mono font-bold">{day}</span>
+          {statusIndicator}
+          {isToday && (
+            <span
+              className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500"
+              title="วันนี้"
+            />
+          )}
+        </button>
+      );
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className="w-full max-w-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 sm:p-7 shadow-2xl relative flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
       >
@@ -452,8 +653,9 @@ export function DailyArchiveModal({
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3 mb-4 shrink-0">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+        {/* Modal Header */}
+        <div className="flex items-center gap-3 mb-3 shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
             <Calendar className="w-5 h-5" />
           </div>
           <div>
@@ -464,11 +666,114 @@ export function DailyArchiveModal({
           </div>
         </div>
 
-        {/* Scrollable Date List */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+        {/* View Toggle Tabs */}
+        <div className="flex rounded-xl bg-stone-100 dark:bg-stone-800/80 p-1 mb-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode("calendar")}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              viewMode === "calendar"
+                ? "bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs"
+                : "text-stone-500 hover:text-stone-900 dark:hover:text-white"
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5 text-amber-500" />
+            <span>ปฏิทินรายเดือน</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              viewMode === "list"
+                ? "bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs"
+                : "text-stone-500 hover:text-stone-900 dark:hover:text-white"
+            }`}
+          >
+            <span>📋</span>
+            <span>รายการย้อนหลัง</span>
+          </button>
+        </div>
+
+        {/* Calendar View Container */}
+        <div className={viewMode === "calendar" ? "flex flex-col flex-1 min-h-0" : "hidden"}>
+          {/* Month Header & Controls */}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                aria-label="เดือนก่อนหน้า"
+                className="w-8 h-8 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition cursor-pointer text-stone-700 dark:text-stone-300"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                aria-label="เดือนถัดไป"
+                className="w-8 h-8 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition cursor-pointer text-stone-700 dark:text-stone-300"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <span className="font-bold font-serif text-sm sm:text-base text-stone-900 dark:text-white ml-1">
+                {`${THAI_MONTHS_FULL[viewMonth]} ${viewYear}`}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleJumpToToday}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25 text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+            >
+              <span>ไปที่วันนี้</span>
+            </button>
+          </div>
+
+          {/* Days of Week Row */}
+          <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-1.5 text-center">
+            {DAYS_OF_WEEK.map((dayName, idx) => (
+              <div
+                key={dayName}
+                className={`text-[11px] font-bold py-1 ${
+                  idx === 0
+                    ? "text-rose-500"
+                    : idx === 6
+                    ? "text-blue-500"
+                    : "text-stone-500 dark:text-stone-400"
+                }`}
+              >
+                {dayName}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Cells Grid */}
+          <div className="grid grid-cols-7 gap-1 sm:gap-1.5 flex-1 overflow-y-auto pr-0.5 custom-scrollbar">
+            {calendarCells}
+          </div>
+
+          {/* Legend */}
+          <div className="mt-3 pt-2.5 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-stone-500 dark:text-stone-400">
+            <span className="flex items-center gap-1">
+              <span>🟢</span> ชนะ
+            </span>
+            <span className="flex items-center gap-1">
+              <span>🔴</span> ไม่สำเร็จ
+            </span>
+            <span className="flex items-center gap-1">
+              <span>⚪</span> รอเล่น
+            </span>
+            <span className="flex items-center gap-1">
+              <Lock className="w-3 h-3 text-stone-400 inline" /> ล็อก (เริ่ม 1 พ.ย. 2026)
+            </span>
+          </div>
+        </div>
+
+        {/* List View Container */}
+        <div className={viewMode === "list" ? "flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar" : "hidden"}>
           {pastDates.map((dateStr) => {
             const attempt = attemptsByDate.get(dateStr);
-            const isToday = dateStr === getTodayDateString();
+            const isToday = dateStr === todayStr;
             const isSelected = dateStr === currentDate;
 
             let statusBadge = (
@@ -1024,64 +1329,63 @@ function DailyGameplayContent(): React.JSX.Element {
   // Render Branch 3: Authenticated Gameplay
   // ==========================================
   return (
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col">
+    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col w-full max-w-full overflow-x-hidden">
       {/* Top Navigation Bar */}
-      <header className="border-b border-stone-200 dark:border-stone-800/80 bg-white/80 dark:bg-stone-900/70 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30 flex items-center justify-between">
+      <header className="border-b border-stone-200 dark:border-stone-800/80 bg-white/80 dark:bg-stone-900/70 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30 flex items-center justify-between w-full max-w-full overflow-x-hidden">
         {/* Left: Home link & Date badge */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
           <Link
             href="/"
-            className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-center text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer"
+            className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-center text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer shrink-0"
             title="กลับหน้าแรก"
             aria-label="กลับหน้าแรก"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
 
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-xs sm:text-sm font-bold font-serif text-stone-900 dark:text-white">
-                เพลงรายวัน
-              </h1>
-              <span className="text-[11px] sm:text-xs font-bold font-mono px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400">
-                {formatThaiDate(currentDate)}
-              </span>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm font-bold font-serif text-stone-900 dark:text-white truncate">
+              เพลงรายวัน
+            </div>
+            <div className="text-[10px] sm:text-xs font-mono text-amber-600 dark:text-amber-400 font-semibold truncate">
+              {formatThaiDate(currentDate)}
             </div>
           </div>
         </div>
 
-        {/* Right: Streak, Archive, Stats & Help Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Right: Streak, Archive, Stats & Help Buttons, Settings */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Streak Flame Badge */}
           <div
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 font-bold text-xs sm:text-sm"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 font-bold text-xs sm:text-sm shrink-0"
             title={`สตรีคปัจจุบัน: ${userStats?.currentStreak || 0} วัน`}
           >
-            <Flame className="w-4 h-4 fill-amber-500 text-amber-500" />
-            <span>{`🔥 ${userStats?.currentStreak || 0} วัน`}</span>
+            <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-500 text-amber-500 shrink-0" />
+            <span className="hidden sm:inline">{`🔥 ${userStats?.currentStreak || 0} วัน`}</span>
+            <span className="sm:hidden">{`🔥 ${userStats?.currentStreak || 0}`}</span>
           </div>
 
           {/* Calendar / Archive Button */}
           <button
             type="button"
             onClick={() => setIsArchiveOpen(true)}
-            className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:border-amber-500/40 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition cursor-pointer min-h-[38px]"
+            className="w-9 h-9 sm:w-auto px-2 sm:px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:border-amber-500/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[36px] sm:min-h-[38px] shrink-0"
             title="เล่นย้อนหลัง"
+            aria-label="เล่นย้อนหลัง"
           >
-            <Calendar className="w-3.5 h-3.5 text-amber-500" />
+            <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span className="hidden sm:inline">เล่นย้อนหลัง</span>
-            <span className="sm:hidden">ปฏิทิน</span>
           </button>
 
           {/* Stats Button */}
           <button
             type="button"
             onClick={() => setIsStatsOpen(true)}
-            className="w-9 h-9 sm:w-auto sm:px-3 sm:py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:border-amber-500/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[38px]"
+            className="w-9 h-9 sm:w-auto px-2 sm:px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:border-amber-500/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[36px] sm:min-h-[38px] shrink-0"
             title="สถิติ"
             aria-label="สถิติ"
           >
-            <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
+            <BarChart3 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span className="hidden sm:inline">สถิติ</span>
           </button>
 
@@ -1089,32 +1393,23 @@ function DailyGameplayContent(): React.JSX.Element {
           <button
             type="button"
             onClick={() => setIsRulesOpen(true)}
-            className="w-9 h-9 sm:w-auto sm:px-3 sm:py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:border-amber-500/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[38px]"
+            className="w-9 h-9 sm:w-auto px-2 sm:px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:border-amber-500/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[36px] sm:min-h-[38px] shrink-0"
             title="วิธีเล่น"
             aria-label="วิธีเล่น"
           >
-            <HelpCircle className="w-3.5 h-3.5 text-amber-500" />
+            <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span className="hidden sm:inline">วิธีเล่น</span>
           </button>
 
-          {/* Mute Toggle */}
-          <button
-            type="button"
-            onClick={toggleMasterMute}
-            aria-label={isMuted ? "เปิดเสียง" : "ปิดเสียง"}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition cursor-pointer ${
-              isMuted
-                ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                : "border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-500 hover:text-stone-900 dark:hover:text-white"
-            }`}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
+          {/* Settings Menu with Audio & Theme Controls */}
+          <div className="shrink-0">
+            <SettingsMenu />
+          </div>
         </div>
       </header>
 
       {/* Main Arena */}
-      <main className="flex-1 max-w-2xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center items-center gap-6">
+      <main className="flex-1 max-w-2xl w-full max-w-full mx-auto p-4 sm:p-6 flex flex-col justify-center items-center gap-6 overflow-x-hidden">
         {isLoadingChallenge ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
@@ -1161,7 +1456,7 @@ function DailyGameplayContent(): React.JSX.Element {
                 <div>
                   <h3 className="text-sm sm:text-base font-black">
                     {isCorrect
-                      ? `🎉 ยินดีด้วย! คุณทายถูกในสเต็ป ${step}/5 (${userScore} คะแนน)`
+                      ? `🎉 ยินดีด้วย! คุณทายถูกในสเต็ป ${step}/5 (+${userScore} คะแนน • รวมสะสม ${userStats?.totalScore ?? userScore} แต้ม)`
                       : "😢 หมดโอกาสแล้ว! เพลงประจำวันนี้คือ..."}
                   </h3>
                   <p className="text-xs opacity-80 mt-0.5">
@@ -1359,13 +1654,13 @@ function DailyGameplayContent(): React.JSX.Element {
               </button>
 
               {/* Action Buttons: Advance Step & Surrender */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 w-full max-w-sm sm:max-w-md">
                 {step < 5 ? (
                   <button
                     type="button"
                     onClick={handleAdvanceStep}
                     disabled={isPlayingSlice}
-                    className="px-4 py-2.5 rounded-2xl bg-white hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 min-h-[44px]"
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-white hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 min-h-[44px]"
                   >
                     <FastForward className="w-4 h-4 text-amber-500" />
                     <span>
@@ -1373,7 +1668,7 @@ function DailyGameplayContent(): React.JSX.Element {
                     </span>
                   </button>
                 ) : (
-                  <div className="px-4 py-2 rounded-xl bg-stone-200 dark:bg-stone-800/60 text-stone-500 text-xs font-semibold">
+                  <div className="w-full sm:w-auto px-4 py-2 rounded-xl bg-stone-200 dark:bg-stone-800/60 text-stone-500 text-xs font-semibold text-center">
                     ความยาวสูงสุดแล้ว (4.0s)
                   </div>
                 )}
@@ -1381,7 +1676,7 @@ function DailyGameplayContent(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => setIsSurrenderOpen(true)}
-                  className="px-3 py-2.5 rounded-2xl text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition cursor-pointer min-h-[44px]"
+                  className="w-full sm:w-auto px-3 py-2.5 rounded-2xl text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[44px]"
                 >
                   <Flag className="w-3.5 h-3.5" />
                   <span>ขอยอมแพ้</span>

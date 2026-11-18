@@ -78,6 +78,9 @@ function getDbClient(): typeof supabase {
 // Date Helpers (Asia/Bangkok UTC+7)
 // ==========================================
 
+export const DAILY_CHALLENGE_START_DATE =
+  process.env.NEXT_PUBLIC_DAILY_START_DATE || "2026-11-01";
+
 /**
  * Returns current date in Thai timezone (Asia/Bangkok, UTC+7) as "YYYY-MM-DD".
  * Optionally accepts a Date object for testing.
@@ -126,13 +129,38 @@ export function isValidDateString(date: string, todayReference?: string): boolea
 }
 
 /**
- * Returns array of past date strings starting from today going back `days` days.
+ * Checks whether a date string is valid, >= startDateStr, and <= todayStr.
+ * Defaults:
+ *   startDateStr = DAILY_CHALLENGE_START_DATE ("2026-11-01")
+ *   todayStr = getTodayDateString()
  */
-export function getPastDatesList(days: number = 30, fromDateStr?: string): string[] {
+export function isDateWithinChallengeRange(
+  dateStr: string,
+  todayStr?: string,
+  startDateStr?: string
+): boolean {
+  const effectiveToday = todayStr || getTodayDateString();
+  const effectiveStart = startDateStr || DAILY_CHALLENGE_START_DATE;
+  if (!isValidDateString(dateStr, effectiveToday)) {
+    return false;
+  }
+  return dateStr >= effectiveStart;
+}
+
+/**
+ * Returns array of past date strings starting from fromDateStr going back up to `days` days,
+ * not exceeding minDateStr (defaulting to DAILY_CHALLENGE_START_DATE).
+ */
+export function getPastDatesList(
+  days: number = 30,
+  fromDateStr?: string,
+  minDateStr?: string
+): string[] {
   const result: string[] = [];
   if (typeof days !== "number" || isNaN(days) || days <= 0) {
     return result;
   }
+  const effectiveMin = minDateStr ?? DAILY_CHALLENGE_START_DATE;
   const baseDateStr = fromDateStr || getTodayDateString();
   const [y, m, d] = baseDateStr.split("-").map(Number);
 
@@ -141,7 +169,11 @@ export function getPastDatesList(days: number = 30, fromDateStr?: string): strin
     const year = cur.getUTCFullYear();
     const month = String(cur.getUTCMonth() + 1).padStart(2, "0");
     const day = String(cur.getUTCDate()).padStart(2, "0");
-    result.push(`${year}-${month}-${day}`);
+    const dateStr = `${year}-${month}-${day}`;
+    if (effectiveMin && dateStr < effectiveMin) {
+      break;
+    }
+    result.push(dateStr);
   }
   return result;
 }
@@ -498,12 +530,14 @@ export function calculateDailyStats(
       totalPlayed: 0,
       totalWon: 0,
       winRate: 0,
+      totalScore: 0,
     };
   }
 
   const totalPlayed = attempts.length;
   const totalWon = attempts.filter((a) => a.isCorrect).length;
   const winRate = totalPlayed > 0 ? Math.round((totalWon / totalPlayed) * 100) : 0;
+  const totalScore = attempts.reduce((acc, a) => acc + (a.score || 0), 0);
 
   const attemptsByDate = new Map<string, DailyAttempt>();
   for (const att of attempts) {
@@ -590,11 +624,12 @@ export function calculateDailyStats(
     totalPlayed,
     totalWon,
     winRate,
+    totalScore,
   };
 }
 
 /**
- * Returns a user's daily statistics (streak, maxStreak, totalPlayed, totalWon, winRate).
+ * Returns a user's daily statistics (streak, maxStreak, totalPlayed, totalWon, winRate, totalScore).
  */
 export async function getUserDailyStats(
   userId: string,
@@ -607,6 +642,7 @@ export async function getUserDailyStats(
       totalPlayed: 0,
       totalWon: 0,
       winRate: 0,
+      totalScore: 0,
     };
   }
   const attempts = await getAllUserAttempts(userId);
@@ -681,6 +717,8 @@ export async function getAuthUserFromRequest(
 // ==========================================
 
 export class DailyChallengeService {
+  static DAILY_CHALLENGE_START_DATE = DAILY_CHALLENGE_START_DATE;
+  static isDateWithinChallengeRange = isDateWithinChallengeRange;
   static getTodayDateString = getTodayDateString;
   static isValidDateString = isValidDateString;
   static getPastDatesList = getPastDatesList;

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.4.1] - 2026-11-18
+
+### Fixed
+- **Mobile Responsive Layout & Zero Horizontal Overflow (`/daily`)**:
+  - Restructured top navigation bar in Daily Challenge mode: vertically stacked mode title and Thai date badge, compacted streak indicator on small viewports, and unified action icon buttons with touch ergonomics.
+  - Made central gameplay action buttons ("ฟังเพิ่ม (+วิ)" and "ขอยอมแพ้") responsively wrap (`flex flex-col sm:flex-row`), eliminating horizontal scrolling on narrow screens (320px–390px).
+  - Applied `w-full max-w-full overflow-x-hidden` across page and main containers.
+
+### Changed
+- **Unified Audio Controls Integration (`/daily`)**:
+  - Replaced standalone mute/unmute button with full `<SettingsMenu />` component in the Daily Challenge gameplay view.
+  - Players now have instant access to Master Volume slider, SFX volume slider, audio mute toggle, and dark/light theme switch.
+
+### Added
+- **Interactive Monthly Calendar Grid & Start Date Lock (`DailyArchiveModal`)**:
+  - Built an interactive monthly calendar grid (Sun–Sat) with previous/next month navigation buttons and Thai month headers.
+  - Implemented `DAILY_CHALLENGE_START_DATE` (`2026-11-01`): days before launch and future dates are securely locked with 🔒 icons and rejected by API backend validation.
+  - Added visual indicators for won days (🟢 with step & score), lost days (🔴), unplayed days (⚪), current active date ring, and today indicator dot.
+  - Added view toggle tab allowing players to switch between monthly grid view and 30-day scrollable history list.
+- **Accumulated Daily Score System (Option B)**:
+  - Extended `DailyUserStats` with `totalScore: number`, aggregating all scores earned across daily attempts.
+  - Added prominent "คะแนนสะสมรวม" banner card in `DailyStatsModal` and updated completion win screen to display accumulated points.
+
+---
+
 ## [v1.4.0] - 2026-11-13
 
 ### Added
