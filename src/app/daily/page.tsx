@@ -113,6 +113,26 @@ export function formatThaiDate(dateStr: string): string {
   return `${day} ${month} ${year}`;
 }
 
+export function getPreviousDateString(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() - 1);
+  const py = date.getFullYear();
+  const pm = String(date.getMonth() + 1).padStart(2, "0");
+  const pd = String(date.getDate()).padStart(2, "0");
+  return `${py}-${pm}-${pd}`;
+}
+
+export function getNextDateString(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + 1);
+  const ny = date.getFullYear();
+  const nm = String(date.getMonth() + 1).padStart(2, "0");
+  const nd = String(date.getDate()).padStart(2, "0");
+  return `${ny}-${nm}-${nd}`;
+}
+
 export function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
   const mins = Math.floor(seconds / 60);
@@ -461,15 +481,12 @@ export function DailyArchiveModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  pastDates: string[];
+  pastDates?: string[];
   attemptsByDate: Map<string, DailyAttempt>;
   currentDate: string;
   onSelectDate: (date: string) => void;
 }): React.JSX.Element | null {
   if (!isOpen) return null;
-
-  // View mode tab state: calendar grid or scrollable list
-  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
 
   // Initial year/month derived from currentDate
   const [viewYear, setViewYear] = useState<number>(() => {
@@ -594,7 +611,7 @@ export function DailyArchiveModal({
             "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25";
           statusIndicator = (
             <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-              ✓{attempt.score}
+              {`✓${attempt.score}`}
             </span>
           );
           titleText = `${formatThaiDate(dateStr)} - ชนะ (สเต็ป ${attempt.step}/5 • ${attempt.score} แต้ม)`;
@@ -654,7 +671,7 @@ export function DailyArchiveModal({
         </button>
 
         {/* Modal Header */}
-        <div className="flex items-center gap-3 mb-3 shrink-0">
+        <div className="flex items-center gap-3 mb-4 shrink-0">
           <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
             <Calendar className="w-5 h-5" />
           </div>
@@ -662,40 +679,12 @@ export function DailyArchiveModal({
             <h3 className="text-lg font-bold font-serif text-stone-900 dark:text-white">
               ปฏิทินเพลงรายวัน
             </h3>
-            <p className="text-xs text-stone-500">เลือกเล่นเพลงย้อนหลังได้สูงสุด 30 วัน</p>
+            <p className="text-xs text-stone-500">เลือกเล่นเพลงย้อนหลังได้ในแต่ละวัน</p>
           </div>
         </div>
 
-        {/* View Toggle Tabs */}
-        <div className="flex rounded-xl bg-stone-100 dark:bg-stone-800/80 p-1 mb-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => setViewMode("calendar")}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              viewMode === "calendar"
-                ? "bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs"
-                : "text-stone-500 hover:text-stone-900 dark:hover:text-white"
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5 text-amber-500" />
-            <span>ปฏิทินรายเดือน</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              viewMode === "list"
-                ? "bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs"
-                : "text-stone-500 hover:text-stone-900 dark:hover:text-white"
-            }`}
-          >
-            <span>📋</span>
-            <span>รายการย้อนหลัง</span>
-          </button>
-        </div>
-
         {/* Calendar View Container */}
-        <div className={viewMode === "calendar" ? "flex flex-col flex-1 min-h-0" : "hidden"}>
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Month Header & Controls */}
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-1">
@@ -768,66 +757,6 @@ export function DailyArchiveModal({
             </span>
           </div>
         </div>
-
-        {/* List View Container */}
-        <div className={viewMode === "list" ? "flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar" : "hidden"}>
-          {pastDates.map((dateStr) => {
-            const attempt = attemptsByDate.get(dateStr);
-            const isToday = dateStr === todayStr;
-            const isSelected = dateStr === currentDate;
-
-            let statusBadge = (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400">
-                ⚪ ยังไม่ได้เล่น
-              </span>
-            );
-
-            if (attempt) {
-              if (attempt.isCorrect) {
-                statusBadge = (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                    {`🟢 ชนะ (สเต็ป ${attempt.step}/5 • ${attempt.score} แต้ม)`}
-                  </span>
-                );
-              } else {
-                statusBadge = (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
-                    🔴 ไม่สำเร็จ
-                  </span>
-                );
-              }
-            }
-
-            return (
-              <button
-                key={dateStr}
-                type="button"
-                onClick={() => {
-                  onSelectDate(dateStr);
-                  onClose();
-                }}
-                className={`w-full p-3 rounded-2xl border transition-all text-left flex items-center justify-between cursor-pointer min-h-[48px] ${
-                  isSelected
-                    ? "border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 shadow-sm"
-                    : "border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 bg-stone-50/60 dark:bg-stone-950/40"
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-xs sm:text-sm font-bold font-mono text-stone-900 dark:text-white">
-                    {formatThaiDate(dateStr)}
-                  </span>
-                  {isToday && (
-                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-md bg-amber-500 text-stone-950">
-                      วันนี้
-                    </span>
-                  )}
-                </div>
-
-                <div className="shrink-0">{statusBadge}</div>
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
@@ -891,19 +820,36 @@ export function DailySurrenderModal({
 // Authenticated Gameplay Screen Component
 // ==========================================
 
-function DailyGameplayContent(): React.JSX.Element {
+export function DailyGameplayContent({
+  initialData,
+}: {
+  initialData?: {
+    isCompleted?: boolean;
+    isCorrect?: boolean;
+    userScore?: number;
+    step?: number;
+    revealedSong?: Partial<Song> | null;
+  };
+} = {}): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: isAuthLoading, isGuest } = useAuth();
 
-  // Query parameter Date
+  // Query parameter Date & Archive
   const dateParam = searchParams.get("date");
+  const archiveParam = searchParams.get("archive");
   const currentDate = useMemo(() => {
     if (dateParam && isValidDateString(dateParam)) {
       return dateParam;
     }
     return getTodayDateString();
   }, [dateParam]);
+
+  const todayStr = useMemo(() => getTodayDateString(), []);
+  const prevDate = useMemo(() => getPreviousDateString(currentDate), [currentDate]);
+  const nextDate = useMemo(() => getNextDateString(currentDate), [currentDate]);
+  const isPrevDisabled = currentDate <= DAILY_CHALLENGE_START_DATE;
+  const isNextDisabled = currentDate >= todayStr;
 
   // Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -913,14 +859,14 @@ function DailyGameplayContent(): React.JSX.Element {
   const [challengeError, setChallengeError] = useState<string | null>(null);
 
   // Gameplay State
-  const [step, setStep] = useState<number>(1);
+  const [step, setStep] = useState<number>(initialData?.step ?? 1);
   const [songId, setSongId] = useState<string>("");
   const [sliceStartSec, setSliceStartSec] = useState<number>(0);
-  const [isCompleted, setIsCompleted] = useState<boolean>(false);
-  const [isCorrect, setIsCorrect] = useState<boolean>(false);
-  const [userScore, setUserScore] = useState<number>(0);
+  const [isCompleted, setIsCompleted] = useState<boolean>(initialData?.isCompleted ?? false);
+  const [isCorrect, setIsCorrect] = useState<boolean>(initialData?.isCorrect ?? false);
+  const [userScore, setUserScore] = useState<number>(initialData?.userScore ?? 0);
   const [previousGuesses, setPreviousGuesses] = useState<string[]>([]);
-  const [revealedSong, setRevealedSong] = useState<Partial<Song> | null>(null);
+  const [revealedSong, setRevealedSong] = useState<Partial<Song> | null>(initialData?.revealedSong ?? null);
   const [userStats, setUserStats] = useState<DailyUserStats | null>(null);
   const [allAttempts, setAllAttempts] = useState<DailyAttempt[]>([]);
 
@@ -945,9 +891,18 @@ function DailyGameplayContent(): React.JSX.Element {
   // Modals State
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
-  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState<boolean>(() => {
+    return archiveParam === "true" || archiveParam === "open";
+  });
   const [isSurrenderOpen, setIsSurrenderOpen] = useState(false);
   const [hasCopiedShare, setHasCopiedShare] = useState(false);
+
+  // Auto-open archive modal if archive query param is present
+  useEffect(() => {
+    if (archiveParam === "true" || archiveParam === "open") {
+      setIsArchiveOpen(true);
+    }
+  }, [archiveParam]);
 
   // Master volume subscription
   useEffect(() => {
@@ -1331,9 +1286,9 @@ function DailyGameplayContent(): React.JSX.Element {
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col w-full max-w-full overflow-x-hidden">
       {/* Top Navigation Bar */}
-      <header className="border-b border-stone-200 dark:border-stone-800/80 bg-white/80 dark:bg-stone-900/70 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30 flex items-center justify-between w-full max-w-full overflow-x-hidden">
-        {/* Left: Home link & Date badge */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+      <header className="border-b border-stone-200 dark:border-stone-800/80 bg-white/80 dark:bg-stone-900/70 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30 flex items-center justify-between w-full max-w-full">
+        {/* Left: Home link & Date badge with navigation */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink">
           <Link
             href="/"
             className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-center text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer shrink-0"
@@ -1343,13 +1298,52 @@ function DailyGameplayContent(): React.JSX.Element {
             <ArrowLeft className="w-4 h-4" />
           </Link>
 
-          <div className="min-w-0">
-            <div className="text-xs sm:text-sm font-bold font-serif text-stone-900 dark:text-white truncate">
-              เพลงรายวัน
+          <div className="flex items-center gap-1 min-w-0">
+            {/* Previous Day Button */}
+            <button
+              type="button"
+              data-testid="daily-prev-date-btn"
+              disabled={isPrevDisabled}
+              onClick={() => {
+                try {
+                  soundEffects.click();
+                } catch {}
+                router.push(`/daily?date=${prevDate}`);
+              }}
+              title="เล่นวันก่อนหน้า"
+              aria-label="เล่นวันก่อนหน้า"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 flex items-center justify-center text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer shrink-0"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+
+            {/* Current Date Badge */}
+            <div className="min-w-0 px-1 text-center">
+              <div className="text-xs sm:text-sm font-bold font-serif text-stone-900 dark:text-white truncate">
+                เพลงรายวัน
+              </div>
+              <div className="text-[10px] sm:text-xs font-mono text-amber-600 dark:text-amber-400 font-semibold truncate">
+                {formatThaiDate(currentDate)}
+              </div>
             </div>
-            <div className="text-[10px] sm:text-xs font-mono text-amber-600 dark:text-amber-400 font-semibold truncate">
-              {formatThaiDate(currentDate)}
-            </div>
+
+            {/* Next Day Button */}
+            <button
+              type="button"
+              data-testid="daily-next-date-btn"
+              disabled={isNextDisabled}
+              onClick={() => {
+                try {
+                  soundEffects.click();
+                } catch {}
+                router.push(`/daily?date=${nextDate}`);
+              }}
+              title="เล่นวันถัดไป"
+              aria-label="เล่นวันถัดไป"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 flex items-center justify-center text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer shrink-0"
+            >
+              <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
           </div>
         </div>
 
@@ -1587,6 +1581,32 @@ function DailyGameplayContent(): React.JSX.Element {
                 )}
               </button>
             </div>
+
+            {/* Navigation CTA: Previous Day or First Day Badge */}
+            <div className="w-full">
+              {currentDate > DAILY_CHALLENGE_START_DATE ? (
+                <button
+                  type="button"
+                  data-testid="daily-completion-prev-day-btn"
+                  onClick={() => {
+                    try {
+                      soundEffects.click();
+                    } catch {}
+                    router.push(`/daily?date=${prevDate}`);
+                  }}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-white font-bold text-sm transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+                >
+                  <span>{`⏮️ เล่นเพลงวันก่อนหน้า (${formatThaiDate(prevDate)}) ➔`}</span>
+                </button>
+              ) : (
+                <div
+                  data-testid="daily-completion-first-day-indicator"
+                  className="w-full py-3 px-4 rounded-2xl bg-stone-100/70 dark:bg-stone-800/50 border border-stone-200/60 dark:border-stone-800/60 text-stone-500 dark:text-stone-400 font-medium text-xs sm:text-sm text-center"
+                >
+                  <span>⏮️ คุณเล่นถึงวันแรกที่เปิดระบบแล้ว (1 พ.ย. 2026)</span>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           /* ======================================================== */
@@ -1800,10 +1820,20 @@ function DailyGameplayContent(): React.JSX.Element {
 // Root Page Component with Suspense Boundary
 // ==========================================
 
-export default function DailyPage(): React.JSX.Element {
+export default function DailyPage({
+  initialData,
+}: {
+  initialData?: {
+    isCompleted?: boolean;
+    isCorrect?: boolean;
+    userScore?: number;
+    step?: number;
+    revealedSong?: Partial<Song> | null;
+  };
+} = {}): React.JSX.Element {
   return (
     <Suspense fallback={<DailyLoadingSkeleton />}>
-      <DailyGameplayContent />
+      <DailyGameplayContent initialData={initialData} />
     </Suspense>
   );
 }

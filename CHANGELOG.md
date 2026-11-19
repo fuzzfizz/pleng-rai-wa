@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.4.2] - 2026-11-19
+
+### Fixed
+- **Settings Menu Clipping in Daily Header (`/daily`)**:
+  - Removed `overflow-x-hidden` from the top header in the Daily Challenge page, preventing the dropdown popover of `<SettingsMenu />` from being clipped on desktop and tablet viewports.
+- **Homepage Daily Archive Quicklink Navigation**:
+  - Fixed `daily-archive-quicklink` on the homepage hero card by updating its target to `/daily?archive=true`.
+  - Added query parameter listener in `/daily` to automatically open `DailyArchiveModal` when `archive=true` or `open` is present.
+
+### Added
+- **Seamless Daily Navigation & Post-Game Consecutive Play (`/daily`)**:
+  - Added previous day (`<`) and next day (`>`) arrow buttons in the top navigation bar alongside the date badge, allowing players to step between daily challenges quickly.
+  - Added a prominent post-game CTA button (`"⏮️ เล่นเพลงวันก่อนหน้า"`) in the win/loss summary view, enabling players to immediately jump to and guess the previous day's song in sequence without opening the calendar modal.
+  - Implemented boundary checks disabling backward steps past `DAILY_CHALLENGE_START_DATE` (`2026-11-01`) and forward steps beyond today.
+
+### Changed
+- **Streamlined Monthly Calendar Modal (`DailyArchiveModal`)**:
+  - Removed the view mode tabs and the 30-day scrollable list view, focusing the modal purely on the interactive monthly calendar grid.
+
+---
+
 ## [v1.4.1] - 2026-11-18
 
 ### Fixed

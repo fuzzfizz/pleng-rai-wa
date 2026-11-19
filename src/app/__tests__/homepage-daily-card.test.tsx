@@ -207,7 +207,7 @@ describe("Daily Challenge Feature: Homepage & NavHeader Integration (Task 3)", (
 
         expect(html).toContain("🎵 เริ่มเล่นเพลงวันนี้ ➔");
         expect(html).toContain("📅 เล่นย้อนหลัง (Archive)");
-        expect(html).toContain('href="/daily"');
+        expect(html).toContain('href="/daily?archive=true"');
         expect(html).not.toContain("🔒 โหมดทายเพลงรายวัน");
       });
 

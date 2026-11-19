@@ -214,7 +214,7 @@ export function DailyChallengeCard({
                 <span>ดูผลลัพธ์ / แชร์เพลงวันนี้ ➔</span>
               </Link>
               <Link
-                href="/daily"
+                href="/daily?archive=true"
                 data-testid="daily-archive-quicklink"
                 onClick={() => {
                   try {
@@ -244,7 +244,7 @@ export function DailyChallengeCard({
                 <span>🎵 เริ่มเล่นเพลงวันนี้ ➔</span>
               </Link>
               <Link
-                href="/daily"
+                href="/daily?archive=true"
                 data-testid="daily-archive-quicklink"
                 onClick={() => {
                   try {

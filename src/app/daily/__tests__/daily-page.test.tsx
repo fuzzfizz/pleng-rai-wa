@@ -5,6 +5,8 @@ import DailyPage, {
   formatThaiDate,
   formatTime,
   generateDailyShareText,
+  getPreviousDateString,
+  getNextDateString,
   DailyLoadingSkeleton,
   MemberExclusiveLandingCard,
   DailyRulesModal,
@@ -13,6 +15,7 @@ import DailyPage, {
   DailySurrenderModal,
   THAI_MONTHS_FULL,
   DAILY_CHALLENGE_START_DATE,
+  DailyGameplayContent,
 } from "../page";
 import { PROGRESSIVE_SLICE_STEPS, getProgressiveStep } from "@/lib/audio-slice-utils";
 import type { DailyAttempt, DailyUserStats, Song } from "@/types";
@@ -121,6 +124,16 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(formatTime(9)).toBe("0:09");
       expect(formatTime(65)).toBe("1:05");
       expect(formatTime(124)).toBe("2:04");
+    });
+
+    it("computes previous and next date strings correctly across day, month, and year boundaries", () => {
+      expect(getPreviousDateString("2026-11-13")).toBe("2026-11-12");
+      expect(getPreviousDateString("2026-11-01")).toBe("2026-10-31");
+      expect(getPreviousDateString("2026-01-01")).toBe("2025-12-31");
+
+      expect(getNextDateString("2026-11-13")).toBe("2026-11-14");
+      expect(getNextDateString("2026-10-31")).toBe("2026-11-01");
+      expect(getNextDateString("2025-12-31")).toBe("2026-01-01");
     });
 
     it("generates exact Heardle/Wordle style share text for step 1 win with 100 points", () => {
@@ -297,7 +310,30 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(html).toContain("ตอบ");
     });
 
-    it("renders SettingsMenu in header and uses responsive zero-overflow layouts", () => {
+    it("renders previous and next date navigation buttons in header with correct disabled states", () => {
+      mockAuthState = {
+        user: { id: "test-user-1", email: "user@example.com" },
+        isLoading: false,
+        isGuest: false,
+        profile: { id: "test-user-1", displayName: "Tester" },
+      };
+
+      // 1. Current date is today (2026-11-13): next button should be disabled, previous button enabled
+      mockSearchParams = new URLSearchParams("date=2026-11-13");
+      const htmlToday = renderToString(<DailyPage />);
+      expect(htmlToday).toContain('data-testid="daily-prev-date-btn"');
+      expect(htmlToday).toContain('data-testid="daily-next-date-btn"');
+      expect(htmlToday).toContain('title="เล่นวันก่อนหน้า"');
+      expect(htmlToday).toContain('title="เล่นวันถัดไป"');
+
+      // 2. Current date is first launch day (2026-11-01): prev button should be disabled
+      mockSearchParams = new URLSearchParams("date=2026-11-01");
+      const htmlFirstDay = renderToString(<DailyPage />);
+      expect(htmlFirstDay).toContain('data-testid="daily-prev-date-btn"');
+      expect(htmlFirstDay).toMatch(/data-testid="daily-prev-date-btn"[^>]*disabled/);
+    });
+
+    it("renders SettingsMenu in header without overflow-x-hidden clipping the popover", () => {
       mockAuthState = {
         user: { id: "test-user-1", email: "user@example.com" },
         isLoading: false,
@@ -310,7 +346,10 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       // SettingsMenu component rendered in top navigation
       expect(html).toContain('data-testid="settings-menu"');
 
-      // Overflow prevention classes present on header and containers
+      // Header does NOT have overflow-x-hidden so SettingsMenu popover is not clipped
+      expect(html).not.toMatch(/<header[^>]*overflow-x-hidden/);
+
+      // Root container retains overflow-x-hidden for layout containment
       expect(html).toContain("overflow-x-hidden");
 
       // Action buttons container has responsive flex-col sm:flex-row
@@ -409,17 +448,72 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(html).toContain("เล่นต่อ");
       expect(html).toContain("ยืนยันยอมแพ้");
     });
+
+    it("renders previous day CTA button when completed on a date > DAILY_CHALLENGE_START_DATE", () => {
+      mockAuthState = {
+        user: { id: "test-user-1", email: "user@example.com" },
+        isLoading: false,
+        isGuest: false,
+        profile: null,
+      };
+      mockSearchParams = new URLSearchParams("date=2026-11-13");
+
+      const html = renderToString(
+        <DailyPage
+          initialData={{
+            isCompleted: true,
+            isCorrect: true,
+            userScore: 100,
+            step: 1,
+            revealedSong: {
+              title: "วัดใจ",
+              artist: "Silly Fools",
+            },
+          }}
+        />
+      );
+
+      expect(html).toContain("data-testid=\"daily-completion-prev-day-btn\"");
+      expect(html).toContain("⏮️ เล่นเพลงวันก่อนหน้า (12 พ.ย. 2026) ➔");
+    });
+
+    it("renders first day indicator when completed on DAILY_CHALLENGE_START_DATE (2026-11-01)", () => {
+      mockAuthState = {
+        user: { id: "test-user-1", email: "user@example.com" },
+        isLoading: false,
+        isGuest: false,
+        profile: null,
+      };
+      mockSearchParams = new URLSearchParams("date=2026-11-01");
+
+      const html = renderToString(
+        <DailyPage
+          initialData={{
+            isCompleted: true,
+            isCorrect: false,
+            userScore: 0,
+            step: 5,
+            revealedSong: {
+              title: "วัดใจ",
+              artist: "Silly Fools",
+            },
+          }}
+        />
+      );
+
+      expect(html).toContain("data-testid=\"daily-completion-first-day-indicator\"");
+      expect(html).toContain("⏮️ คุณเล่นถึงวันแรกที่เปิดระบบแล้ว (1 พ.ย. 2026)");
+      expect(html).not.toContain("data-testid=\"daily-completion-prev-day-btn\"");
+    });
   });
 
   // =========================================================================
   // 6. Daily Archive Drawer / Modal
   // =========================================================================
   describe("6. Daily Archive Drawer / Modal", () => {
-    it("renders past days list with formatted Thai dates and status badges", () => {
-      const pastDates = ["2026-11-13", "2026-11-12", "2026-11-11"];
+    it("renders interactive monthly calendar grid with month/year header, days of week, shortcut and legend without list view tabs", () => {
+      const pastDates = ["2026-11-13", "2026-11-12"];
       const attemptsByDate = new Map<string, DailyAttempt>();
-
-      // 2026-11-13: Won at step 1 with 100 points
       attemptsByDate.set("2026-11-13", {
         userId: "user-1",
         date: "2026-11-13",
@@ -429,19 +523,15 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
         guesses: ["วัดใจ"],
         completedAt: new Date().toISOString(),
       });
-
-      // 2026-11-12: Lost
       attemptsByDate.set("2026-11-12", {
         userId: "user-1",
         date: "2026-11-12",
         isCorrect: false,
         step: 5,
         score: 0,
-        guesses: ["ผิด 1", "ผิด 2"],
+        guesses: ["ผิด 1"],
         completedAt: new Date().toISOString(),
       });
-
-      // 2026-11-11: Not played
 
       const onSelectDate = vi.fn();
       const onClose = vi.fn();
@@ -459,46 +549,11 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
 
       // Header
       expect(html).toContain("ปฏิทินเพลงรายวัน");
-      expect(html).toContain("เลือกเล่นเพลงย้อนหลังได้สูงสุด 30 วัน");
+      expect(html).toContain("เลือกเล่นเพลงย้อนหลังได้ในแต่ละวัน");
 
-      // Thai dates
-      expect(html).toContain("13 พ.ย. 2026");
-      expect(html).toContain("12 พ.ย. 2026");
-      expect(html).toContain("11 พ.ย. 2026");
-
-      // Status badges
-      expect(html).toContain("🟢 ชนะ (สเต็ป 1/5 • 100 แต้ม)");
-      expect(html).toContain("🔴 ไม่สำเร็จ");
-      expect(html).toContain("⚪ ยังไม่ได้เล่น");
-    });
-
-    it("renders interactive monthly calendar grid with month/year header, days of week, tabs, shortcut and legend", () => {
-      const pastDates = ["2026-11-13", "2026-11-12"];
-      const attemptsByDate = new Map<string, DailyAttempt>();
-      attemptsByDate.set("2026-11-13", {
-        userId: "user-1",
-        date: "2026-11-13",
-        isCorrect: true,
-        step: 1,
-        score: 100,
-        guesses: ["วัดใจ"],
-        completedAt: new Date().toISOString(),
-      });
-
-      const html = renderToString(
-        <DailyArchiveModal
-          isOpen={true}
-          onClose={vi.fn()}
-          pastDates={pastDates}
-          attemptsByDate={attemptsByDate}
-          currentDate="2026-11-13"
-          onSelectDate={vi.fn()}
-        />
-      );
-
-      // View toggle tabs
-      expect(html).toContain("ปฏิทินรายเดือน");
-      expect(html).toContain("รายการย้อนหลัง");
+      // Simplified: View toggle tabs and list view are removed
+      expect(html).not.toContain("ปฏิทินรายเดือน");
+      expect(html).not.toContain("รายการย้อนหลัง");
 
       // Month/Year header e.g. "พฤศจิกายน 2026"
       expect(html).toContain("พฤศจิกายน 2026");
@@ -523,6 +578,10 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(html).toContain("⚪");
       expect(html).toContain("รอเล่น");
       expect(html).toContain("ล็อก (เริ่ม 1 พ.ย. 2026)");
+
+      // Status badges inside calendar cells
+      expect(html).toContain("✓100");
+      expect(html).toContain("✕");
     });
 
     it("locks dates before challenge start date and future dates with appropriate title and disabled state", () => {
@@ -558,6 +617,20 @@ describe("Daily Challenge Feature: Gameplay Screen (src/app/daily/page.tsx)", ()
       expect(htmlNovember).toContain("วันที่ในอนาคต ยังไม่เปิดให้เล่น");
       // Current date highlighted
       expect(htmlNovember).toContain("ring-2 ring-amber-500");
+    });
+
+    it("automatically opens Archive Modal when searchParams contains archive=true", () => {
+      mockAuthState = {
+        user: { id: "test-user-1", email: "user@example.com" },
+        isLoading: false,
+        isGuest: false,
+        profile: null,
+      };
+      mockSearchParams = new URLSearchParams("archive=true");
+
+      const html = renderToString(<DailyPage />);
+      expect(html).toContain("ปฏิทินเพลงรายวัน");
+      expect(html).toContain("พฤศจิกายน 2026");
     });
   });
 
